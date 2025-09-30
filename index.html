@@ -45,6 +45,11 @@
             --thead-bg: rgba(229, 231, 235, 0.8);
         }
 
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         html {
             min-height: 100%;
             background-color: #0a0a0a;
@@ -62,11 +67,16 @@
             background-attachment: fixed;
             padding: 16px;
             box-sizing: border-box;
+            overflow: hidden; /* Evita barras de scroll durante transiciones */
         }
         
         .app-container { 
             width: 100%; 
             max-width: 1600px;
+        }
+
+        #menuView, #view901 {
+            transition: opacity 0.3s ease-in-out;
         }
 
         #menuView {
@@ -80,6 +90,11 @@
             width: 100%;
             max-width: 600px;
             text-align: center;
+        }
+
+        .animated-startup {
+            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0;
         }
 
         .app-header { text-align: center; margin-bottom: 24px; }
@@ -256,6 +271,7 @@
         }
 
         @media (max-width: 768px) {
+            body { padding: 8px; }
             .app-container { padding: 8px; }
             .main-container { 
                 grid-template-columns: 1fr;
@@ -280,11 +296,11 @@
         <!-- VISTA DEL MENÚ PRINCIPAL -->
         <div id="menuView">
             <div class="menu-wrapper">
-                <header class="app-header">
+                <header class="app-header animated-startup" style="animation-delay: 0s;">
                     <h1 class="app-branding">CORNING</h1>
                     <h2 class="app-title">Centro de Reportes</h2>
                 </header>
-                <main class="card">
+                <main class="card animated-startup" style="animation-delay: 0.1s;">
                     <div class="menu-container">
                         <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
                         <button id="view901Btn" class="btn">901</button>
@@ -295,12 +311,12 @@
 
         <!-- VISTA DE LA APLICACIÓN 901 -->
         <div id="view901">
-             <header class="app-header">
+             <header class="app-header animated-startup" style="animation-delay: 0s;">
                 <h1 class="app-branding">CORNING</h1>
                 <h2 class="app-title">Reporte 901</h2>
             </header>
             <div class="main-container">
-                <aside class="sidebar">
+                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
                     <div class="card">
                         <div class="sidebar-header">
                             <h3>Panel de Control</h3>
@@ -319,7 +335,7 @@
                         <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;">
                     </div>
                 </aside>
-                <main class="main-content card table-container">
+                <main class="main-content card table-container animated-startup" style="animation-delay: 0.2s;">
                     <div class="table-wrapper">
                         <table id="dataTable">
                             <thead>
@@ -382,9 +398,20 @@
 
             // --- LÓGICA DE NAVEGACIÓN ---
             function switchView(viewName) {
-                menuView.style.display = 'none';
-                view901.style.display = 'none';
-                doc(viewName).style.display = viewName === 'menuView' ? 'flex' : 'block';
+                const currentView = (menuView.style.display !== 'none') ? menuView : view901;
+                const nextView = doc(viewName);
+                
+                currentView.style.opacity = '0';
+                
+                setTimeout(() => {
+                    currentView.style.display = 'none';
+                    nextView.style.display = viewName === 'menuView' ? 'flex' : 'block';
+                    
+                    // Forzar reflow antes de animar la entrada
+                    requestAnimationFrame(() => {
+                        nextView.style.opacity = '1';
+                    });
+                }, 300);
             }
 
             view901Btn.addEventListener('click', () => switchView('view901'));
@@ -553,7 +580,6 @@
                     if (docRef.exists) {
                         params901 = docRef.data().params || [];
                     } else {
-                        // Si no existe, crea uno por defecto
                         params901 = [
                             { key: 'Orden', cell: 'A1' },
                             { key: 'Material', cell: 'B1' },
@@ -630,6 +656,11 @@
                 }
                 await loadParams();
                 applyTheme(currentTheme);
+                // Aseguramos que solo la vista del menú esté visible al inicio
+                menuView.style.display = 'flex';
+                view901.style.display = 'none';
+                menuView.style.opacity = '1';
+                view901.style.opacity = '0';
             }
             
             initializeApp();
