@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Reportes</title>
+
+    <meta name="theme-color" content="#22252a">
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tinos&display=swap" rel="stylesheet">
+    <style>
+        :root {}
+
+        body.dark-theme {
+            --bg-gradient: radial-gradient(ellipse at center top, #22252a 0%, #0a0a0a 70%);
+            --surface-color: rgba(35, 38, 43, 0.6);
+            --surface-hover-color: rgba(55, 58, 63, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --primary-color: #E5E7EB;
+            --primary-text-color: #0A0A0A;
+            --text-primary: #F1F5F9; 
+            --text-secondary: #94A3B8;
+            --text-dark: #64748B;
+        }
+
+        body.light-theme {
+            --bg-gradient: linear-gradient(145deg, #f9fafb, #e5e7eb);
+            --surface-color: rgba(255, 255, 255, 0.5);
+            --surface-hover-color: rgba(243, 244, 246, 0.7);
+            --border-color: rgba(0, 0, 0, 0.1);
+            --primary-color: #1F2937;
+            --primary-text-color: #FFFFFF;
+            --text-primary: #111827; 
+            --text-secondary: #4B5563;
+            --text-dark: #9CA3AF;
+            --branding-color: #0055A5;
+        }
+
+        html {
+            min-height: 100%;
+            background-color: #0a0a0a;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif; 
+            background: var(--bg-gradient);
+            color: var(--text-primary); 
+            margin: 0; 
+            min-height: 100vh;
+            display: flex; 
+            align-items: center; /* Centra verticalmente */
+            justify-content: center;
+            transition: background 0.3s ease-in-out;
+            background-attachment: fixed;
+        }
+
+        .app-container { 
+            width: 100%; 
+            max-width: 600px; /* Ancho máximo para el menú */
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .app-header { text-align: center; margin-bottom: 24px; }
+        .app-branding { font-family: 'Tinos', 'Times New Roman', serif; font-weight: 400; font-size: 2.5rem; color: var(--text-primary); letter-spacing: 2px; margin: 0; transition: color 0.3s ease-in-out; }
+        body.light-theme .app-branding {
+            color: var(--branding-color);
+        }
+        .app-title { font-size: 1.25rem; font-weight: 600; color: var(--text-secondary); margin: 4px 0 0 0; }
+
+        .card, .modal-content {
+            background-color: var(--surface-color);
+            background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+            border-right: 2px solid rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        body.light-theme .card, body.light-theme .modal-content {
+            border-top: 1px solid rgba(255, 255, 255, 0.8);
+            border-left: 1px solid rgba(255, 255, 255, 0.8);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+            border-right: 2px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .btn {
+            padding: 16px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            background-color: var(--primary-color);
+            border: none;
+            color: var(--primary-text-color);
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-align: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .theme-switcher-container {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+        }
+        #themeToggleBtn {
+            padding: 8px 12px;
+            font-size: 1.5rem;
+            line-height: 1;
+            background-color: var(--surface-color);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+        #themeToggleBtn:hover {
+             background-color: var(--surface-hover-color);
+             color: var(--text-primary);
+        }
+
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s; width: 90%; max-width: 400px; }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+        .modal-title { font-size: 1.25rem; font-weight: 600; margin: 0; text-align: center; width: 100%; color: var(--text-primary);}
+        .modal-close { font-size: 1.75rem; color: var(--text-dark); cursor: pointer; line-height: 1; position: absolute; top: 16px; right: 16px; }
+
+    </style>
+</head>
+<body class="dark-theme">
+
+    <div class="theme-switcher-container">
+        <button id="themeToggleBtn" class="btn">☀️</button>
+    </div>
+
+    <div class="app-container">
+        <header class="app-header">
+            <h1 class="app-branding">CORNING</h1>
+            <h2 class="app-title">Centro de Reportes</h2>
+        </header>
+
+        <main class="card">
+            <div class="menu-container">
+                <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
+                <button id="901Btn" class="btn">901</button>
+            </div>
+        </main>
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay">
+        <div id="modalContent" class="modal-content">
+             <span id="modalClose" class="modal-close">&times;</span>
+             <h2 id="modalTitle" class="modal-title"></h2>
+             <div id="modalBody" style="margin-top:16px; text-align: center; color: var(--text-secondary);"></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDX0",
+            authDomain: "rastreador-de-ordenes.firebaseapp.com",
+            projectId: "rastreador-de-ordenes",
+            storageBucket: "rastreador-de-ordenes.appspot.com",
+            messagingSenderId: "956052823395",
+            appId: "1:956052823395:web:2ba74d9591d2b24c3cc756"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const doc = (id) => document.getElementById(id);
+
+            // Elementos del DOM
+            const themeToggleBtn = doc('themeToggleBtn');
+            const reporteTerminacionesBtn = doc('reporteTerminacionesBtn');
+            const btn901 = doc('901Btn');
+            const modalOverlay = doc('modalOverlay');
+            const modalTitle = doc('modalTitle');
+            const modalBody = doc('modalBody');
+            const modalClose = doc('modalClose');
+
+            // --- Lógica del Tema ---
+            let currentTheme = localStorage.getItem('theme') || 'dark';
+            
+            function applyTheme(theme) {
+                document.body.className = `${theme}-theme`;
+                themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
+            }
+
+            themeToggleBtn.addEventListener('click', () => {
+                currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+                localStorage.setItem('theme', currentTheme);
+                applyTheme(currentTheme);
+            });
+
+            // --- Lógica de Modales ---
+            function showModal(title, content) {
+                 modalTitle.textContent = title;
+                 modalBody.innerHTML = content;
+                 modalOverlay.classList.add('visible');
+            }
+
+            function hideModal() {
+                modalOverlay.classList.remove('visible');
+            }
+
+            modalClose.addEventListener('click', hideModal);
+            modalOverlay.addEventListener('click', (e) => { 
+                if(e.target === modalOverlay) hideModal();
+            });
+
+            // --- Lógica de Botones (Platzhalter) ---
+            reporteTerminacionesBtn.addEventListener('click', () => {
+                showModal('Función en Desarrollo', 'Esta sección para el "Reporte de Terminaciones" se implementará próximamente.');
+                console.log('Botón "Reporte de Terminaciones" presionado.');
+            });
+
+            btn901.addEventListener('click', () => {
+                showModal('Función en Desarrollo', 'Esta sección para "901" se implementará próximamente.');
+                console.log('Botón "901" presionado.');
+            });
+
+            // --- Inicialización ---
+            applyTheme(currentTheme);
+        });
+    </script>
+    
+</body>
+</html>
+
