@@ -493,6 +493,21 @@
             function processCalculatedFields(data, allParams) {
                 const processedData = { ...data };
                 
+                // Process area identifier first as it's a dependency for others
+                const areaParam = allParams.find(p => p.type === 'area_identifier');
+                if (areaParam) {
+                    const areaConfig = params.terminaciones_areas;
+                    const sourceCell = areaConfig.sourceCell;
+                    const sourceParam = allParams.find(p => p.type === 'cell' && p.value === sourceCell);
+                    if(sourceParam && processedData[sourceParam.key] !== undefined) {
+                        const code = processedData[sourceParam.key];
+                        const mapping = areaConfig.mappings.find(a => String(a.code).trim() === String(code).trim());
+                        processedData[areaParam.key] = mapping ? mapping.name : 'Área Desconocida';
+                    } else {
+                        processedData[areaParam.key] = 'Celda de Código no definida';
+                    }
+                }
+
                 // Iteratively process formulas to handle dependencies
                 const formulaParams = allParams.filter(p => p.type === 'formula');
                 let processedCount = 0;
@@ -501,7 +516,6 @@
                      formulaParams.forEach(p => {
                         if (processedData[p.key] !== undefined) return; // Already processed
                         try {
-                            // Check if all dependencies are met
                             const dependencies = (p.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1));
                             const allDependenciesMet = dependencies.every(dep => processedData[dep] !== undefined);
                             
@@ -516,37 +530,41 @@
                     iterations++;
                 }
 
-
-                // Process area identifier
-                const areaParam = allParams.find(p => p.type === 'area_identifier');
-                if (areaParam) {
-                    const areaConfig = params.terminaciones_areas;
-                    const sourceCell = areaConfig.sourceCell;
-                    const sourceParam = allParams.find(p => p.type === 'cell' && p.value === sourceCell);
-                    if(sourceParam && processedData[sourceParam.key] !== undefined) {
-                        const code = processedData[sourceParam.key];
-                        const mapping = areaConfig.mappings.find(a => String(a.code).trim() === String(code).trim());
-                        processedData[areaParam.key] = mapping ? mapping.name : 'Área Desconocida';
-                    } else {
-                        processedData[areaParam.key] = 'Celda de Código no definida';
-                    }
-                }
                 return processedData;
+            }
+
+            function cleanFinalData(data) {
+                const cleanedData = {...data};
+                // Clean terminaciones
+                if (cleanedData['Terminaciones'] !== undefined) {
+                    let value = parseFloat(cleanedData['Terminaciones']);
+                    if (isNaN(value) || value < 0) {
+                        value = 0;
+                    }
+                    cleanedData['Terminaciones'] = value;
+                }
+                 return cleanedData;
             }
 
             function updateTerminacionesView() {
                 if(reportData.k1 && reportData.k2) {
                     const combinedData = {...reportData.k1, ...reportData.k2};
                     const allParams = [...params.terminaciones_k1, ...params.terminaciones_k2];
-                    const finalData = processCalculatedFields(combinedData, allParams);
+                    
+                    let finalData = processCalculatedFields(combinedData, allParams);
+                    finalData = cleanFinalData(finalData);
+
                     renderTable([finalData], allParams, doc('dataTableTerminaciones'));
                     
                     const areaCol = allParams.find(p => p.type === 'area_identifier');
                     doc('summaryArea').textContent = areaCol && finalData[areaCol.key] ? finalData[areaCol.key] : 'N/A';
-                    doc('summaryTerminaciones').textContent = finalData['Terminaciones'] || 'N/A';
+                    doc('summaryTerminaciones').textContent = finalData['Terminaciones'] ?? 'N/A'; // Use nullish coalescing
                     doc('summaryFecha').textContent = finalData['Fecha'] || 'N/A';
-                    const terminacionesValue = parseFloat(finalData['Terminaciones']);
-                    if (!isNaN(terminacionesValue)) renderTerminacionesChart(terminacionesValue);
+                    
+                    const terminacionesValue = finalData['Terminaciones'];
+                    if (typeof terminacionesValue === 'number') {
+                         renderTerminacionesChart(terminacionesValue);
+                    }
                 }
             }
             
