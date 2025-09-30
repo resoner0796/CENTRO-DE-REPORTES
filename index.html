@@ -29,6 +29,7 @@
             --primary-color: #E5E7EB;
             --primary-text-color: #0A0A0A;
             --danger-color: #FB7185;
+            --danger-hover-color: #f43f5e;
             --text-primary: #F1F5F9; 
             --text-secondary: #94A3B8;
             --text-dark: #64748B;
@@ -43,6 +44,7 @@
             --primary-color: #1F2937;
             --primary-text-color: #FFFFFF;
             --danger-color: #EF4444;
+            --danger-hover-color: #dc2626;
             --text-primary: #111827; 
             --text-secondary: #4B5563;
             --text-dark: #9CA3AF;
@@ -118,7 +120,8 @@
         .area-item { display: grid; grid-template-columns: 1fr 2fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 8px; background-color: var(--surface-hover-color); border: 1px solid var(--border-color); border-radius: 8px; }
         .area-source-container { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; }
         .area-source-container label { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); }
-        .btn-danger { background-color: var(--danger-color); color: white; width: auto; padding: 8px 12px; }
+        .btn-danger { background-color: var(--danger-color); color: white; width: auto; padding: 8px 12px; transition: background-color 0.2s; }
+        .btn-danger:hover { background-color: var(--danger-hover-color); }
         .drag-handle { cursor: grab; color: var(--text-dark); padding: 4px; display: flex; align-items: center; }
         .drag-handle:active { cursor: grabbing; }
         .param-item.dragging { opacity: 0.5; background-color: var(--primary-color); }
@@ -130,6 +133,7 @@
         .formula-helpers { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
         .helper-pill { background-color: var(--surface-color); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
         .helper-pill:hover { background-color: var(--primary-color); color: var(--primary-text-color); border-color: var(--primary-color); }
+        #login-error-msg { color: var(--danger-color); text-align: center; margin-top: 10px; font-weight: 500; height: 1em; }
         
         @media (max-width: 768px) {
             .main-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
@@ -158,12 +162,28 @@
             </div>
         </div>
 
-        <!-- VISTA 901 (sin cambios) -->
+        <!-- VISTA 901 (Restaurada) -->
         <div id="view901">
             <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte 901</h2></header>
             <div class="main-container">
-                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;"><div class="card" style="height: 100%;"><div class="sidebar-header"><h3>Panel de Control</h3><div><button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button><button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button></div></div><div id="fileDropArea901" class="file-drop-area"><p>Arrastra un archivo aquí</p></div><input type="file" id="fileInput901" accept=".xlsx, .xls" style="display: none;"></div></aside>
-                <main class="main-content card table-container animated-startup" style="animation-delay: 0.2s;"><div class="table-wrapper"><table id="dataTable901"><thead><tr><th>Carga un archivo para ver los datos</th></tr></thead><tbody></tbody></table></div></main>
+                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+                    <div class="card" style="height: 100%;">
+                        <div class="sidebar-header">
+                            <h3>Panel de Control</h3>
+                            <div>
+                                <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                                <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+                            </div>
+                        </div>
+                        <div id="fileDropArea901" class="file-drop-area"><p>Arrastra un archivo aquí</p></div>
+                        <input type="file" id="fileInput901" accept=".xlsx, .xls" style="display: none;">
+                    </div>
+                </aside>
+                <main class="main-content card table-container animated-startup" style="animation-delay: 0.2s;">
+                    <div class="table-wrapper">
+                        <table id="dataTable901"><thead><tr><th>Carga un archivo para ver los datos</th></tr></thead><tbody></tbody></table>
+                    </div>
+                </main>
             </div>
         </div>
 
@@ -215,18 +235,61 @@
 
             document.querySelectorAll('.settingsBtn').forEach(btn => btn.addEventListener('click', () => { session.isMaster ? showParamsModal() : showLoginModal(); }));
             function showLoginModal() {
-                const content = `<p style="text-align: center;">Introduce las credenciales de maestro.</p><input type="text" id="userInput" placeholder="Usuario"><input type="password" id="passInput" placeholder="Contraseña"><button id="loginBtn" class="btn" style="margin-top: 16px; width: 100%;">Autenticar</button>`;
+                const content = `<p style="text-align: center;">Introduce las credenciales de maestro.</p><input type="text" id="userInput" placeholder="Usuario"><input type="password" id="passInput" placeholder="Contraseña"><button id="loginBtn" class="btn" style="margin-top: 16px; width: 100%;">Autenticar</button><div id="login-error-msg"></div>`;
                 showModal('Autenticación Maestra', content);
                 doc('loginBtn').addEventListener('click', checkMasterCredentials);
             }
             function checkMasterCredentials() {
+                const errorMsgEl = doc('login-error-msg');
                 if (doc('userInput').value === 'LUNAU' && doc('passInput').value === 'Resoner96') {
                     session.isMaster = true; sessionStorage.setItem('reportesMasterSession', 'true'); hideModal(); showParamsModal();
-                } else { console.error('Credenciales incorrectas.'); }
+                } else {
+                    errorMsgEl.textContent = 'Credenciales incorrectas.';
+                }
             }
 
             function showParamsModal() {
-                if (activeView === 'terminaciones') showTabbedParamConfig();
+                if (activeView === '901') {
+                     const paramsHTML = `<ul class="param-list param-list-901">${params['901'].map(p => createParamItem901(p.key, p.cell)).join('')}</ul>`;
+                    const content = `
+                        <p style="text-align:center;">Define los nombres de columna y las celdas de Excel.</p>
+                        ${paramsHTML}
+                        <button id="addParam901Btn" class="btn" style="width: auto; padding: 8px 16px;">Añadir Parámetro</button>
+                        <button id="saveParams901Btn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Cambios</button>`;
+                    showModal('Configurar Parámetros 901', content);
+                    doc('addParam901Btn').addEventListener('click', () => {
+                        doc('modalBody').querySelector('.param-list-901').insertAdjacentHTML('beforeend', createParamItem901('', ''));
+                    });
+                    doc('saveParams901Btn').addEventListener('click', saveParams901);
+
+                } else if (activeView === 'terminaciones') {
+                    showTabbedParamConfig();
+                }
+            }
+            
+            function createParamItem901(key, cell) {
+                 return `
+                    <li class="param-item" style="grid-template-columns: 1fr 1fr auto;">
+                        <input type="text" class="param-key" placeholder="Nombre de Columna" value="${key || ''}">
+                        <input type="text" class="param-cell" placeholder="Celda (ej. A1)" value="${cell || ''}">
+                        <button class="btn btn-danger" onclick="this.parentElement.remove()">X</button>
+                    </li>`;
+            }
+
+            async function saveParams901() {
+                const newParams = Array.from(doc('modalBody').querySelectorAll('.param-item')).map(item => ({
+                    key: item.querySelector('.param-key').value.trim(),
+                    cell: item.querySelector('.param-cell').value.trim().toUpperCase()
+                })).filter(p => p.key && p.cell);
+
+                try {
+                    await db.collection('report_configs').doc('901_params').set({ params: newParams });
+                    params['901'] = newParams;
+                    showModal('Éxito', '<p>Parámetros de 901 guardados.</p>');
+                } catch (e) {
+                    console.error("Error al guardar parámetros 901:", e);
+                    showModal('Error', '<p>No se pudieron guardar los parámetros.</p>');
+                }
             }
             
             function showTabbedParamConfig() {
@@ -281,7 +344,7 @@
 
                 return `
                     <li class="param-item" draggable="true" ondragover="event.preventDefault()">
-                        <span class="drag-handle" title="Arrastrar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg></span>
+                        <span class="drag-handle" title="Arrastrar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg></span>
                         <input type="text" class="param-key" placeholder="Nombre Columna" value="${key || ''}">
                         <select class="param-type">${options}</select>
                         <div class="param-value-container ${!valueContainerVisible ? 'hidden' : ''}">
@@ -298,8 +361,7 @@
             }
 
             window.populateFormulaHelpers = (inputElement) => {
-                const container = inputElement.nextElementSibling;
-                container.innerHTML = '';
+                const container = inputElement.nextElementSibling; container.innerHTML = '';
                 const availableCols = [...getParamsFromContainer(doc('tab-k1')), ...getParamsFromContainer(doc('tab-k2'))].map(p => p.key).filter(Boolean);
                 const uniqueCols = [...new Set(availableCols)];
                 uniqueCols.forEach(colName => {
@@ -381,6 +443,7 @@
                 dropArea.addEventListener('dragover', (e) => e.preventDefault());
                 dropArea.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0], configKey); });
             }
+            setupFileHandler('fileDropArea901', 'fileInput901', '901');
             setupFileHandler('fileDropAreaK1', 'fileInputK1', 'terminaciones_k1');
             setupFileHandler('fileDropAreaK2', 'fileInputK2', 'terminaciones_k2');
 
@@ -390,17 +453,29 @@
                     try {
                         const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                         const ws = wb.Sheets[wb.SheetNames[0]];
-                        const data = {};
-                        params[configKey].filter(p => p.type === 'cell').forEach(p => {
-                            data[p.key] = ws[p.value] ? ws[p.value].v : undefined;
-                        });
                         
-                        if (configKey === 'terminaciones_k1') {
-                            reportData.k1 = data; doc('fileDropAreaK1').style.borderColor = '#4ade80'; updateTerminacionesView();
-                        } else if (configKey === 'terminaciones_k2') {
-                            reportData.k2 = data; doc('fileDropAreaK2').style.borderColor = '#4ade80'; updateTerminacionesView();
+                        if (configKey === '901') {
+                            const data901 = {};
+                            params['901'].forEach(p => {
+                                data901[p.key] = ws[p.cell] ? ws[p.cell].v : undefined;
+                            });
+                            renderTable([data901], params['901'], doc('dataTable901'));
+                        } else {
+                            const data = {};
+                             params[configKey].filter(p => p.type === 'cell').forEach(p => {
+                                data[p.key] = ws[p.value] ? ws[p.value].v : undefined;
+                            });
+                            if (configKey === 'terminaciones_k1') {
+                                reportData.k1 = data; doc('fileDropAreaK1').style.borderColor = '#4ade80';
+                            } else if (configKey === 'terminaciones_k2') {
+                                reportData.k2 = data; doc('fileDropAreaK2').style.borderColor = '#4ade80';
+                            }
+                            updateTerminacionesView();
                         }
-                    } catch (err) { console.error("Error al procesar:", err); }
+                    } catch (err) { 
+                        console.error("Error al procesar archivo:", err);
+                        showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique que el formato y los datos sean correctos.</p>')
+                    }
                 };
                 reader.readAsArrayBuffer(file);
             }
@@ -449,7 +524,8 @@
                     const finalData = processCalculatedFields(combinedData, allParams);
                     renderTable([finalData], allParams, doc('dataTableTerminaciones'));
                     
-                    doc('summaryArea').textContent = finalData['Nombre de Área'] || 'N/A'; // Assuming you named it this
+                    const areaCol = allParams.find(p => p.type === 'area_identifier');
+                    doc('summaryArea').textContent = areaCol && finalData[areaCol.key] ? finalData[areaCol.key] : 'N/A';
                     doc('summaryTerminaciones').textContent = finalData['Terminaciones'] || 'N/A';
                     doc('summaryFecha').textContent = finalData['Fecha'] || 'N/A';
                     const terminacionesValue = parseFloat(finalData['Terminaciones']);
@@ -458,6 +534,10 @@
             }
             
             function renderTable(data, paramConfig, tableElement) {
+                if (!data || !data.length || !paramConfig || !paramConfig.length) {
+                    tableElement.innerHTML = `<thead><tr><th>Sin datos para mostrar o sin configuración.</th></tr></thead><tbody></tbody>`;
+                    return;
+                }
                 const headers = paramConfig.map(p => p.key);
                 let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
                 data.forEach(row => {
@@ -478,7 +558,7 @@
                 if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
                 await Promise.all(Object.keys(params).map(key => loadParams(key)));
                 applyTheme(currentTheme);
-                Object.values(views).forEach(v => v.style.display = 'none');
+                Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
                 views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
             }
             
@@ -487,4 +567,3 @@
     </script>
 </body>
 </html>
-
