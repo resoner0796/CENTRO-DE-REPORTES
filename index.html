@@ -6,6 +6,7 @@
     <title>Centro de Reportes</title>
 
     <meta name="theme-color" content="#22252a">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     
@@ -22,9 +23,11 @@
             --border-color: rgba(255, 255, 255, 0.1);
             --primary-color: #E5E7EB;
             --primary-text-color: #0A0A0A;
+            --danger-color: #FB7185;
             --text-primary: #F1F5F9; 
             --text-secondary: #94A3B8;
             --text-dark: #64748B;
+            --thead-bg: rgba(55, 65, 81, 0.8);
         }
 
         body.light-theme {
@@ -34,10 +37,12 @@
             --border-color: rgba(0, 0, 0, 0.1);
             --primary-color: #1F2937;
             --primary-text-color: #FFFFFF;
+            --danger-color: #EF4444;
             --text-primary: #111827; 
             --text-secondary: #4B5563;
             --text-dark: #9CA3AF;
             --branding-color: #0055A5;
+            --thead-bg: rgba(229, 231, 235, 0.8);
         }
 
         html {
@@ -52,19 +57,31 @@
             margin: 0; 
             min-height: 100vh;
             display: flex; 
-            align-items: center; /* Centra verticalmente */
             justify-content: center;
             transition: background 0.3s ease-in-out;
             background-attachment: fixed;
-        }
-
-        .app-container { 
-            width: 100%; 
-            max-width: 600px; /* Ancho máximo para el menú */
             padding: 16px;
-            text-align: center;
+            box-sizing: border-box;
         }
         
+        .app-container { 
+            width: 100%; 
+            max-width: 1600px;
+        }
+
+        #menuView {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        
+        .menu-wrapper {
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
         .app-header { text-align: center; margin-bottom: 24px; }
         .app-branding { font-family: 'Tinos', 'Times New Roman', serif; font-weight: 400; font-size: 2.5rem; color: var(--text-primary); letter-spacing: 2px; margin: 0; transition: color 0.3s ease-in-out; }
         body.light-theme .app-branding {
@@ -135,13 +152,121 @@
              color: var(--text-primary);
         }
 
+        /* Vistas de la App */
+        #view901 {
+            display: none; /* Oculto por defecto */
+            width: 100%;
+        }
+        .main-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 16px;
+            width: 100%;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon-btn:hover {
+            color: var(--text-primary);
+            background-color: var(--surface-hover-color);
+        }
+
+        /* Contenido Principal */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+        }
+        .table-container {
+            flex-grow: 1;
+        }
+        .table-wrapper {
+            overflow: auto;
+            height: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
+        thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
+        th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; }
+
+        .file-drop-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-top: 16px; }
+        .file-drop-area p { margin: 0; color: var(--text-dark); }
+
         /* Modal Styles */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
-        .modal-content { transform: scale(0.95); transition: transform 0.3s; width: 90%; max-width: 400px; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s; width: 90%; max-width: 500px; }
         .modal-overlay.visible .modal-content { transform: scale(1); }
         .modal-title { font-size: 1.25rem; font-weight: 600; margin: 0; text-align: center; width: 100%; color: var(--text-primary);}
         .modal-close { font-size: 1.75rem; color: var(--text-dark); cursor: pointer; line-height: 1; position: absolute; top: 16px; right: 16px; }
+        #modalBody input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); margin-top: 10px; box-sizing: border-box;}
+        .param-list { list-style: none; padding: 0; margin: 16px 0; max-height: 50vh; overflow-y: auto;}
+        .param-item { 
+            display: grid;
+            grid-template-columns: auto 1fr 1fr auto; /* Handle | Key | Cell | Delete */
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px;
+            background-color: var(--surface-hover-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .param-item input { margin: 0; text-transform: uppercase; }
+        .btn-danger { background-color: var(--danger-color); color: white; width: auto; padding: 8px 12px; }
+
+        .drag-handle {
+            cursor: grab;
+            color: var(--text-dark);
+            padding: 4px;
+            display: flex;
+            align-items: center;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .param-item.dragging {
+            opacity: 0.5;
+            background-color: var(--primary-color);
+        }
+
+        @media (max-width: 768px) {
+            .app-container { padding: 8px; }
+            .main-container { 
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+                grid-template-areas: "sidebar" "main";
+            }
+            .sidebar {
+                position: static;
+                height: auto;
+            }
+        }
 
     </style>
 </head>
@@ -152,24 +277,68 @@
     </div>
 
     <div class="app-container">
-        <header class="app-header">
-            <h1 class="app-branding">CORNING</h1>
-            <h2 class="app-title">Centro de Reportes</h2>
-        </header>
-
-        <main class="card">
-            <div class="menu-container">
-                <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
-                <button id="901Btn" class="btn">901</button>
+        <!-- VISTA DEL MENÚ PRINCIPAL -->
+        <div id="menuView">
+            <div class="menu-wrapper">
+                <header class="app-header">
+                    <h1 class="app-branding">CORNING</h1>
+                    <h2 class="app-title">Centro de Reportes</h2>
+                </header>
+                <main class="card">
+                    <div class="menu-container">
+                        <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
+                        <button id="view901Btn" class="btn">901</button>
+                    </div>
+                </main>
             </div>
-        </main>
+        </div>
+
+        <!-- VISTA DE LA APLICACIÓN 901 -->
+        <div id="view901">
+             <header class="app-header">
+                <h1 class="app-branding">CORNING</h1>
+                <h2 class="app-title">Reporte 901</h2>
+            </header>
+            <div class="main-container">
+                <aside class="sidebar">
+                    <div class="card">
+                        <div class="sidebar-header">
+                            <h3>Panel de Control</h3>
+                            <div>
+                                <button id="backToMenuBtn" class="icon-btn" title="Regresar al Menú">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                                </button>
+                                <button id="settingsBtn" class="icon-btn" title="Configuración">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="fileDropArea" class="file-drop-area">
+                            <p>Arrastra un archivo aquí</p>
+                        </div>
+                        <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;">
+                    </div>
+                </aside>
+                <main class="main-content card table-container">
+                    <div class="table-wrapper">
+                        <table id="dataTable">
+                            <thead>
+                                <tr><th>Carga un archivo para ver los datos</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </main>
+            </div>
+        </div>
     </div>
 
+    <!-- MODAL GENERAL -->
     <div id="modalOverlay" class="modal-overlay">
         <div id="modalContent" class="modal-content">
              <span id="modalClose" class="modal-close">&times;</span>
              <h2 id="modalTitle" class="modal-title"></h2>
-             <div id="modalBody" style="margin-top:16px; text-align: center; color: var(--text-secondary);"></div>
+             <div id="modalBody" style="margin-top:16px; color: var(--text-secondary);"></div>
         </div>
     </div>
 
@@ -188,61 +357,284 @@
         document.addEventListener('DOMContentLoaded', () => {
             const doc = (id) => document.getElementById(id);
 
-            // Elementos del DOM
+            // --- VISTAS ---
+            const menuView = doc('menuView');
+            const view901 = doc('view901');
+
+            // --- ELEMENTOS DEL DOM ---
             const themeToggleBtn = doc('themeToggleBtn');
             const reporteTerminacionesBtn = doc('reporteTerminacionesBtn');
-            const btn901 = doc('901Btn');
+            const view901Btn = doc('view901Btn');
+            const backToMenuBtn = doc('backToMenuBtn');
+            const settingsBtn = doc('settingsBtn');
+            const fileDropArea = doc('fileDropArea');
+            const fileInput = doc('fileInput');
+            const dataTable = doc('dataTable');
+            
             const modalOverlay = doc('modalOverlay');
             const modalTitle = doc('modalTitle');
             const modalBody = doc('modalBody');
             const modalClose = doc('modalClose');
 
-            // --- Lógica del Tema ---
+            // --- ESTADO DE LA APP ---
+            let session = { isMaster: false };
+            let params901 = [];
+
+            // --- LÓGICA DE NAVEGACIÓN ---
+            function switchView(viewName) {
+                menuView.style.display = 'none';
+                view901.style.display = 'none';
+                doc(viewName).style.display = viewName === 'menuView' ? 'flex' : 'block';
+            }
+
+            view901Btn.addEventListener('click', () => switchView('view901'));
+            backToMenuBtn.addEventListener('click', () => switchView('menuView'));
+            reporteTerminacionesBtn.addEventListener('click', () => {
+                showModal('Función en Desarrollo', '<p style="text-align: center;">Esta sección se implementará próximamente.</p>');
+            });
+
+
+            // --- LÓGICA DEL TEMA ---
             let currentTheme = localStorage.getItem('theme') || 'dark';
-            
             function applyTheme(theme) {
                 document.body.className = `${theme}-theme`;
                 themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
             }
-
             themeToggleBtn.addEventListener('click', () => {
                 currentTheme = currentTheme === 'light' ? 'dark' : 'light';
                 localStorage.setItem('theme', currentTheme);
                 applyTheme(currentTheme);
             });
 
-            // --- Lógica de Modales ---
+            // --- LÓGICA DE MODALES ---
             function showModal(title, content) {
                  modalTitle.textContent = title;
                  modalBody.innerHTML = content;
                  modalOverlay.classList.add('visible');
             }
+            function hideModal() { modalOverlay.classList.remove('visible'); }
+            modalClose.addEventListener('click', hideModal);
+            modalOverlay.addEventListener('click', (e) => { if(e.target === modalOverlay) hideModal(); });
 
-            function hideModal() {
-                modalOverlay.classList.remove('visible');
+            // --- AUTENTICACIÓN Y CONFIGURACIÓN ---
+            settingsBtn.addEventListener('click', () => {
+                if (session.isMaster) {
+                    showParamsModal();
+                } else {
+                    showLoginModal();
+                }
+            });
+
+            function showLoginModal() {
+                const content = `
+                    <p style="text-align: center;">Introduce las credenciales de maestro para continuar.</p>
+                    <input type="text" id="userInput" placeholder="Usuario">
+                    <input type="password" id="passInput" placeholder="Contraseña">
+                    <button id="loginBtn" class="btn" style="margin-top: 16px; width: 100%;">Autenticar</button>
+                `;
+                showModal('Autenticación Maestra', content);
+                doc('loginBtn').addEventListener('click', checkMasterCredentials);
             }
 
-            modalClose.addEventListener('click', hideModal);
-            modalOverlay.addEventListener('click', (e) => { 
-                if(e.target === modalOverlay) hideModal();
+            function checkMasterCredentials() {
+                const user = doc('userInput').value;
+                const pass = doc('passInput').value;
+                if (user === 'LUNAU' && pass === 'Resoner96') {
+                    session.isMaster = true;
+                    sessionStorage.setItem('reportesMasterSession', 'true');
+                    hideModal();
+                    showParamsModal();
+                } else {
+                    alert('Credenciales incorrectas.');
+                }
+            }
+
+            async function showParamsModal() {
+                let paramsHTML = '<ul class="param-list">';
+                params901.forEach((param) => {
+                    paramsHTML += createParamItemHTML(param.key, param.cell);
+                });
+                paramsHTML += '</ul>';
+                
+                const content = `
+                    <p style="text-align:center;">Define los nombres de columna y las celdas de Excel de donde se extraerá la información. Arrastra para reordenar.</p>
+                    ${paramsHTML}
+                    <button id="addParamBtn" class="btn" style="background-color: var(--surface-hover-color); width: auto; padding: 8px 16px; font-size: 0.9rem;">Añadir Parámetro</button>
+                    <button id="saveParamsBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Cambios</button>
+                `;
+                showModal('Configurar Parámetros de Extracción', content);
+
+                const paramList = doc('modalBody').querySelector('.param-list');
+                
+                doc('addParamBtn').addEventListener('click', () => {
+                    paramList.insertAdjacentHTML('beforeend', createParamItemHTML('', ''));
+                });
+
+                doc('saveParamsBtn').addEventListener('click', saveParams);
+
+                // Lógica de Drag and Drop
+                paramList.addEventListener('dragstart', e => {
+                    if (e.target.classList.contains('param-item')) {
+                        e.target.classList.add('dragging');
+                    }
+                });
+
+                paramList.addEventListener('dragend', e => {
+                    if (e.target.classList.contains('param-item')) {
+                        e.target.classList.remove('dragging');
+                    }
+                });
+
+                paramList.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    const draggingItem = paramList.querySelector('.dragging');
+                    if (!draggingItem) return;
+
+                    const afterElement = getDragAfterElement(paramList, e.clientY);
+
+                    if (afterElement == null) {
+                        paramList.appendChild(draggingItem);
+                    } else {
+                        paramList.insertBefore(draggingItem, afterElement);
+                    }
+                });
+            }
+            
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.param-item:not(.dragging)')];
+
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            function createParamItemHTML(key, cell) {
+                return `
+                    <li class="param-item" draggable="true">
+                        <span class="drag-handle" title="Arrastrar para reordenar">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                        </span>
+                        <input type="text" class="param-key" placeholder="Nombre de Columna" value="${key}">
+                        <input type="text" class="param-cell" placeholder="Celda (ej. A1)" value="${cell}">
+                        <button class="btn btn-danger" onclick="this.parentElement.remove()">X</button>
+                    </li>
+                `;
+            }
+
+            async function saveParams() {
+                const newParams = [];
+                doc('modalBody').querySelectorAll('.param-item').forEach(item => {
+                    const key = item.querySelector('.param-key').value.trim();
+                    const cell = item.querySelector('.param-cell').value.trim().toUpperCase();
+                    if (key && cell) {
+                        newParams.push({ key, cell });
+                    }
+                });
+
+                try {
+                    await db.collection('report_configs').doc('901_params').set({ params: newParams });
+                    params901 = newParams;
+                    showModal('Éxito', '<p style="text-align:center;">Parámetros guardados correctamente.</p>');
+                } catch (e) {
+                    console.error("Error al guardar parámetros:", e);
+                    showModal('Error', '<p style="text-align:center;">No se pudieron guardar los parámetros.</p>');
+                }
+            }
+
+            async function loadParams() {
+                try {
+                    const docRef = await db.collection('report_configs').doc('901_params').get();
+                    if (docRef.exists) {
+                        params901 = docRef.data().params || [];
+                    } else {
+                        // Si no existe, crea uno por defecto
+                        params901 = [
+                            { key: 'Orden', cell: 'A1' },
+                            { key: 'Material', cell: 'B1' },
+                            { key: 'Catálogo', cell: 'C1' },
+                        ];
+                        await db.collection('report_configs').doc('901_params').set({ params: params901 });
+                    }
+                } catch(e) {
+                    console.error("Error al cargar parámetros:", e);
+                }
+            }
+
+
+            // --- LÓGICA DE ARCHIVOS Y TABLA ---
+            fileDropArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) handleFile(e.target.files[0]);
+            });
+             fileDropArea.addEventListener('dragover', (e) => { e.preventDefault(); });
+            fileDropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
             });
 
-            // --- Lógica de Botones (Platzhalter) ---
-            reporteTerminacionesBtn.addEventListener('click', () => {
-                showModal('Función en Desarrollo', 'Esta sección para el "Reporte de Terminaciones" se implementará próximamente.');
-                console.log('Botón "Reporte de Terminaciones" presionado.');
-            });
 
-            btn901.addEventListener('click', () => {
-                showModal('Función en Desarrollo', 'Esta sección para "901" se implementará próximamente.');
-                console.log('Botón "901" presionado.');
-            });
+            function handleFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                        
+                        const extractedData = {};
+                        params901.forEach(param => {
+                            const value = worksheet[param.cell] ? worksheet[param.cell].v : 'N/A';
+                            extractedData[param.key] = value;
+                        });
+                        
+                        renderTable([extractedData]);
+                    } catch (err) {
+                        console.error("Error al procesar el archivo:", err);
+                        alert("Error al procesar el archivo Excel.");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
 
-            // --- Inicialización ---
-            applyTheme(currentTheme);
+            function renderTable(data) {
+                if (!data || data.length === 0 || params901.length === 0) {
+                    dataTable.innerHTML = '<thead><tr><th>Sin datos para mostrar</th></tr></thead><tbody></tbody>';
+                    return;
+                }
+
+                const headers = params901.map(p => p.key);
+                let tableHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>`;
+                
+                tableHTML += '<tbody>';
+                data.forEach(row => {
+                    tableHTML += '<tr>';
+                    headers.forEach(header => {
+                        tableHTML += `<td>${row[header] || ''}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+                tableHTML += '</tbody>';
+
+                dataTable.innerHTML = tableHTML;
+            }
+
+            // --- INICIALIZACIÓN ---
+            async function initializeApp() {
+                if (sessionStorage.getItem('reportesMasterSession') === 'true') {
+                    session.isMaster = true;
+                }
+                await loadParams();
+                applyTheme(currentTheme);
+            }
+            
+            initializeApp();
         });
     </script>
     
 </body>
 </html>
-
