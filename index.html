@@ -481,24 +481,41 @@
             }
             
             const formulaHelpers = {
-                EXTRAER: (text, start, length) => (typeof text !== 'string') ? '' : text.substring(start - 1, start - 1 + length),
+                EXTRAER: (text, start, length) => (typeof text !== 'string' || text === null) ? '' : String(text).substring(start - 1, start - 1 + length),
                 EXTRAER_FIBRAS: (text, start, length) => {
-                    if(typeof text !== 'string') return '';
-                    const sub = text.substring(start - 1, start - 1 + length);
+                    if(typeof text !== 'string' || text === null) return '';
+                    const sub = String(text).substring(start - 1, start - 1 + length);
                     return sub.toUpperCase() === 'T' ? 12 : sub;
-                }
+                },
+                IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse,
             };
 
             function processCalculatedFields(data, allParams) {
                 const processedData = { ...data };
-                // Process formulas first
-                allParams.filter(p => p.type === 'formula').forEach(p => {
-                    try {
-                        let formula = p.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
-                        const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
-                        processedData[p.key] = func(processedData, formulaHelpers);
-                    } catch (e) { processedData[p.key] = '¡ERROR!'; }
-                });
+                
+                // Iteratively process formulas to handle dependencies
+                const formulaParams = allParams.filter(p => p.type === 'formula');
+                let processedCount = 0;
+                let iterations = 0;
+                while(processedCount < formulaParams.length && iterations < 10) {
+                     formulaParams.forEach(p => {
+                        if (processedData[p.key] !== undefined) return; // Already processed
+                        try {
+                            // Check if all dependencies are met
+                            const dependencies = (p.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1));
+                            const allDependenciesMet = dependencies.every(dep => processedData[dep] !== undefined);
+                            
+                            if(allDependenciesMet) {
+                                let formula = p.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
+                                const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
+                                processedData[p.key] = func(processedData, formulaHelpers);
+                                processedCount++;
+                            }
+                        } catch (e) { processedData[p.key] = '¡ERROR!'; processedCount++;}
+                    });
+                    iterations++;
+                }
+
 
                 // Process area identifier
                 const areaParam = allParams.find(p => p.type === 'area_identifier');
@@ -508,7 +525,7 @@
                     const sourceParam = allParams.find(p => p.type === 'cell' && p.value === sourceCell);
                     if(sourceParam && processedData[sourceParam.key] !== undefined) {
                         const code = processedData[sourceParam.key];
-                        const mapping = areaConfig.mappings.find(a => a.code == code);
+                        const mapping = areaConfig.mappings.find(a => String(a.code).trim() === String(code).trim());
                         processedData[areaParam.key] = mapping ? mapping.name : 'Área Desconocida';
                     } else {
                         processedData[areaParam.key] = 'Celda de Código no definida';
