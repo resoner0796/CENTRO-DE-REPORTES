@@ -6,13 +6,18 @@
     <title>Centro de Reportes</title>
 
     <meta name="theme-color" content="#22252a">
+    <!-- Librerías Externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     
+    <!-- Fuentes de Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tinos&display=swap" rel="stylesheet">
+    
+    <!-- Estilos CSS -->
     <style>
         :root {}
 
@@ -67,7 +72,7 @@
             background-attachment: fixed;
             padding: 16px;
             box-sizing: border-box;
-            overflow: hidden; /* Evita barras de scroll durante transiciones */
+            overflow: hidden;
         }
         
         .app-container { 
@@ -75,8 +80,8 @@
             max-width: 1600px;
         }
 
-        #menuView, #view901 {
-            transition: opacity 0.3s ease-in-out;
+        #menuView, #view901, #viewTerminaciones {
+            transition: opacity 0.3s ease-in-out, display 0.3s;
         }
 
         #menuView {
@@ -168,7 +173,7 @@
         }
 
         /* Vistas de la App */
-        #view901 {
+        #view901, #viewTerminaciones {
             display: none; /* Oculto por defecto */
             width: 100%;
         }
@@ -177,6 +182,7 @@
             grid-template-columns: 320px 1fr;
             gap: 16px;
             width: 100%;
+            height: calc(100vh - 120px);
         }
 
         /* Sidebar */
@@ -214,6 +220,16 @@
         .main-content {
             display: flex;
             flex-direction: column;
+            gap: 16px;
+        }
+        .chart-and-summary-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 16px;
+            height: 300px;
+        }
+        #chartContainer, #chartSummary {
+            padding: 16px;
         }
         .table-container {
             flex-grow: 1;
@@ -231,6 +247,7 @@
 
         .file-drop-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-top: 16px; }
         .file-drop-area p { margin: 0; color: var(--text-dark); }
+        .file-drop-area h4 { margin: 0 0 8px 0; color: var(--text-secondary); }
 
         /* Modal Styles */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
@@ -255,20 +272,15 @@
         .param-item input { margin: 0; text-transform: uppercase; }
         .btn-danger { background-color: var(--danger-color); color: white; width: auto; padding: 8px 12px; }
 
-        .drag-handle {
-            cursor: grab;
-            color: var(--text-dark);
-            padding: 4px;
-            display: flex;
-            align-items: center;
-        }
-        .drag-handle:active {
-            cursor: grabbing;
-        }
-        .param-item.dragging {
-            opacity: 0.5;
-            background-color: var(--primary-color);
-        }
+        .drag-handle { cursor: grab; color: var(--text-dark); padding: 4px; display: flex; align-items: center; }
+        .drag-handle:active { cursor: grabbing; }
+        .param-item.dragging { opacity: 0.5; background-color: var(--primary-color); }
+
+        .modal-tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 16px;}
+        .tab-btn { background: none; border: none; padding: 10px 16px; cursor: pointer; color: var(--text-dark); font-weight: 600; border-bottom: 3px solid transparent;}
+        .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--primary-color);}
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
         @media (max-width: 768px) {
             body { padding: 8px; }
@@ -276,14 +288,16 @@
             .main-container { 
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 1fr;
-                grid-template-areas: "sidebar" "main";
             }
             .sidebar {
                 position: static;
                 height: auto;
             }
+            .chart-and-summary-container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
         }
-
     </style>
 </head>
 <body class="dark-theme">
@@ -311,33 +325,33 @@
 
         <!-- VISTA DE LA APLICACIÓN 901 -->
         <div id="view901">
-             <header class="app-header animated-startup" style="animation-delay: 0s;">
+            <header class="app-header animated-startup" style="animation-delay: 0s;">
                 <h1 class="app-branding">CORNING</h1>
                 <h2 class="app-title">Reporte 901</h2>
             </header>
             <div class="main-container">
                 <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
-                    <div class="card">
+                    <div class="card" style="height: 100%;">
                         <div class="sidebar-header">
                             <h3>Panel de Control</h3>
                             <div>
-                                <button id="backToMenuBtn" class="icon-btn" title="Regresar al Menú">
+                                <button class="backToMenuBtn icon-btn" title="Regresar al Menú">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
                                 </button>
-                                <button id="settingsBtn" class="icon-btn" title="Configuración">
+                                <button class="settingsBtn icon-btn" title="Configuración">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                                 </button>
                             </div>
                         </div>
-                        <div id="fileDropArea" class="file-drop-area">
+                        <div id="fileDropArea901" class="file-drop-area">
                             <p>Arrastra un archivo aquí</p>
                         </div>
-                        <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;">
+                        <input type="file" id="fileInput901" accept=".xlsx, .xls" style="display: none;">
                     </div>
                 </aside>
                 <main class="main-content card table-container animated-startup" style="animation-delay: 0.2s;">
                     <div class="table-wrapper">
-                        <table id="dataTable">
+                        <table id="dataTable901">
                             <thead>
                                 <tr><th>Carga un archivo para ver los datos</th></tr>
                             </thead>
@@ -347,6 +361,66 @@
                 </main>
             </div>
         </div>
+
+        <!-- VISTA REPORTE TERMINACIONES -->
+        <div id="viewTerminaciones">
+             <header class="app-header animated-startup" style="animation-delay: 0s;">
+                <h1 class="app-branding">CORNING</h1>
+                <h2 class="app-title">Reporte de Terminaciones</h2>
+            </header>
+            <div class="main-container">
+                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+                    <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+                        <div class="sidebar-header">
+                            <h3>Panel de Control</h3>
+                            <div>
+                                <button class="backToMenuBtn icon-btn" title="Regresar al Menú">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                                </button>
+                                <button class="settingsBtn icon-btn" title="Configuración">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="fileDropAreaK1" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;">
+                            <h4>Archivo K1</h4>
+                            <p>Arrastra un archivo aquí</p>
+                        </div>
+                        <input type="file" id="fileInputK1" accept=".xlsx, .xls" style="display: none;">
+                        
+                        <div id="fileDropAreaK2" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;">
+                            <h4>Archivo K2</h4>
+                            <p>Arrastra un archivo aquí</p>
+                        </div>
+                        <input type="file" id="fileInputK2" accept=".xlsx, .xls" style="display: none;">
+                    </div>
+                </aside>
+                <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <div class="card chart-and-summary-container">
+                        <div id="chartSummary">
+                            <h3 style="margin-top: 0;">Resumen</h3>
+                            <p><strong>Área:</strong> <span id="summaryArea">N/A</span></p>
+                            <p><strong>Terminaciones:</strong> <span id="summaryTerminaciones">N/A</span></p>
+                            <p><strong>Fecha:</strong> <span id="summaryFecha">N/A</span></p>
+                        </div>
+                        <div id="chartContainer" style="position: relative; height: 100%; width: 100%;">
+                            <canvas id="terminacionesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card table-container">
+                        <div class="table-wrapper">
+                            <table id="dataTableTerminaciones">
+                                <thead>
+                                    <tr><th>Carga los archivos K1 y K2 para ver los datos</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
     </div>
 
     <!-- MODAL GENERAL -->
@@ -374,18 +448,16 @@
             const doc = (id) => document.getElementById(id);
 
             // --- VISTAS ---
-            const menuView = doc('menuView');
-            const view901 = doc('view901');
+            const views = {
+                menu: doc('menuView'),
+                '901': doc('view901'),
+                terminaciones: doc('viewTerminaciones')
+            };
 
             // --- ELEMENTOS DEL DOM ---
             const themeToggleBtn = doc('themeToggleBtn');
             const reporteTerminacionesBtn = doc('reporteTerminacionesBtn');
             const view901Btn = doc('view901Btn');
-            const backToMenuBtn = doc('backToMenuBtn');
-            const settingsBtn = doc('settingsBtn');
-            const fileDropArea = doc('fileDropArea');
-            const fileInput = doc('fileInput');
-            const dataTable = doc('dataTable');
             
             const modalOverlay = doc('modalOverlay');
             const modalTitle = doc('modalTitle');
@@ -394,32 +466,44 @@
 
             // --- ESTADO DE LA APP ---
             let session = { isMaster: false };
-            let params901 = [];
+            let activeView = 'menu';
+            let params = {
+                '901': [],
+                terminaciones_k1: [],
+                terminaciones_k2: []
+            };
+            let reportData = {
+                k1: null,
+                k2: null
+            };
+            let terminacionesChartInstance = null;
 
             // --- LÓGICA DE NAVEGACIÓN ---
-            function switchView(viewName) {
-                const currentView = (menuView.style.display !== 'none') ? menuView : view901;
-                const nextView = doc(viewName);
+            function switchView(viewKey) {
+                const currentViewEl = views[activeView];
+                const nextViewEl = views[viewKey];
+
+                if (!nextViewEl) return;
+
+                activeView = viewKey;
                 
-                currentView.style.opacity = '0';
+                currentViewEl.style.opacity = '0';
                 
                 setTimeout(() => {
-                    currentView.style.display = 'none';
-                    nextView.style.display = viewName === 'menuView' ? 'flex' : 'block';
+                    currentViewEl.style.display = 'none';
+                    nextViewEl.style.display = viewKey === 'menu' ? 'flex' : 'block';
                     
-                    // Forzar reflow antes de animar la entrada
                     requestAnimationFrame(() => {
-                        nextView.style.opacity = '1';
+                        nextViewEl.style.opacity = '1';
                     });
                 }, 300);
             }
 
-            view901Btn.addEventListener('click', () => switchView('view901'));
-            backToMenuBtn.addEventListener('click', () => switchView('menuView'));
-            reporteTerminacionesBtn.addEventListener('click', () => {
-                showModal('Función en Desarrollo', '<p style="text-align: center;">Esta sección se implementará próximamente.</p>');
+            view901Btn.addEventListener('click', () => switchView('901'));
+            reporteTerminacionesBtn.addEventListener('click', () => switchView('terminaciones'));
+            document.querySelectorAll('.backToMenuBtn').forEach(btn => {
+                btn.addEventListener('click', () => switchView('menu'));
             });
-
 
             // --- LÓGICA DEL TEMA ---
             let currentTheme = localStorage.getItem('theme') || 'dark';
@@ -435,21 +519,23 @@
 
             // --- LÓGICA DE MODALES ---
             function showModal(title, content) {
-                 modalTitle.textContent = title;
-                 modalBody.innerHTML = content;
-                 modalOverlay.classList.add('visible');
+                modalTitle.textContent = title;
+                modalBody.innerHTML = content;
+                modalOverlay.classList.add('visible');
             }
             function hideModal() { modalOverlay.classList.remove('visible'); }
             modalClose.addEventListener('click', hideModal);
             modalOverlay.addEventListener('click', (e) => { if(e.target === modalOverlay) hideModal(); });
 
             // --- AUTENTICACIÓN Y CONFIGURACIÓN ---
-            settingsBtn.addEventListener('click', () => {
-                if (session.isMaster) {
-                    showParamsModal();
-                } else {
-                    showLoginModal();
-                }
+            document.querySelectorAll('.settingsBtn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (session.isMaster) {
+                        showParamsModal();
+                    } else {
+                        showLoginModal();
+                    }
+                });
             });
 
             function showLoginModal() {
@@ -472,64 +558,93 @@
                     hideModal();
                     showParamsModal();
                 } else {
-                    alert('Credenciales incorrectas.');
+                    alert('Credenciales incorrectas.'); // Consider replacing with a custom message box
                 }
             }
 
-            async function showParamsModal() {
-                let paramsHTML = '<ul class="param-list">';
-                params901.forEach((param) => {
-                    paramsHTML += createParamItemHTML(param.key, param.cell);
-                });
-                paramsHTML += '</ul>';
-                
+            function showParamsModal() {
+                if (activeView === '901') {
+                    showSingleParamConfig('901', 'Configurar Parámetros 901');
+                } else if (activeView === 'terminaciones') {
+                    showTabbedParamConfig();
+                }
+            }
+            
+            function showSingleParamConfig(configKey, title) {
+                const paramsHTML = `<ul class="param-list">${params[configKey].map(p => createParamItemHTML(p.key, p.cell)).join('')}</ul>`;
                 const content = `
                     <p style="text-align:center;">Define los nombres de columna y las celdas de Excel de donde se extraerá la información. Arrastra para reordenar.</p>
                     ${paramsHTML}
-                    <button id="addParamBtn" class="btn" style="background-color: var(--surface-hover-color); width: auto; padding: 8px 16px; font-size: 0.9rem;">Añadir Parámetro</button>
-                    <button id="saveParamsBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Cambios</button>
+                    <button class="addParamBtn btn" style="background-color: var(--surface-hover-color); width: auto; padding: 8px 16px; font-size: 0.9rem;">Añadir Parámetro</button>
+                    <button class="saveParamsBtn btn" data-config-key="${configKey}" style="margin-top: 20px; width: 100%;">Guardar Cambios</button>
                 `;
-                showModal('Configurar Parámetros de Extracción', content);
+                showModal(title, content);
+                setupModalInteractivity(doc('modalBody'));
+            }
 
-                const paramList = doc('modalBody').querySelector('.param-list');
+            function showTabbedParamConfig() {
+                const content = `
+                    <div class="modal-tabs">
+                        <button class="tab-btn active" data-tab="k1">Mapeo K1</button>
+                        <button class="tab-btn" data-tab="k2">Mapeo K2</button>
+                    </div>
+                    <div id="tab-k1" class="tab-content active">
+                         <ul class="param-list">${params.terminaciones_k1.map(p => createParamItemHTML(p.key, p.cell)).join('')}</ul>
+                    </div>
+                    <div id="tab-k2" class="tab-content">
+                         <ul class="param-list">${params.terminaciones_k2.map(p => createParamItemHTML(p.key, p.cell)).join('')}</ul>
+                    </div>
+                    <button class="addParamBtn btn" style="background-color: var(--surface-hover-color); width: auto; padding: 8px 16px; font-size: 0.9rem;">Añadir Parámetro</button>
+                    <button id="saveTerminacionesParamsBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Cambios</button>
+                `;
+                showModal('Configurar Parámetros de Terminaciones', content);
                 
-                doc('addParamBtn').addEventListener('click', () => {
+                const modalBody = doc('modalBody');
+                setupModalInteractivity(modalBody.querySelector('#tab-k1'));
+                setupModalInteractivity(modalBody.querySelector('#tab-k2'));
+                
+                modalBody.querySelectorAll('.tab-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        modalBody.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
+                        button.classList.add('active');
+                        doc(`tab-${button.dataset.tab}`).classList.add('active');
+                    });
+                });
+                
+                modalBody.querySelector('.addParamBtn').addEventListener('click', () => {
+                    const activeList = modalBody.querySelector('.tab-content.active .param-list');
+                    activeList.insertAdjacentHTML('beforeend', createParamItemHTML('', ''));
+                });
+
+                doc('saveTerminacionesParamsBtn').addEventListener('click', saveTerminacionesParams);
+            }
+            
+            function setupModalInteractivity(container) {
+                 if (!container) return;
+                const paramList = container.querySelector('.param-list');
+                
+                container.querySelector('.addParamBtn')?.addEventListener('click', () => {
                     paramList.insertAdjacentHTML('beforeend', createParamItemHTML('', ''));
                 });
 
-                doc('saveParamsBtn').addEventListener('click', saveParams);
-
-                // Lógica de Drag and Drop
-                paramList.addEventListener('dragstart', e => {
-                    if (e.target.classList.contains('param-item')) {
-                        e.target.classList.add('dragging');
-                    }
+                container.querySelector('.saveParamsBtn')?.addEventListener('click', (e) => {
+                    saveParams(e.target.dataset.configKey, container);
                 });
 
-                paramList.addEventListener('dragend', e => {
-                    if (e.target.classList.contains('param-item')) {
-                        e.target.classList.remove('dragging');
-                    }
-                });
-
+                paramList.addEventListener('dragstart', e => { if (e.target.classList.contains('param-item')) e.target.classList.add('dragging'); });
+                paramList.addEventListener('dragend', e => { if (e.target.classList.contains('param-item')) e.target.classList.remove('dragging'); });
                 paramList.addEventListener('dragover', e => {
                     e.preventDefault();
                     const draggingItem = paramList.querySelector('.dragging');
                     if (!draggingItem) return;
-
                     const afterElement = getDragAfterElement(paramList, e.clientY);
-
-                    if (afterElement == null) {
-                        paramList.appendChild(draggingItem);
-                    } else {
-                        paramList.insertBefore(draggingItem, afterElement);
-                    }
+                    if (afterElement == null) paramList.appendChild(draggingItem);
+                    else paramList.insertBefore(draggingItem, afterElement);
                 });
             }
             
             function getDragAfterElement(container, y) {
                 const draggableElements = [...container.querySelectorAll('.param-item:not(.dragging)')];
-
                 return draggableElements.reduce((closest, child) => {
                     const box = child.getBoundingClientRect();
                     const offset = y - box.top - box.height / 2;
@@ -554,58 +669,81 @@
                 `;
             }
 
-            async function saveParams() {
+            async function saveParams(configKey, container) {
                 const newParams = [];
-                doc('modalBody').querySelectorAll('.param-item').forEach(item => {
+                container.querySelectorAll('.param-item').forEach(item => {
                     const key = item.querySelector('.param-key').value.trim();
                     const cell = item.querySelector('.param-cell').value.trim().toUpperCase();
-                    if (key && cell) {
-                        newParams.push({ key, cell });
-                    }
+                    if (key && cell) newParams.push({ key, cell });
                 });
-
                 try {
-                    await db.collection('report_configs').doc('901_params').set({ params: newParams });
-                    params901 = newParams;
+                    await db.collection('report_configs').doc(`${configKey}_params`).set({ params: newParams });
+                    params[configKey] = newParams;
                     showModal('Éxito', '<p style="text-align:center;">Parámetros guardados correctamente.</p>');
                 } catch (e) {
-                    console.error("Error al guardar parámetros:", e);
+                    console.error("Error al guardar:", e);
                     showModal('Error', '<p style="text-align:center;">No se pudieron guardar los parámetros.</p>');
                 }
             }
 
-            async function loadParams() {
+            async function saveTerminacionesParams() {
+                 const newParamsK1 = [];
+                 doc('tab-k1').querySelectorAll('.param-item').forEach(item => {
+                    const key = item.querySelector('.param-key').value.trim();
+                    const cell = item.querySelector('.param-cell').value.trim().toUpperCase();
+                    if (key && cell) newParamsK1.push({ key, cell });
+                });
+
+                const newParamsK2 = [];
+                 doc('tab-k2').querySelectorAll('.param-item').forEach(item => {
+                    const key = item.querySelector('.param-key').value.trim();
+                    const cell = item.querySelector('.param-cell').value.trim().toUpperCase();
+                    if (key && cell) newParamsK2.push({ key, cell });
+                });
+
                 try {
-                    const docRef = await db.collection('report_configs').doc('901_params').get();
-                    if (docRef.exists) {
-                        params901 = docRef.data().params || [];
-                    } else {
-                        params901 = [
-                            { key: 'Orden', cell: 'A1' },
-                            { key: 'Material', cell: 'B1' },
-                            { key: 'Catálogo', cell: 'C1' },
-                        ];
-                        await db.collection('report_configs').doc('901_params').set({ params: params901 });
-                    }
+                    await db.collection('report_configs').doc('terminaciones_k1_params').set({ params: newParamsK1 });
+                    await db.collection('report_configs').doc('terminaciones_k2_params').set({ params: newParamsK2 });
+                    params.terminaciones_k1 = newParamsK1;
+                    params.terminaciones_k2 = newParamsK2;
+                    showModal('Éxito', '<p style="text-align:center;">Parámetros de K1 y K2 guardados.</p>');
                 } catch(e) {
-                    console.error("Error al cargar parámetros:", e);
+                    console.error("Error al guardar params de terminaciones:", e);
+                    showModal('Error', '<p style="text-align:center;">No se pudieron guardar los parámetros.</p>');
                 }
             }
 
+            async function loadParams(configKey) {
+                try {
+                    const docRef = await db.collection('report_configs').doc(`${configKey}_params`).get();
+                    if (docRef.exists) {
+                        params[configKey] = docRef.data().params || [];
+                    }
+                } catch(e) {
+                    console.error(`Error al cargar ${configKey}:`, e);
+                }
+            }
 
             // --- LÓGICA DE ARCHIVOS Y TABLA ---
-            fileDropArea.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) handleFile(e.target.files[0]);
-            });
-             fileDropArea.addEventListener('dragover', (e) => { e.preventDefault(); });
-            fileDropArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-            });
+            function setupFileHandler(dropAreaId, inputId, configKey) {
+                const dropArea = doc(dropAreaId);
+                const input = doc(inputId);
+                dropArea.addEventListener('click', () => input.click());
+                input.addEventListener('change', (e) => {
+                    if (e.target.files.length) handleFile(e.target.files[0], configKey);
+                });
+                dropArea.addEventListener('dragover', (e) => e.preventDefault());
+                dropArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0], configKey);
+                });
+            }
+            setupFileHandler('fileDropArea901', 'fileInput901', '901');
+            setupFileHandler('fileDropAreaK1', 'fileInputK1', 'terminaciones_k1');
+            setupFileHandler('fileDropAreaK2', 'fileInputK2', 'terminaciones_k2');
 
 
-            function handleFile(file) {
+            function handleFile(file, configKey) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
@@ -613,27 +751,35 @@
                         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                         
                         const extractedData = {};
-                        params901.forEach(param => {
+                        params[configKey].forEach(param => {
                             const value = worksheet[param.cell] ? worksheet[param.cell].v : 'N/A';
                             extractedData[param.key] = value;
                         });
                         
-                        renderTable([extractedData]);
+                        if (configKey === '901') {
+                            renderTable([extractedData], params['901'], doc('dataTable901'));
+                        } else if (configKey === 'terminaciones_k1') {
+                            reportData.k1 = extractedData;
+                            doc('fileDropAreaK1').style.borderColor = '#4ade80';
+                            updateTerminacionesView();
+                        } else if (configKey === 'terminaciones_k2') {
+                            reportData.k2 = extractedData;
+                            doc('fileDropAreaK2').style.borderColor = '#4ade80';
+                            updateTerminacionesView();
+                        }
                     } catch (err) {
                         console.error("Error al procesar el archivo:", err);
-                        alert("Error al procesar el archivo Excel.");
                     }
                 };
                 reader.readAsArrayBuffer(file);
             }
 
-            function renderTable(data) {
-                if (!data || data.length === 0 || params901.length === 0) {
-                    dataTable.innerHTML = '<thead><tr><th>Sin datos para mostrar</th></tr></thead><tbody></tbody>';
+            function renderTable(data, paramConfig, tableElement) {
+                if (!data || data.length === 0 || paramConfig.length === 0) {
+                    tableElement.innerHTML = '<thead><tr><th>Sin datos para mostrar</th></tr></thead><tbody></tbody>';
                     return;
                 }
-
-                const headers = params901.map(p => p.key);
+                const headers = paramConfig.map(p => p.key);
                 let tableHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>`;
                 
                 tableHTML += '<tbody>';
@@ -645,8 +791,68 @@
                     tableHTML += '</tr>';
                 });
                 tableHTML += '</tbody>';
+                tableElement.innerHTML = tableHTML;
+            }
 
-                dataTable.innerHTML = tableHTML;
+            function updateTerminacionesView() {
+                if(reportData.k1 && reportData.k2) {
+                    const combinedData = {...reportData.k1, ...reportData.k2};
+                    const allParams = [...params.terminaciones_k1, ...params.terminaciones_k2];
+                    renderTable([combinedData], allParams, doc('dataTableTerminaciones'));
+                    
+                    // Actualizar resumen y gráfico
+                    const area = combinedData['Area'] || 'N/A';
+                    const terminaciones = combinedData['Terminaciones'] || 'N/A';
+                    const fecha = combinedData['Fecha'] || 'N/A';
+
+                    doc('summaryArea').textContent = area;
+                    doc('summaryTerminaciones').textContent = terminaciones;
+                    doc('summaryFecha').textContent = fecha;
+
+                    const terminacionesValue = parseFloat(terminaciones);
+                    if (!isNaN(terminacionesValue)) {
+                        renderTerminacionesChart(terminacionesValue);
+                    }
+                }
+            }
+
+            function renderTerminacionesChart(terminaciones) {
+                const ctx = doc('terminacionesChart').getContext('2d');
+                if (terminacionesChartInstance) {
+                    terminacionesChartInstance.destroy();
+                }
+
+                terminacionesChartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Terminaciones', 'Restante (Ejemplo)'],
+                        datasets: [{
+                            label: 'Reporte de Terminaciones',
+                            data: [terminaciones, 100 - terminaciones], // Dato de ejemplo
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.7)',
+                                'rgba(255, 99, 132, 0.7)'
+                            ],
+                            borderColor: [
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(255, 99, 132, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: 'var(--text-secondary)'
+                                }
+                            }
+                        }
+                    }
+                });
             }
 
             // --- INICIALIZACIÓN ---
@@ -654,18 +860,21 @@
                 if (sessionStorage.getItem('reportesMasterSession') === 'true') {
                     session.isMaster = true;
                 }
-                await loadParams();
+                await Promise.all([
+                    loadParams('901'),
+                    loadParams('terminaciones_k1'),
+                    loadParams('terminaciones_k2')
+                ]);
                 applyTheme(currentTheme);
-                // Aseguramos que solo la vista del menú esté visible al inicio
-                menuView.style.display = 'flex';
-                view901.style.display = 'none';
-                menuView.style.opacity = '1';
-                view901.style.opacity = '0';
+                
+                // Asegurar estado inicial de las vistas
+                Object.values(views).forEach(v => v.style.display = 'none');
+                views.menu.style.display = 'flex';
+                views.menu.style.opacity = '1';
             }
             
             initializeApp();
         });
     </script>
-    
 </body>
 </html>
