@@ -206,7 +206,7 @@
                     <div class="card" id="summaryContainer">
                         <p>Cargue los archivos para ver el resumen de terminaciones.</p>
                     </div>
-                    <div class="card table-container">
+                    <div class="card" id="tableContainer">
                         <div class="table-wrapper">
                             <table id="dataTableTerminaciones"><thead><tr><th>Carga los dos reportes de SAP para generar el informe</th></tr></thead><tbody></tbody></table>
                         </div>
@@ -220,7 +220,7 @@
     <div id="modalOverlay" class="modal-overlay"><div id="modalContent" class="modal-content"><span id="modalClose" class="modal-close">&times;</span><h2 id="modalTitle" class="modal-title"></h2><div id="modalBody" style="margin-top:16px; color: var(--text-secondary);"></div></div></div>
 
     <script>
-        const firebaseConfig = { apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDX0", authDomain: "rastreador-de-ordenes.firebaseapp.com", projectId: "rastreador-de-ordenes", storageBucket: "rastreador-de-ordenes.appspot.com", messagingSenderId: "956052823395", appId: "1:956052823395:web:2ba74d9591d2b24c3cc756" };
+        const firebaseConfig = { apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDX", authDomain: "rastreador-de-ordenes.firebaseapp.com", projectId: "rastreador-de-ordenes", storageBucket: "rastreador-de-ordenes.appspot.com", messagingSenderId: "956052823395", appId: "1:956052823395:web:2ba74d9591d2b24c3cc756" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
@@ -399,7 +399,29 @@
                 }
             }
             
-            const formulaHelpers = { EXTRAER: (text, start, length) => (typeof text !== 'string' || text === null) ? '' : String(text).substring(start - 1, start - 1 + length), EXTRAER_FIBRAS: (text, start, length) => { if(typeof text !== 'string' || text === null) return ''; const sub = String(text).substring(start - 1, start - 1 + length); return sub.toUpperCase() === 'T' ? 12 : sub; }, IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse, };
+            // --- CORRECCIÓN APLICADA AQUÍ ---
+            // Se mejora la función EXTRAER_FIBRAS para que entienda códigos de letras y no solo números.
+            const formulaHelpers = {
+                EXTRAER: (text, start, length) => (typeof text !== 'string' || text === null) ? '' : String(text).substring(start - 1, start - 1 + length),
+                EXTRAER_FIBRAS: (text, start, length) => {
+                    if (typeof text !== 'string' || text === null) return 0;
+                    const code = String(text).substring(start - 1, start - 1 + length).toUpperCase();
+                    if (!code) return 0;
+
+                    switch (code) {
+                        case '1': return 1; case '2': return 2; case '3': return 3;
+                        case '4': return 4; case '5': return 5; case '6': return 6;
+                        case '7': return 7; case '8': return 8; case '9': return 9;
+                        case 'A': return 1; case 'B': return 2; case 'C': return 4;
+                        case 'D': return 6; case 'E': return 8; case 'F': return 12;
+                        case 'G': return 24;case 'T': return 12;
+                        default:
+                            const num = parseFloat(code);
+                            return isNaN(num) ? 0 : num;
+                    }
+                },
+                IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse,
+            };
 
             function processTerminacionesReport() {
                 if (!reportData.zpptwc || !reportData.coois) return;
@@ -420,7 +442,6 @@
                     let merged = {...zpptwcRow, ...cooisRow};
                     let finalRow = {};
 
-                    // 1. Clean and format all base data
                     for (const key in merged) {
                         let value = merged[key];
                         if (typeof value === 'string') value = value.trim();
@@ -434,27 +455,23 @@
                         }
                     }
 
-                    // 2. Add Area (it's a dependency for formulas)
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
                     
-                    // 3. Map "Dato Directo" columns
                     config.final_cols.filter(c => c.type === 'source').forEach(col => {
                         finalRow[col.key] = finalRow[col.value];
                     });
 
-                    // 4. Process Automatic Columns in order
                     const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
                     if (autoFibrasCol) {
                         const area = finalRow['Area'];
                         const catalogo = finalRow['Catalogo'];
                         let fibras = 0;
                         
+                        // La lógica aquí ahora es más simple porque la función auxiliar es más potente.
                         if (area === 'UNAP LEGACY') {
-                            // --- CORRECCIÓN APLICADA AQUÍ ---
-                            // Se elimina la condición ternaria para que siempre extraiga el 6to dígito.
-                            fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1);
+                            fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         }
                         else if (area === 'MPORT FLEX') {
                             fibras = (String(catalogo).startsWith('MSA') || String(catalogo).startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
@@ -467,7 +484,7 @@
                         else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
                         else if (area === 'MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
 
-                        finalRow[autoFibrasCol.key] = parseFloat(fibras) || 0;
+                        finalRow[autoFibrasCol.key] = fibras; // Ya no es necesario parseFloat, la función devuelve un número.
                     }
                     
                     const autoFamiliaCol = config.final_cols.find(c => c.type === 'familia_auto');
