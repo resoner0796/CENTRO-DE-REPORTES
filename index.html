@@ -91,8 +91,8 @@
         .icon-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
         .icon-btn:hover { color: var(--text-primary); background-color: var(--surface-hover-color); }
         .main-content { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-        #summaryContainer { height: 300px; overflow: auto; padding: 16px; }
-        #summaryContainer h3 { margin-top: 0; }
+        #summaryContainer { max-height: 300px; overflow: auto; padding: 16px; }
+        #summaryContainer table { white-space: nowrap; }
         .table-container { flex-grow: 1; min-height: 0; }
         .table-wrapper { overflow-y: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; }
@@ -525,7 +525,7 @@
                 });
 
                 const sortedDates = [...dates].sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-                let summaryHTML = `<h3>Resumen de Terminaciones</h3><table><thead><tr><th>Área</th>`;
+                let summaryHTML = `<h3>Resumen de Terminaciones</h3><div class="table-wrapper" style="max-height: 250px;"><table><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
 
@@ -554,7 +554,7 @@
                 });
                 summaryHTML += `<td>${grandTotal}</td>`;
 
-                summaryHTML += `</tr></tbody></table>`;
+                summaryHTML += `</tr></tbody></table></div>`;
                 container.innerHTML = summaryHTML;
             }
             
