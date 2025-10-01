@@ -294,17 +294,29 @@
             function createSourceColHTML(key, excel_col) { return `<li class="param-item" style="grid-template-columns: 1fr 1fr auto;"><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Nombre Columna en Excel" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             function createAreaItemHTML(code, name) { return `<li class="area-item"><input type="text" class="area-code" placeholder="Código en Excel" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             function createFinalColHTML(key, type, value) { const options = `<option value="source" ${type === 'source' ? 'selected' : ''}>Dato Directo</option><option value="formula" ${type === 'formula' ? 'selected' : ''}>Fórmula</option>`; const isFormula = type === 'formula'; return `<li class="param-item" style="grid-template-columns:1fr 1fr 2fr auto"><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${options}</select><div><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
-            window.populateFormulaHelpers = (inputElement, isFormula) => { const container = inputElement.nextElementSibling; container.innerHTML = ''; if (!isFormula) return; const availableCols = [...params.terminaciones_config.zpptwc_cols, ...params.terminaciones_config.coois_cols, {key:'Area'}].map(p => p.key).filter(Boolean); const uniqueCols = [...new Set(availableCols)]; uniqueCols.forEach(colName => { const pill = document.createElement('button'); pill.className = 'helper-pill'; pill.textContent = colName; pill.onclick = (e) => { e.preventDefault(); insertAtCursor(inputElement, `{${colName}}`); }; container.appendChild(pill); }); };
+            window.populateFormulaHelpers = (inputElement, isFormula) => { const container = inputElement.nextElementSibling; container.innerHTML = ''; if (!isFormula) return; const modalBody = doc('modalBody'); const zpptwc_cols = Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => el.querySelector('.param-key').value); const coois_cols = Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => el.querySelector('.param-key').value); const availableCols = [...zpptwc_cols, ...coois_cols, 'Area'].filter(Boolean); const uniqueCols = [...new Set(availableCols)]; uniqueCols.forEach(colName => { const pill = document.createElement('button'); pill.className = 'helper-pill'; pill.textContent = colName; pill.onclick = (e) => { e.preventDefault(); insertAtCursor(inputElement, `{${colName}}`); }; container.appendChild(pill); }); };
             function insertAtCursor(input, text) { const start = input.selectionStart; input.value = input.value.substring(0, start) + text + input.value.substring(input.selectionEnd); input.focus(); input.selectionEnd = start + text.length; }
             doc('modalOverlay').addEventListener('change', (e) => { if (e.target.classList.contains('param-type')) { const item = e.target.closest('.param-item'); const input = item.querySelector('.param-value-input'); const isFormula = e.target.value === 'formula'; input.placeholder = isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'; input.value = ''; } });
+            
             async function saveTerminacionesSettings() {
-                const newConfig = {
-                    zpptwc_cols: Array.from(doc('tab-zpptwc').querySelectorAll('.param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
-                    coois_cols: Array.from(doc('tab-coois').querySelectorAll('.param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
-                    area_config: { source_col: doc('area-source-col').value, mappings: Array.from(doc('tab-areas .area-list').querySelectorAll('.area-item')).map(el => ({ code: el.querySelector('.area-code').value, name: el.querySelector('.area-name').value })) },
-                    final_cols: Array.from(doc('tab-final').querySelectorAll('.param-item')).map(el => ({ key: el.querySelector('.param-key').value, type: el.querySelector('.param-type').value, value: el.querySelector('.param-value-input').value })),
-                };
-                try { await db.collection('report_configs').doc('terminaciones_params_v2').set(newConfig); params.terminaciones_config = newConfig; showModal('Éxito', '<p>Configuración de Terminaciones guardada.</p>'); } catch(e) { console.error(e); showModal('Error', '<p>No se pudo guardar la configuración.</p>'); }
+                try {
+                    const modalBody = doc('modalBody');
+                    const newConfig = {
+                        zpptwc_cols: Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
+                        coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
+                        area_config: { 
+                            source_col: modalBody.querySelector('#area-source-col').value, 
+                            mappings: Array.from(modalBody.querySelectorAll('#tab-areas .area-item')).map(el => ({ code: el.querySelector('.area-code').value, name: el.querySelector('.area-name').value })) 
+                        },
+                        final_cols: Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => ({ key: el.querySelector('.param-key').value, type: el.querySelector('.param-type').value, value: el.querySelector('.param-value-input').value })),
+                    };
+                    await db.collection('report_configs').doc('terminaciones_params_v2').set(newConfig); 
+                    params.terminaciones_config = newConfig; 
+                    showModal('Éxito', '<p>Configuración de Terminaciones guardada.</p>'); 
+                } catch(e) { 
+                    console.error("Error saving terminaciones settings:", e);
+                    showModal('Error', '<p>No se pudo guardar la configuración.</p>'); 
+                }
             }
             
             async function loadParams(configKey) {
