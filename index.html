@@ -206,7 +206,7 @@
                     <div class="card" id="summaryContainer">
                         <p>Cargue los archivos para ver el resumen de terminaciones.</p>
                     </div>
-                    <div class="card" id="tableContainer">
+                    <div class="card table-container">
                         <div class="table-wrapper">
                             <table id="dataTableTerminaciones"><thead><tr><th>Carga los dos reportes de SAP para generar el informe</th></tr></thead><tbody></tbody></table>
                         </div>
@@ -220,7 +220,7 @@
     <div id="modalOverlay" class="modal-overlay"><div id="modalContent" class="modal-content"><span id="modalClose" class="modal-close">&times;</span><h2 id="modalTitle" class="modal-title"></h2><div id="modalBody" style="margin-top:16px; color: var(--text-secondary);"></div></div></div>
 
     <script>
-        const firebaseConfig = { apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDX", authDomain: "rastreador-de-ordenes.firebaseapp.com", projectId: "rastreador-de-ordenes", storageBucket: "rastreador-de-ordenes.appspot.com", messagingSenderId: "956052823395", appId: "1:956052823395:web:2ba74d9591d2b24c3cc756" };
+        const firebaseConfig = { apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDX0", authDomain: "rastreador-de-ordenes.firebaseapp.com", projectId: "rastreador-de-ordenes", storageBucket: "rastreador-de-ordenes.appspot.com", messagingSenderId: "956052823395", appId: "1:956052823395:web:2ba74d9591d2b24c3cc756" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
@@ -399,8 +399,6 @@
                 }
             }
             
-            // --- CORRECCIÓN APLICADA AQUÍ ---
-            // Se mejora la función EXTRAER_FIBRAS para que entienda códigos de letras y no solo números.
             const formulaHelpers = {
                 EXTRAER: (text, start, length) => (typeof text !== 'string' || text === null) ? '' : String(text).substring(start - 1, start - 1 + length),
                 EXTRAER_FIBRAS: (text, start, length) => {
@@ -466,12 +464,12 @@
                     const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
                     if (autoFibrasCol) {
                         const area = finalRow['Area'];
-                        const catalogo = finalRow['Catalogo'];
+                        const catalogo = finalRow['Catalogo'] || '';
                         let fibras = 0;
                         
-                        // La lógica aquí ahora es más simple porque la función auxiliar es más potente.
+                        // --- CORRECCIÓN DEFINITIVA APLICADA AQUÍ ---
                         if (area === 'UNAP LEGACY') {
-                            fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                            fibras = String(catalogo).startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         }
                         else if (area === 'MPORT FLEX') {
                             fibras = (String(catalogo).startsWith('MSA') || String(catalogo).startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
@@ -484,7 +482,7 @@
                         else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
                         else if (area === 'MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
 
-                        finalRow[autoFibrasCol.key] = fibras; // Ya no es necesario parseFloat, la función devuelve un número.
+                        finalRow[autoFibrasCol.key] = fibras;
                     }
                     
                     const autoFamiliaCol = config.final_cols.find(c => c.type === 'familia_auto');
