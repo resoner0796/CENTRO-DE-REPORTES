@@ -463,16 +463,17 @@
 
                     const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
                     if (autoFibrasCol) {
-                        const area = finalRow['Area'];
+                        const area = (finalRow['Area'] || '').trim();
                         const catalogo = finalRow['Catalogo'] || '';
                         let fibras = 0;
                         
-                        // --- CORRECCIÓN DEFINITIVA APLICADA AQUÍ ---
                         if (area === 'UNAP LEGACY') {
-                            fibras = String(catalogo).startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                            // --- CORRECCIÓN FINAL Y DEFINITIVA APLICADA AQUÍ ---
+                            // Esta lógica ahora maneja ambos formatos de catálogo para UNAP LEGACY.
+                            fibras = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         }
                         else if (area === 'MPORT FLEX') {
-                            fibras = (String(catalogo).startsWith('MSA') || String(catalogo).startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
+                            fibras = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
                         }
                         else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         else if (area === 'NON STD') fibras = 2;
