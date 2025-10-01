@@ -8,7 +8,6 @@
     <meta name="theme-color" content="#22252a">
     <!-- Librerías Externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     
@@ -103,6 +102,8 @@
         .file-drop-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-top: 16px; }
         .file-drop-area p { margin: 0; color: var(--text-dark); }
         .file-drop-area h4 { margin: 0 0 8px 0; color: var(--text-secondary); }
+        .summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;}
+        .summary-header h3, .summary-header p { margin: 0; }
 
         /* Modal Styles */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
@@ -428,16 +429,16 @@
                         }
                     }
                     
-                    // 2. Add Area (it's a dependency for formulas)
-                    const areaCode = finalRow[config.area_config.source_col];
-                    const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
-                    finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
-                    
-                    // 3. Map "Dato Directo" columns to finalRow
+                    // 2. Map direct source columns to finalRow first
                     config.final_cols.filter(c => c.type === 'source').forEach(col => {
                         finalRow[col.key] = finalRow[col.value];
                     });
 
+                    // 3. Add Area (it's a dependency for formulas)
+                    const areaCode = finalRow[config.area_config.source_col];
+                    const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
+                    finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
+                    
                     // 4. Process Automatic Columns in order
                     const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
                     if (autoFibrasCol) {
@@ -501,7 +502,7 @@
             function renderTerminacionesSummary(data) {
                 const container = doc('summaryContainer');
                 if (!data || data.length === 0) {
-                    container.innerHTML = '<p>No hay datos para mostrar en el resumen.</p>';
+                    container.innerHTML = '<h3>Resumen de Terminaciones</h3><p>No hay datos para mostrar en el resumen.</p>';
                     return;
                 }
 
