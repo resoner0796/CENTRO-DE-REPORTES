@@ -412,35 +412,40 @@
                     const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
                     const cooisRow = cooisMap.get(cleanOrder) || {};
                     let merged = {...zpptwcRow, ...cooisRow};
-                    
                     let finalRow = {};
 
-                    // Clean and format raw merged data
+                    // 1. Clean and format all base data
                     for (const key in merged) {
+                        let value = merged[key];
                         if (key === 'Orden' || key === 'Material' || key === 'Operacion') {
-                            finalRow[key] = String(merged[key] || '').replace(/^0+/, '');
-                        } else if (key === 'Fecha' && merged[key] instanceof Date) {
-                            const d = merged[key];
-                            finalRow[key] = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                        } else {
-                            finalRow[key] = merged[key];
+                            value = String(value || '').replace(/^0+/, '');
+                        } else if (key === 'Fecha' && value instanceof Date) {
+                            const d = value;
+                            value = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                        } else if (typeof value === 'string') {
+                            value = value.trim();
                         }
+                        finalRow[key] = value;
                     }
-                    
-                    // Process mappings and formulas in order
+
+                    // 2. Add Area (it's a dependency for formulas)
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
                     
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
+                    // 3. Map "Dato Directo" columns
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
+                        finalRow[col.key] = finalRow[col.value];
+                    });
 
+                    // 4. Iteratively solve formulas
                     const formulas = config.final_cols.filter(c => c.type === 'formula');
-                    let solvedFormulas = new Set();
+                    let solvedInThisIteration;
                     let iterations = 0;
-                    while (solvedFormulas.size < formulas.length && iterations < 10) {
-                        let solvedInThisIteration = false;
+                    do {
+                        solvedInThisIteration = false;
                         formulas.forEach(col => {
-                            if (!solvedFormulas.has(col.key)) {
+                            if (finalRow[col.key] === undefined) {
                                 const dependencies = (col.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1).trim());
                                 const allDependenciesMet = dependencies.every(dep => finalRow[dep] !== undefined);
 
@@ -449,20 +454,20 @@
                                         let formula = col.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
                                         const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
                                         finalRow[col.key] = func(finalRow, formulaHelpers);
-                                        solvedFormulas.add(col.key);
                                         solvedInThisIteration = true;
-                                    } catch (e) { finalRow[col.key] = '¡ERROR!'; solvedFormulas.add(col.key); }
+                                    } catch (e) { finalRow[col.key] = '¡ERROR!'; }
                                 }
                             }
                         });
-                        if (!solvedInThisIteration) break; // Break if no new formulas were solved
                         iterations++;
-                    }
+                    } while (solvedInThisIteration && iterations < 10);
 
+                    // 5. Final cleaning on calculated fields
                     if (finalRow['Terminaciones'] !== undefined) {
                         let value = parseFloat(finalRow['Terminaciones']);
                         finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
                     }
+                    
                     return finalRow;
                 });
                 
@@ -532,4 +537,3 @@
     </script>
 </body>
 </html>
-
