@@ -107,7 +107,7 @@
         /* Modal Styles */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
-        .modal-content { transform: scale(0.95); transition: transform 0.3s; width: 90%; max-width: 700px; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s; width: 90%; max-width: 800px; }
         .modal-overlay.visible .modal-content { transform: scale(1); }
         .modal-title { font-size: 1.25rem; font-weight: 600; margin: 0; text-align: center; width: 100%; color: var(--text-primary);}
         .modal-close { font-size: 1.75rem; color: var(--text-dark); cursor: pointer; line-height: 1; position: absolute; top: 16px; right: 16px; }
@@ -119,7 +119,7 @@
         .param-item input, .param-item select { margin: 0; }
         .param-value-container { grid-column: 4; }
         .hidden { display: none; }
-        .area-item { display: grid; grid-template-columns: 1fr 2fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 8px; background-color: var(--surface-hover-color); border: 1px solid var(--border-color); border-radius: 8px; }
+        .area-item { display: grid; grid-template-columns: 1fr 1.5fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 8px; background-color: var(--surface-hover-color); border: 1px solid var(--border-color); border-radius: 8px; }
         .area-source-container, .user-filter-container { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; }
         .area-source-container label, .user-filter-container label { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;}
         .btn-danger { background-color: var(--danger-color); color: white; width: auto; padding: 8px 12px; transition: background-color 0.2s; }
@@ -281,7 +281,7 @@
                     <div class="modal-tabs">
                         <button class="tab-btn active" data-tab="zpptwc">1. Mapeo Zpptwc</button>
                         <button class="tab-btn" data-tab="coois">2. Mapeo Coois</button>
-                        <button class="tab-btn" data-tab="areas">3. Mapeo de Áreas</button>
+                        <button class="tab-btn" data-tab="areas">3. Mapeo de Áreas y Líneas</button>
                         <button class="tab-btn" data-tab="final">4. Columnas Finales</button>
                     </div>
                     <div id="tab-zpptwc" class="tab-content active"><p>Define un nombre clave y la letra de la columna para cada dato del reporte Zpptwc.</p><ul class="param-list">${config.zpptwc_cols.map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul></div>
@@ -292,7 +292,7 @@
                             <input type="text" id="area-source-col" placeholder="Ej. MRP" value="${config.area_config.source_col || ''}">
                             <p>Usa el "Nombre Clave" (definido en la pestaña 2) de la columna del reporte Coois que contiene el código de área (ej. MRP).</p>
                         </div>
-                        <ul class="area-list">${config.area_config.mappings.map(a => createAreaItemHTML(a.code, a.name)).join('')}</ul>
+                        <ul class="area-list">${config.area_config.mappings.map(a => createAreaItemHTML(a.code, a.name, a.linea)).join('')}</ul>
                     </div>
                     <div id="tab-final" class="tab-content"><p>Define las columnas que aparecerán en el reporte final y sus fórmulas.</p><ul class="param-list">${config.final_cols.map(p => createFinalColHTML(p.key, p.type, p.value)).join('')}</ul></div>
                     <button class="addBtn btn" style="width: auto; padding: 8px 16px;">Añadir Fila</button>
@@ -300,15 +300,15 @@
                 showModal('Configurar Automatización de Terminaciones', content);
                 const modalBody = doc('modalBody');
                 modalBody.querySelectorAll('.tab-btn').forEach(button => button.addEventListener('click', () => { modalBody.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active')); button.classList.add('active'); doc(`tab-${button.dataset.tab}`).classList.add('active'); }));
-                modalBody.querySelector('.addBtn').addEventListener('click', () => { const activeTab = modalBody.querySelector('.tab-content.active'); if(activeTab.id === 'tab-areas') { activeTab.querySelector('.area-list').insertAdjacentHTML('beforeend', createAreaItemHTML('', '')); } else if(activeTab.id === 'tab-final') { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createFinalColHTML('', 'source', '')); } else { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createSourceColHTML('', '')); } });
+                modalBody.querySelector('.addBtn').addEventListener('click', () => { const activeTab = modalBody.querySelector('.tab-content.active'); if(activeTab.id === 'tab-areas') { activeTab.querySelector('.area-list').insertAdjacentHTML('beforeend', createAreaItemHTML('', '', '')); } else if(activeTab.id === 'tab-final') { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createFinalColHTML('', 'source', '')); } else { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createSourceColHTML('', '')); } });
                 doc('saveTerminacionesSettingsBtn').addEventListener('click', saveTerminacionesSettings);
             }
             function createSourceColHTML(key, excel_col) { return `<li class="param-item" style="grid-template-columns: 1fr 1fr auto;"><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Letra de Columna (ej. A, B)" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
-            function createAreaItemHTML(code, name) { return `<li class="area-item"><input type="text" class="area-code" placeholder="Código en Excel" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
-            function createFinalColHTML(key, type, value) { const options = `<option value="source" ${type === 'source' ? 'selected' : ''}>Dato Directo</option><option value="formula" ${type === 'formula' ? 'selected' : ''}>Fórmula</option>`; const isFormula = type === 'formula'; return `<li class="param-item" style="grid-template-columns:1fr 1fr 2fr auto"><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${options}</select><div><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            function createAreaItemHTML(code, name, linea) { return `<li class="area-item"><input type="text" class="area-code" placeholder="Código MRP" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><input type="text" class="area-linea" placeholder="Línea" value="${linea || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            function createFinalColHTML(key, type, value) { const options = `<option value="source">Dato Directo</option><option value="formula">Fórmula</option><option value="linea_auto">Línea (Automática)</option>`; const isFormula = type === 'formula'; let selectedOptions = options.replace(`value="${type}"`,`value="${type}" selected`); return `<li class="param-item" style="grid-template-columns:1fr 1fr 2fr auto"><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${selectedOptions}</select><div><input type="text" class="param-value-input ${type === 'linea_auto' ? 'hidden': ''}" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             window.populateFormulaHelpers = (inputElement, isFormula) => { const container = inputElement.nextElementSibling; container.innerHTML = ''; if (!isFormula) return; const modalBody = inputElement.closest('#modalBody'); if (!modalBody) return; const zpptwc_cols = Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => el.querySelector('.param-key').value); const coois_cols = Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => el.querySelector('.param-key').value); const final_cols = Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => el.querySelector('.param-key').value); const availableCols = [...zpptwc_cols, ...coois_cols, ...final_cols, 'Area'].filter(Boolean); const uniqueCols = [...new Set(availableCols)]; uniqueCols.forEach(colName => { const pill = document.createElement('button'); pill.className = 'helper-pill'; pill.textContent = colName; pill.onclick = (e) => { e.preventDefault(); insertAtCursor(inputElement, `{${colName}}`); }; container.appendChild(pill); }); };
             function insertAtCursor(input, text) { const start = input.selectionStart; input.value = input.value.substring(0, start) + text + input.value.substring(input.selectionEnd); input.focus(); input.selectionEnd = start + text.length; }
-            doc('modalOverlay').addEventListener('change', (e) => { if (e.target.classList.contains('param-type')) { const item = e.target.closest('.param-item'); const input = item.querySelector('.param-value-input'); const isFormula = e.target.value === 'formula'; input.placeholder = isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'; input.value = ''; } });
+            doc('modalOverlay').addEventListener('change', (e) => { if (e.target.classList.contains('param-type')) { const item = e.target.closest('.param-item'); const input = item.querySelector('.param-value-input'); const isFormula = e.target.value === 'formula'; input.placeholder = isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'; input.value = ''; input.classList.toggle('hidden', e.target.value === 'linea_auto'); } });
             
             async function saveTerminacionesSettings() {
                 try {
@@ -320,7 +320,7 @@
                         coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), excel_col: el.querySelector('.param-excel-col').value.trim().toUpperCase() })),
                         area_config: { 
                             source_col: modalBody.querySelector('#area-source-col').value.trim(), 
-                            mappings: Array.from(modalBody.querySelectorAll('#tab-areas .area-item')).map(el => ({ code: el.querySelector('.area-code').value, name: el.querySelector('.area-name').value })) 
+                            mappings: Array.from(modalBody.querySelectorAll('#tab-areas .area-item')).map(el => ({ code: el.querySelector('.area-code').value, name: el.querySelector('.area-name').value, linea: el.querySelector('.area-linea').value })) 
                         },
                         final_cols: Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), type: el.querySelector('.param-type').value, value: el.querySelector('.param-value-input').value.trim() })),
                     };
@@ -374,8 +374,10 @@
                             const data = sheetData.map(rowArray => {
                                 let rowData = {};
                                 for (const map of mapping) {
-                                    const colIndex = map.excel_col.charCodeAt(0) - 'A'.charCodeAt(0);
-                                    rowData[map.key] = rowArray[colIndex];
+                                    if(map.excel_col) {
+                                        const colIndex = map.excel_col.charCodeAt(0) - 'A'.charCodeAt(0);
+                                        rowData[map.key] = rowArray[colIndex];
+                                    }
                                 }
                                 return rowData;
                             });
@@ -405,10 +407,10 @@
                     return;
                 }
                 
-                const cooisMap = new Map(reportData.coois.map(row => [String(row[joinKey]).replace(/^0+/, ''), row]));
+                const cooisMap = new Map(reportData.coois.map(row => [String(row[joinKey] || '').replace(/^0+/, ''), row]));
                 
                 const finalData = reportData.zpptwc.map(zpptwcRow => {
-                    const cleanOrder = String(zpptwcRow[joinKey]).replace(/^0+/, '');
+                    const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
                     const cooisRow = cooisMap.get(cleanOrder) || {};
                     
                     let merged = {...zpptwcRow, ...cooisRow};
@@ -426,17 +428,15 @@
                         }
                     }
                     
-                    // Identify Area
+                    // Process mappings and formulas in order
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
+                    finalRow['__Linea_Auto__'] = areaMapping ? areaMapping.linea : 'N/A'; // Internal value
                     
-                    // Map direct source columns
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
-                        finalRow[col.key] = finalRow[col.value];
-                    });
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
+                    config.final_cols.filter(c => c.type === 'linea_auto').forEach(col => { finalRow[col.key] = finalRow['__Linea_Auto__']; });
 
-                    // Iteratively solve formulas
                     const formulas = config.final_cols.filter(c => c.type === 'formula');
                     let solvedFormulas = new Set();
                     let iterations = 0;
@@ -488,7 +488,7 @@
                         const area = row['Area'] || 'Sin Área';
                         const terminaciones = row['Terminaciones'] || 0;
                         if (!acc[area]) acc[area] = 0;
-                        acc[area] += terminaciones;
+                        if (typeof terminaciones === 'number') acc[area] += terminaciones;
                         return acc;
                     }, {});
 
