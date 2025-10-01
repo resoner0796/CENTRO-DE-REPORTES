@@ -105,7 +105,10 @@
         .file-drop-area p { margin: 0; color: var(--text-dark); }
         .file-drop-area h4 { margin: 0 0 8px 0; color: var(--text-secondary); }
         #summaryContainer table th, #summaryContainer table td { text-align: right; }
-        #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; font-weight: bold; position: sticky; left: 0; background-color: var(--surface-color); z-index: 1;}
+        #summaryContainer table th:first-child, #summaryContainer table td:first-child { 
+            text-align: left; font-weight: bold; position: sticky; left: 0; z-index: 1;
+            background-color: var(--thead-bg); /* AJUSTE: Usar un fondo más opaco */
+        }
         #summaryContainer table .grand-total { font-weight: bold; border-top: 2px solid var(--border-color); }
 
         /* Modal Styles */
@@ -168,14 +171,14 @@
             .main-content {
                 min-height: 50vh;
                 gap: 12px;
-                min-width: 0; /* <<< AJUSTE CLAVE: Evita que el contenedor se expanda por contenido ancho. */
+                min-width: 0; /* AJUSTE CLAVE: Evita que el contenedor se expanda por contenido ancho. */
             }
             .card {
                 padding: 16px;
             }
             
             .table-wrapper {
-                overflow-x: auto; /* <<< AJUSTE CLAVE: Permite el scroll horizontal DENTRO de las tablas. */
+                overflow-x: auto; /* AJUSTE CLAVE: Permite el scroll horizontal DENTRO de las tablas. */
                 -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
             }
             
@@ -212,6 +215,13 @@
             }
             .param-value-container {
                 grid-column: 1;
+            }
+        }
+        
+        /* AJUSTE: Nuevo media query para modo horizontal */
+        @media (max-width: 900px) and (orientation: landscape) {
+            .hide-on-mobile {
+                display: table-cell !important; /* Muestra todas las columnas */
             }
         }
         /* --- FIN DE MEJORAS PARA MÓVILES --- */
@@ -581,7 +591,8 @@
                 if (!config || config.length === 0) return;
                 
                 const allHeaders = config.map(c => c.key);
-                const mobileVisibleHeaders = ['Orden', 'Cantidad', 'Fecha', 'Fibras', 'Terminaciones', 'Área'];
+                // AJUSTE: Columnas visibles en móvil (vertical)
+                const mobileVisibleHeaders = ['Orden', 'Catálogo', 'Cantidad', 'Fecha', 'Fibras', 'Terminaciones', 'Área'];
                 const tableElement = doc('dataTableTerminaciones');
 
                 let html = '<thead><tr>';
