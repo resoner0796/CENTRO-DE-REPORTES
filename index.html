@@ -358,19 +358,24 @@
             setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
             setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
             
-            async function handleFile(file, configKey) {
-                if(configKey === '901') { handle901File(file); } 
-                else {
+            function handleFile(file, configKey) {
+                if(configKey === '901') {
+                    handle901File(file); 
+                } else {
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         try {
                             const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                             const ws = wb.Sheets[wb.SheetNames[0]];
-                            const data = XLSX.utils.sheet_to_json(ws);
+                            const data = XLSX.utils.sheet_to_json(ws, { raw: true, defval: null });
+
                             reportData[configKey] = data;
                             doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
                             processTerminacionesReport();
-                        } catch (err) { showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel.</p>') }
+                        } catch (err) { 
+                            console.error("Error processing file:", err);
+                            showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel.</p>'); 
+                        }
                     };
                     reader.readAsArrayBuffer(file);
                 }
@@ -408,16 +413,20 @@
                     
                     // Add all merged data to finalRow for formula access
                     Object.assign(finalRow, merged);
+                    
+                    // Map direct source columns first
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
+                        finalRow[col.key] = merged[col.value];
+                    });
 
                     // Iteratively solve formulas
                     const formulas = config.final_cols.filter(c => c.type === 'formula');
-                    let solved = false;
+                    let solvedFormulas = new Set();
                     let iterations = 0;
-                    do {
-                        solved = false;
+                    while (solvedFormulas.size < formulas.length && iterations < 10) {
                         formulas.forEach(col => {
-                            if (finalRow[col.key] === undefined) {
-                                const dependencies = (col.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1));
+                            if (!solvedFormulas.has(col.key)) {
+                                const dependencies = (col.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1).trim());
                                 const allDependenciesMet = dependencies.every(dep => finalRow[dep] !== undefined);
 
                                 if (allDependenciesMet) {
@@ -425,21 +434,16 @@
                                         let formula = col.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
                                         const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
                                         finalRow[col.key] = func(finalRow, formulaHelpers);
-                                        solved = true;
+                                        solvedFormulas.add(col.key);
                                     } catch (e) {
                                         finalRow[col.key] = '¡ERROR!';
+                                        solvedFormulas.add(col.key); // Mark as solved to avoid infinite loop
                                     }
                                 }
                             }
                         });
                         iterations++;
-                    } while (solved && iterations < 10);
-
-                    // Map direct source columns
-                     config.final_cols.filter(c => c.type === 'source').forEach(col => {
-                        finalRow[col.key] = merged[col.value];
-                     });
-
+                    }
 
                     if (finalRow['Terminaciones'] !== undefined) {
                         let value = parseFloat(finalRow['Terminaciones']);
