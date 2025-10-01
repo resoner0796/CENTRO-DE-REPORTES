@@ -168,17 +168,14 @@
             .main-content {
                 min-height: 50vh;
                 gap: 12px;
+                min-width: 0; /* <<< AJUSTE CLAVE: Evita que el contenedor se expanda por contenido ancho. */
             }
             .card {
                 padding: 16px;
             }
             
-            /* --- AJUSTE CLAVE: Evitar expansión de contenedores --- */
-            .table-container, #summaryContainer {
-                overflow: hidden; /* Previene que la tarjeta se expanda */
-            }
             .table-wrapper {
-                overflow-x: auto; /* Permite scroll horizontal DENTRO del wrapper */
+                overflow-x: auto; /* <<< AJUSTE CLAVE: Permite el scroll horizontal DENTRO de las tablas. */
                 -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
             }
             
@@ -605,7 +602,6 @@
                 tableElement.innerHTML = html + '</tbody>';
             }
 
-            // --- FUNCIÓN MODIFICADA PARA EVITAR DESBORDAMIENTO DEL RESUMEN ---
             function renderTerminacionesSummary(data) {
                 const container = doc('summaryContainer');
                 if (!data || data.length === 0) {
@@ -629,7 +625,6 @@
                 });
 
                 const sortedDates = [...dates].sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-                // Se envuelve la tabla en un 'table-wrapper' para hacerla scrolleable
                 let summaryHTML = `<div class="table-wrapper"><table><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
@@ -659,7 +654,7 @@
                 });
                 summaryHTML += `<td>${grandTotal}</td>`;
 
-                summaryHTML += `</tr></tbody></table></div>`; // Se cierra el 'table-wrapper'
+                summaryHTML += `</tr></tbody></table></div>`;
                 container.innerHTML = `<h3>Resumen de Terminaciones</h3>${summaryHTML}`;
             }
             
