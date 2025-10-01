@@ -379,7 +379,7 @@
                                     }
                                 }
                                 return rowData;
-                            }).filter(row => row.Orden);
+                            }).filter(row => row.Orden); // Filter out empty rows
 
                             reportData[configKey] = data;
                             doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
@@ -427,24 +427,20 @@
                         }
                     }
                     
-                    // Add Area to the available data for formulas
+                    // Process mappings and formulas in order
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
                     
-                    // Map direct source columns to final output
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
-                        finalRow[col.key] = finalRow[col.value];
-                    });
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
 
-                    // Iteratively solve formulas
                     const formulas = config.final_cols.filter(c => c.type === 'formula');
-                    let solvedInThisIteration;
+                    let solvedFormulas = new Set();
                     let iterations = 0;
-                    do {
-                        solvedInThisIteration = false;
+                    while (solvedFormulas.size < formulas.length && iterations < 10) {
+                        let solvedInThisIteration = false;
                         formulas.forEach(col => {
-                            if (finalRow[col.key] === undefined) {
+                            if (!solvedFormulas.has(col.key)) {
                                 const dependencies = (col.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1).trim());
                                 const allDependenciesMet = dependencies.every(dep => finalRow[dep] !== undefined);
 
@@ -453,19 +449,20 @@
                                         let formula = col.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
                                         const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
                                         finalRow[col.key] = func(finalRow, formulaHelpers);
+                                        solvedFormulas.add(col.key);
                                         solvedInThisIteration = true;
-                                    } catch (e) { finalRow[col.key] = '¡ERROR!'; }
+                                    } catch (e) { finalRow[col.key] = '¡ERROR!'; solvedFormulas.add(col.key); }
                                 }
                             }
                         });
+                        if (!solvedInThisIteration) break; // Break if no new formulas were solved
                         iterations++;
-                    } while (solvedInThisIteration && iterations < 10);
+                    }
 
                     if (finalRow['Terminaciones'] !== undefined) {
                         let value = parseFloat(finalRow['Terminaciones']);
                         finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
                     }
-
                     return finalRow;
                 });
                 
