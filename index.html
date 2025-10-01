@@ -431,7 +431,7 @@
                             finalRow[key] = value;
                         }
                     }
-                    
+
                     // 2. Map direct source columns to finalRow first
                     config.final_cols.filter(c => c.type === 'source').forEach(col => {
                         finalRow[col.key] = finalRow[col.value];
@@ -449,7 +449,7 @@
                         const catalogo = finalRow['Catalogo'];
                         let fibras = 0;
                         if (area === 'UNAP LEGACY') {
-                            fibras = String(catalogo).startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                            fibras = String(catalogo).startsWith('MTS') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : 0; // Corrected Logic
                         }
                         else if (area === 'MPORT FLEX') {
                             fibras = (String(catalogo).startsWith('MSA') || String(catalogo).startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
@@ -527,7 +527,7 @@
                 });
 
                 const sortedDates = [...dates].sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-                let summaryHTML = `<h3>Resumen de Terminaciones</h3><div class="table-wrapper"><table style="width: auto; min-width: 100%;"><thead><tr><th>Área</th>`;
+                let summaryHTML = `<div class="table-wrapper"><table><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
 
