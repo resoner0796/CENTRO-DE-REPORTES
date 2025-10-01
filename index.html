@@ -10,6 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <!-- Fuentes de Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,7 +34,7 @@
             --text-secondary: #94A3B8;
             --text-dark: #64748B;
             --thead-bg: rgba(55, 65, 81, 0.8);
-            --sticky-col-bg: #2a2d32; /* <<< AJUSTE: Color opaco para columna fija */
+            --sticky-col-bg: #2a2d32;
         }
 
         body.light-theme {
@@ -50,7 +51,7 @@
             --text-dark: #9CA3AF;
             --branding-color: #0055A5;
             --thead-bg: rgba(229, 231, 235, 0.8);
-            --sticky-col-bg: #f1f5f9; /* <<< AJUSTE: Color opaco para columna fija */
+            --sticky-col-bg: #f1f5f9;
         }
 
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -58,7 +59,7 @@
         body {
             font-family: 'Inter', sans-serif; background: var(--bg-gradient); color: var(--text-primary); margin: 0; min-height: 100vh;
             display: flex; justify-content: center; transition: background 0.3s ease-in-out;
-            background-attachment: fixed; padding: 16px; box-sizing: border-box; overflow-x: hidden; /* <<< Evita desborde a nivel de body */
+            background-attachment: fixed; padding: 16px; box-sizing: border-box; overflow-x: hidden;
         }
         .app-container { width: 100%; max-width: 1600px; }
         #menuView, #view901, #viewTerminaciones { transition: opacity 0.3s ease-in-out, display 0.3s; }
@@ -94,7 +95,8 @@
         .icon-btn:hover { color: var(--text-primary); background-color: var(--surface-hover-color); }
         .main-content { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
         #summaryContainer { flex-shrink: 0; padding: 16px; }
-        #summaryContainer h3 { margin-top: 0; }
+        .summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .summary-header h3 { margin: 0; }
         .table-container { flex-grow: 1; min-height: 0; }
         .table-wrapper { overflow: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
         #summaryContainer .table-wrapper { border: none; }
@@ -109,7 +111,7 @@
         #summaryContainer table th, #summaryContainer table td { text-align: right; }
         #summaryContainer table th:first-child, #summaryContainer table td:first-child { 
             text-align: left; font-weight: bold; position: sticky; left: 0; z-index: 1;
-            background-color: var(--sticky-col-bg); /* <<< AJUSTE DEFINITIVO: Usar el fondo opaco */
+            background-color: var(--sticky-col-bg);
         }
         #summaryContainer table .grand-total { font-weight: bold; border-top: 2px solid var(--border-color); }
 
@@ -147,7 +149,7 @@
         #login-error-msg { color: var(--danger-color); text-align: center; margin-top: 10px; font-weight: 500; height: 1em; }
 
         /* --- INICIO DE MEJORAS PARA MÓVILES --- */
-        @media (max-width: 768px) {
+        @media (max-width: 800px), (max-height: 450px) {
             body {
                 overflow-y: auto;
                 padding: 8px;
@@ -216,12 +218,6 @@
             }
         }
         
-        /* AJUSTE: Muestra todas las columnas en modo horizontal en dispositivos anchos (tabletas/teléfonos grandes) */
-        @media (min-width: 769px) and (orientation: landscape) {
-            #dataTableTerminaciones .hide-on-mobile {
-                display: table-cell !important;
-            }
-        }
         /* --- FIN DE MEJORAS PARA MÓVILES --- */
     </style>
 </head>
@@ -280,7 +276,10 @@
                 </div></aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
                     <div class="card" id="summaryContainer">
-                        <p>Cargue los archivos para ver el resumen de terminaciones.</p>
+                        <div class="summary-header">
+                           <h3>Resumen de Terminaciones</h3>
+                           <p>Cargue los archivos para ver el resumen.</p>
+                        </div>
                     </div>
                     <div class="card table-container">
                         <div class="table-wrapper">
@@ -584,30 +583,23 @@
                 renderTerminacionesSummary(finalData);
             }
             
-            // <<< AJUSTE DEFINITIVO EN LA LÓGICA DE RENDERIZADO DE LA TABLA >>>
             function renderTerminacionesTable(data) {
                 const config = params.terminaciones_config.final_cols;
                 if (!config || config.length === 0) return;
                 
                 const allHeaders = config.map(c => c.key);
-                // Columnas que queremos ver en móvil vertical (ahora incluye Catálogo y Área)
-                const mobileVisibleHeaders = ['Orden', 'Catálogo', 'Cantidad', 'Fecha', 'Fibras', 'Terminaciones', 'Área'];
                 const tableElement = doc('dataTableTerminaciones');
 
                 let html = '<thead><tr>';
                 allHeaders.forEach(header => {
-                    // La clase 'hide-on-mobile' se aplica a las columnas que NO están en la lista visible
-                    // Esta clase se sobreescribirá en modo horizontal por el nuevo media query en CSS
-                    const isMobileHidden = !mobileVisibleHeaders.includes(header);
-                    html += `<th class="${isMobileHidden ? 'hide-on-mobile' : ''}">${header}</th>`;
+                    html += `<th>${header}</th>`; // <<< Lógica de ocultar columnas eliminada
                 });
                 html += '</tr></thead><tbody>';
 
                 data.forEach(row => {
                     html += '<tr>';
                     allHeaders.forEach(header => {
-                        const isMobileHidden = !mobileVisibleHeaders.includes(header);
-                        html += `<td class="${isMobileHidden ? 'hide-on-mobile' : ''}">${row[header] ?? ''}</td>`;
+                        html += `<td>${row[header] ?? ''}</td>`; // <<< Lógica de ocultar columnas eliminada
                     });
                     html += '</tr>';
                 });
@@ -617,7 +609,7 @@
             function renderTerminacionesSummary(data) {
                 const container = doc('summaryContainer');
                 if (!data || data.length === 0) {
-                    container.innerHTML = '<h3>Resumen de Terminaciones</h3><p>No hay datos para mostrar en el resumen.</p>';
+                    container.innerHTML = `<div class="summary-header"><h3>Resumen de Terminaciones</h3></div><p>No hay datos para mostrar.</p>`;
                     return;
                 }
 
@@ -637,7 +629,14 @@
                 });
 
                 const sortedDates = [...dates].sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-                let summaryHTML = `<div class="table-wrapper"><table><thead><tr><th>Área</th>`;
+                let summaryHTML = `
+                    <div class="summary-header">
+                        <h3>Resumen de Terminaciones</h3>
+                        <button id="exportSummaryBtn" class="icon-btn" title="Exportar como JPG">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        </button>
+                    </div>
+                    <div class="table-wrapper"><table><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
 
@@ -667,9 +666,48 @@
                 summaryHTML += `<td>${grandTotal}</td>`;
 
                 summaryHTML += `</tr></tbody></table></div>`;
-                container.innerHTML = `<h3>Resumen de Terminaciones</h3>${summaryHTML}`;
+                container.innerHTML = summaryHTML;
+                
+                doc('exportSummaryBtn').addEventListener('click', exportSummaryAsJPG);
             }
             
+            function exportSummaryAsJPG() {
+                const summaryCard = doc('summaryContainer');
+                const exportBtn = doc('exportSummaryBtn');
+                
+                if (!summaryCard || !html2canvas) return;
+
+                exportBtn.disabled = true;
+                exportBtn.innerHTML = 'Exportando...';
+
+                // Usar un color de fondo sólido para la captura
+                const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+                const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
+                
+                // Ocultar el botón para que no salga en la captura
+                exportBtn.style.display = 'none';
+
+                html2canvas(summaryCard, { 
+                    backgroundColor: bgColor, 
+                    scale: 2, // Aumentar resolución
+                    useCORS: true,
+                    onclone: (clonedDoc) => {
+                        // Asegurarse de que el padding se elimina en el clon para una captura limpia
+                        clonedDoc.getElementById('summaryContainer').style.padding = '0';
+                    }
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'Resumen_Terminaciones.jpg';
+                    link.href = canvas.toDataURL('image/jpeg', 0.95);
+                    link.click();
+                }).finally(() => {
+                    // Volver a mostrar el botón y restaurar su estado
+                    exportBtn.style.display = 'flex';
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+                });
+            }
+
             // --- Lógica de 901 ---
             async function handle901File(file) { const config = params['901_config']; const userColumnKey = 'Usuario'; const userColumnMap = config.columns.find(p => p.key === userColumnKey); if (!userColumnMap) { showModal('Error de Configuración', `<p>Debe existir una columna llamada "${userColumnKey}" en el mapeo para poder filtrar.</p>`); return; } const allowedUsers = config.userFilter.map(u => u.toUpperCase()); const reader = new FileReader(); reader.onload = async (e) => { try { const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const range = XLSX.utils.decode_range(ws['!ref']); const maxRow = range.e.r; const extractedData = []; const firstColStartRow = parseInt(config.columns[0].startCell.match(/\d+/)[0], 10) - 1; for (let R = firstColStartRow; R <= maxRow; ++R) { let rowData = {}; let isRowEmpty = true; const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0]; const userCellAddress = userCol + (R + 1); const userCell = ws[userCellAddress]; const userValue = userCell ? String(userCell.v).toUpperCase() : ''; if (allowedUsers.length > 0 && !allowedUsers.includes(userValue)) { continue; } config.columns.forEach(p => { const col = p.startCell.match(/[A-Z]+/)[0]; const cellAddress = col + (R + 1); const cell = ws[cellAddress]; let value = cell ? cell.v : undefined; if (value !== undefined) { isRowEmpty = false; if (p.key.toLowerCase() === 'fecha') { value = excelSerialDateToJSDate(value); } } rowData[p.key] = value; }); if (isRowEmpty) continue; extractedData.push(rowData); } if(extractedData.length === 0){ showModal('Sin Coincidencias', '<p>No se encontraron registros que coincidan con los filtros de usuario.</p>'); return; } const collectionRef = db.collection('report_data/901/entries'); for (const row of extractedData) { await collectionRef.add(row); } showModal('Éxito', `<p>${extractedData.length} registros han sido añadidos a la base de datos.</p>`); } catch (err) { console.error("Error al procesar archivo 901:", err); showModal('Error de Archivo', '<p>No se pudo procesar el archivo.</p>') } }; reader.readAsArrayBuffer(file); }
             let unsubscribe901 = null;
