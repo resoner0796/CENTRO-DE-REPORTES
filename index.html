@@ -92,8 +92,7 @@
         .icon-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
         .icon-btn:hover { color: var(--text-primary); background-color: var(--surface-hover-color); }
         .main-content { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-        .chart-and-summary-container { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; height: 300px; }
-        #chartContainer, #chartSummary { padding: 16px; }
+        #chartContainer { position: relative; height: 300px; padding: 16px; }
         .table-container { flex-grow: 1; min-height: 0; }
         .table-wrapper { overflow-y: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; }
@@ -141,7 +140,6 @@
         @media (max-width: 768px) {
             .main-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
             .sidebar { position: static; height: auto; }
-            .chart-and-summary-container { grid-template-columns: 1fr; height: auto; }
         }
     </style>
 </head>
@@ -198,7 +196,16 @@
                     <div id="fileDropAreaZpptwc" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;"><h4>Reporte SAP (Zpptwc)</h4><p>Arrastra el primer archivo aquí</p></div><input type="file" id="fileInputZpptwc" accept=".xlsx, .xls" style="display: none;">
                     <div id="fileDropAreaCoois" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;"><h4>Reporte SAP (Coois)</h4><p>Arrastra el segundo archivo aquí</p></div><input type="file" id="fileInputCoois" accept=".xlsx, .xls" style="display: none;">
                 </div></aside>
-                <main class="main-content animated-startup" style="animation-delay: 0.2s;"><div class="card chart-and-summary-container"><div id="chartSummary"><h3 style="margin-top: 0;">Resumen</h3><p><strong>Área:</strong> <span id="summaryArea">N/A</span></p><p><strong>Terminaciones:</strong> <span id="summaryTerminaciones">N/A</span></p><p><strong>Fecha:</strong> <span id="summaryFecha">N/A</span></p></div><div id="chartContainer" style="position: relative; height: 100%; width: 100%;"><canvas id="terminacionesChart"></canvas></div></div><div class="card table-container"><div class="table-wrapper"><table id="dataTableTerminaciones"><thead><tr><th>Carga los dos reportes de SAP para generar el informe</th></tr></thead><tbody></tbody></table></div></div></main>
+                <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <div class="card" id="chartContainer">
+                        <canvas id="terminacionesChart"></canvas>
+                    </div>
+                    <div class="card table-container">
+                        <div class="table-wrapper">
+                            <table id="dataTableTerminaciones"><thead><tr><th>Carga los dos reportes de SAP para generar el informe</th></tr></thead><tbody></tbody></table>
+                        </div>
+                    </div>
+                </main>
             </div>
         </div>
     </div>
@@ -282,7 +289,7 @@
                     <div id="tab-areas" class="tab-content">
                         <div class="area-source-container">
                             <label for="area-source-col">Columna Clave de Coois con Código de Área</label>
-                            <input type="text" id="area-source-col" placeholder="Ej. MRP_CODE" value="${config.area_config.source_col || ''}">
+                            <input type="text" id="area-source-col" placeholder="Ej. MRP_CONTROLLER" value="${config.area_config.source_col || ''}">
                             <p>Usa el "Nombre Clave" (definido en la pestaña 2) de la columna del reporte Coois que contiene el código de área (ej. MRP).</p>
                         </div>
                         <ul class="area-list">${config.area_config.mappings.map(a => createAreaItemHTML(a.code, a.name)).join('')}</ul>
@@ -306,9 +313,8 @@
             async function saveTerminacionesSettings() {
                 try {
                     const modalBody = document.getElementById('modalBody');
-                    if (!modalBody) {
-                        throw new Error("El cuerpo del modal no fue encontrado.");
-                    }
+                    if (!modalBody) throw new Error("El cuerpo del modal no fue encontrado.");
+                    
                     const newConfig = {
                         zpptwc_cols: Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
                         coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
@@ -318,6 +324,7 @@
                         },
                         final_cols: Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => ({ key: el.querySelector('.param-key').value, type: el.querySelector('.param-type').value, value: el.querySelector('.param-value-input').value })),
                     };
+
                     await db.collection('report_configs').doc('terminaciones_params_v2').set(newConfig); 
                     params.terminaciones_config = newConfig; 
                     showModal('Éxito', '<p>Configuración de Terminaciones guardada.</p>'); 
@@ -422,6 +429,7 @@
             
             function renderTerminacionesTableAndChart(data) {
                 const config = params.terminaciones_config.final_cols;
+                if (!config || config.length === 0) return;
                 const headers = config.map(c => c.key);
                 const tableElement = doc('dataTableTerminaciones');
 
@@ -434,21 +442,57 @@
                 tableElement.innerHTML = html + '</tbody>';
 
                 if (data.length > 0) {
-                    const summary = data.reduce((acc, row) => {
-                        acc.terminaciones += (row['Terminaciones'] || 0);
+                    const terminacionesByArea = data.reduce((acc, row) => {
+                        const area = row['Area'] || 'Sin Área';
+                        const terminaciones = row['Terminaciones'] || 0;
+                        if (!acc[area]) acc[area] = 0;
+                        acc[area] += terminaciones;
                         return acc;
-                    }, { terminaciones: 0 });
+                    }, {});
 
-                    doc('summaryArea').textContent = data[0]['Area'] || 'Múltiples'; // Simplified summary
-                    doc('summaryTerminaciones').textContent = summary.terminaciones;
-                    doc('summaryFecha').textContent = data[0]['Fecha'] || 'N/A';
-                    if (typeof summary.terminaciones === 'number') {
-                        renderTerminacionesChart(summary.terminaciones);
-                    }
+                    const chartLabels = Object.keys(terminacionesByArea);
+                    const chartData = Object.values(terminacionesByArea);
+                    renderTerminacionesChart(chartLabels, chartData);
                 }
             }
 
-            function renderTerminacionesChart(terminaciones) { const ctx = doc('terminacionesChart').getContext('2d'); if (terminacionesChartInstance) terminacionesChartInstance.destroy(); terminacionesChartInstance = new Chart(ctx, { type: 'pie', data: { labels: ['Terminaciones', 'Restante'], datasets: [{ data: [terminaciones, 100 - terminaciones], backgroundColor: ['rgba(75, 192, 192, 0.7)','rgba(255, 99, 132, 0.7)'], borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'var(--text-secondary)' } } } } }); }
+            function renderTerminacionesChart(labels, data) { 
+                const ctx = doc('terminacionesChart').getContext('2d'); 
+                if (terminacionesChartInstance) terminacionesChartInstance.destroy(); 
+                
+                const chartColors = [
+                    'rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)',
+                    'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)'
+                ];
+                const borderColors = chartColors.map(c => c.replace('0.6', '1'));
+
+                terminacionesChartInstance = new Chart(ctx, { 
+                    type: 'bar', 
+                    data: { 
+                        labels: labels, 
+                        datasets: [{ 
+                            label: 'Total de Terminaciones por Área',
+                            data: data, 
+                            backgroundColor: chartColors,
+                            borderColor: borderColors,
+                            borderWidth: 1 
+                        }] 
+                    }, 
+                    options: { 
+                        indexAxis: 'y', // <-- Esto hace la gráfica horizontal
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { 
+                            legend: { display: false },
+                            title: { display: true, text: 'Resumen de Terminaciones por Área', color: 'var(--text-secondary)' }
+                        },
+                        scales: {
+                            x: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } },
+                            y: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } }
+                        }
+                    } 
+                }); 
+            }
             
             // --- Lógica de 901 ---
             async function handle901File(file) { const config = params['901_config']; const userColumnKey = 'Usuario'; const userColumnMap = config.columns.find(p => p.key === userColumnKey); if (!userColumnMap) { showModal('Error de Configuración', `<p>Debe existir una columna llamada "${userColumnKey}" en el mapeo para poder filtrar.</p>`); return; } const allowedUsers = config.userFilter.map(u => u.toUpperCase()); const reader = new FileReader(); reader.onload = async (e) => { try { const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const range = XLSX.utils.decode_range(ws['!ref']); const maxRow = range.e.r; const extractedData = []; const firstColStartRow = parseInt(config.columns[0].startCell.match(/\d+/)[0], 10) - 1; for (let R = firstColStartRow; R <= maxRow; ++R) { let rowData = {}; let isRowEmpty = true; const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0]; const userCellAddress = userCol + (R + 1); const userCell = ws[userCellAddress]; const userValue = userCell ? String(userCell.v).toUpperCase() : ''; if (allowedUsers.length > 0 && !allowedUsers.includes(userValue)) { continue; } config.columns.forEach(p => { const col = p.startCell.match(/[A-Z]+/)[0]; const cellAddress = col + (R + 1); const cell = ws[cellAddress]; let value = cell ? cell.v : undefined; if (value !== undefined) { isRowEmpty = false; if (p.key.toLowerCase() === 'fecha') { value = excelSerialDateToJSDate(value); } } rowData[p.key] = value; }); if (isRowEmpty) continue; extractedData.push(rowData); } if(extractedData.length === 0){ showModal('Sin Coincidencias', '<p>No se encontraron registros que coincidan con los filtros de usuario.</p>'); return; } const collectionRef = db.collection('report_data/901/entries'); for (const row of extractedData) { await collectionRef.add(row); } showModal('Éxito', `<p>${extractedData.length} registros han sido añadidos a la base de datos.</p>`); } catch (err) { console.error("Error al procesar archivo 901:", err); showModal('Error de Archivo', '<p>No se pudo procesar el archivo.</p>') } }; reader.readAsArrayBuffer(file); }
@@ -470,3 +514,4 @@
     </script>
 </body>
 </html>
+
