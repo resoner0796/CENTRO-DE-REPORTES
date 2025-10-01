@@ -91,8 +91,8 @@
         .icon-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
         .icon-btn:hover { color: var(--text-primary); background-color: var(--surface-hover-color); }
         .main-content { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-        #summaryContainer { max-height: 300px; overflow: auto; padding: 16px; }
-        #summaryContainer table { white-space: nowrap; }
+        #summaryContainer { flex-shrink: 0; height: 300px; overflow: auto; padding: 16px; }
+        #summaryContainer h3 { margin-top: 0; }
         .table-container { flex-grow: 1; min-height: 0; }
         .table-wrapper { overflow-y: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; }
@@ -104,7 +104,7 @@
         .file-drop-area p { margin: 0; color: var(--text-dark); }
         .file-drop-area h4 { margin: 0 0 8px 0; color: var(--text-secondary); }
         #summaryContainer table th, #summaryContainer table td { text-align: right; }
-        #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; font-weight: bold; position: sticky; left: 0; background-color: var(--surface-color); }
+        #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; font-weight: bold; position: sticky; left: 0; background-color: var(--surface-color); z-index: 1;}
         #summaryContainer table .grand-total { font-weight: bold; border-top: 2px solid var(--border-color); }
 
         /* Modal Styles */
@@ -141,8 +141,9 @@
         #login-error-msg { color: var(--danger-color); text-align: center; margin-top: 10px; font-weight: 500; height: 1em; }
 
         @media (max-width: 768px) {
-            .main-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+            .main-container { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
             .sidebar { position: static; height: auto; }
+            #summaryContainer { height: auto; max-height: 40vh; }
         }
     </style>
 </head>
@@ -431,35 +432,36 @@
                         }
                     }
                     
-                    // 2. Add Area (it's a dependency for formulas)
+                    // 2. Map direct source columns to finalRow first
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
+                        finalRow[col.key] = finalRow[col.value];
+                    });
+                    
+                    // 3. Add Area (it's a dependency for formulas)
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
                     
-                    // 3. Map "Dato Directo" columns
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
-                        finalRow[col.key] = finalRow[col.value];
-                    });
-
                     // 4. Process Automatic Columns in order
                     const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
                     if (autoFibrasCol) {
                         const area = finalRow['Area'];
                         const catalogo = finalRow['Catalogo'];
                         let fibras = 0;
-                        if (area === 'NON STD') fibras = 2;
-                        else if (area === 'SPECIALTY') fibras = 12;
-                        else if (area === 'MULTIPORT') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                        else if (area === 'EVOLV MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                        else if (area === 'EVOLV MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                        else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
-                        else if (area === 'MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                        if (area === 'UNAP LEGACY') {
+                            fibras = String(catalogo).startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                        }
                         else if (area === 'MPORT FLEX') {
                             fibras = (String(catalogo).startsWith('MSA') || String(catalogo).startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
                         }
-                        else if (area === 'UNAP LEGACY') {
-                            fibras = String(catalogo).startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                        }
+                        else if (area === 'EVOLV MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                        else if (area === 'NON STD') fibras = 2;
+                        else if (area === 'SPECIALTY') fibras = 12;
+                        else if (area === 'MULTIPORT') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                        else if (area === 'EVOLV MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                        else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                        else if (area === 'MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+
                         finalRow[autoFibrasCol.key] = parseFloat(fibras) || 0;
                     }
                     
@@ -525,7 +527,7 @@
                 });
 
                 const sortedDates = [...dates].sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-                let summaryHTML = `<h3>Resumen de Terminaciones</h3><div class="table-wrapper" style="max-height: 250px;"><table><thead><tr><th>Área</th>`;
+                let summaryHTML = `<h3>Resumen de Terminaciones</h3><div class="table-wrapper"><table style="width: auto; min-width: 100%;"><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
 
