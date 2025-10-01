@@ -429,16 +429,16 @@
                         }
                     }
                     
-                    // 2. Map direct source columns to finalRow first
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
-                        finalRow[col.key] = finalRow[col.value];
-                    });
-
-                    // 3. Add Area (it's a dependency for formulas)
+                    // 2. Add Area (it's a dependency for formulas)
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
                     
+                    // 3. Map "Dato Directo" columns
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
+                        finalRow[col.key] = finalRow[col.value];
+                    });
+
                     // 4. Process Automatic Columns in order
                     const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
                     if (autoFibrasCol) {
@@ -470,8 +470,7 @@
                         const cantidad = parseFloat(finalRow['Cantidad']) || 0;
                         finalRow[autoTermCol.key] = fibras * cantidad;
                     }
-
-                    // 5. Final cleaning on calculated fields
+                     
                     if (finalRow['Terminaciones'] !== undefined) {
                         let value = parseFloat(finalRow['Terminaciones']);
                         finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
