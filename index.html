@@ -289,7 +289,7 @@
                     <div id="tab-areas" class="tab-content">
                         <div class="area-source-container">
                             <label for="area-source-col">Columna Clave de Coois con Código de Área</label>
-                            <input type="text" id="area-source-col" placeholder="Ej. MRP_CONTROLLER" value="${config.area_config.source_col || ''}">
+                            <input type="text" id="area-source-col" placeholder="Ej. MRP" value="${config.area_config.source_col || ''}">
                             <p>Usa el "Nombre Clave" (definido en la pestaña 2) de la columna del reporte Coois que contiene el código de área (ej. MRP).</p>
                         </div>
                         <ul class="area-list">${config.area_config.mappings.map(a => createAreaItemHTML(a.code, a.name)).join('')}</ul>
@@ -369,20 +369,12 @@
                             const ws = wb.Sheets[wb.SheetNames[0]];
                             const mapping = (configKey === 'zpptwc') ? params.terminaciones_config.zpptwc_cols : params.terminaciones_config.coois_cols;
                             
-                            const sheetData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-                            const headerRow = sheetData[0];
-                            const dataRows = sheetData.slice(1);
+                            const sheetData = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: null });
                             
-                            const colIndices = {};
-                            mapping.forEach(map => {
-                                const index = headerRow.findIndex(header => header === map.excel_col);
-                                if(index !== -1) colIndices[map.key] = index;
-                            });
-
-                            const data = dataRows.map(row => {
+                            const data = sheetData.slice(1).map(row => {
                                 let rowData = {};
-                                for (const key in colIndices) {
-                                    rowData[key] = row[colIndices[key]];
+                                for (const map of mapping) {
+                                    rowData[map.key] = row[map.excel_col];
                                 }
                                 return rowData;
                             });
@@ -392,7 +384,7 @@
                             processTerminacionesReport();
                         } catch (err) { 
                             console.error("Error processing file:", err);
-                            showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo de nombres de columna.</p>'); 
+                            showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo de letras de columna.</p>'); 
                         }
                     };
                     reader.readAsArrayBuffer(file);
@@ -405,28 +397,32 @@
                 if (!reportData.zpptwc || !reportData.coois) return;
                 
                 const config = params.terminaciones_config;
-                const zpptwcKey = 'Orden';
-                const cooisKey = 'Orden';
+                const joinKey = 'Orden';
 
-                if (!config.zpptwc_cols.some(c=>c.key === zpptwcKey) || !config.coois_cols.some(c=>c.key === cooisKey)) {
+                if (!config.zpptwc_cols.some(c=>c.key === joinKey) || !config.coois_cols.some(c=>c.key === joinKey)) {
                     showModal('Error de Configuración', '<p>Asegúrese de mapear una columna con el nombre clave "Orden" en ambos reportes.</p>');
                     return;
                 }
-
-                const cooisMap = new Map(reportData.coois.map(row => [row[cooisKey], row]));
+                
+                const cooisMap = new Map(reportData.coois.map(row => [String(row[joinKey]).replace(/^0+/, ''), row]));
                 
                 const finalData = reportData.zpptwc.map(zpptwcRow => {
-                    const cooisRow = cooisMap.get(zpptwcRow[zpptwcKey]) || {};
+                    const cleanOrder = String(zpptwcRow[joinKey]).replace(/^0+/, '');
+                    const cooisRow = cooisMap.get(cleanOrder) || {};
+                    
                     let merged = {...zpptwcRow, ...cooisRow};
                     
-                    let finalRow = {};
+                    if (merged['Orden']) merged['Orden'] = String(merged['Orden']).replace(/^0+/, '');
+                    if (merged['Material']) merged['Material'] = String(merged['Material']).replace(/^0+/, '');
+                    if (merged['Fecha'] instanceof Date) {
+                        merged['Fecha'] = merged['Fecha'].toLocaleString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+                    }
+
+                    let finalRow = {...merged};
                     
-                    // Pre-calculate Area
                     const areaCode = merged[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
-                    
-                    Object.assign(finalRow, merged);
                     
                     config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = merged[col.value]; });
 
@@ -456,12 +452,6 @@
                         let value = parseFloat(finalRow['Terminaciones']);
                         finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
                     }
-                    if (finalRow['Orden']) finalRow['Orden'] = String(finalRow['Orden']).replace(/^0+/, '');
-                    if (finalRow['Material']) finalRow['Material'] = String(finalRow['Material']).replace(/^0+/, '');
-                    if (finalRow['Fecha'] instanceof Date) {
-                        finalRow['Fecha'] = finalRow['Fecha'].toLocaleString('es-MX', { dateStyle:'short', timeStyle:'short' });
-                    }
-
                     return finalRow;
                 });
                 
