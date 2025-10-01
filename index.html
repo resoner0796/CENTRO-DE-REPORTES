@@ -33,6 +33,7 @@
             --text-secondary: #94A3B8;
             --text-dark: #64748B;
             --thead-bg: rgba(55, 65, 81, 0.8);
+            --sticky-col-bg: #2a2d32; /* <<< AJUSTE: Color opaco para columna fija */
         }
 
         body.light-theme {
@@ -49,6 +50,7 @@
             --text-dark: #9CA3AF;
             --branding-color: #0055A5;
             --thead-bg: rgba(229, 231, 235, 0.8);
+            --sticky-col-bg: #f1f5f9; /* <<< AJUSTE: Color opaco para columna fija */
         }
 
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -56,7 +58,7 @@
         body {
             font-family: 'Inter', sans-serif; background: var(--bg-gradient); color: var(--text-primary); margin: 0; min-height: 100vh;
             display: flex; justify-content: center; transition: background 0.3s ease-in-out;
-            background-attachment: fixed; padding: 16px; box-sizing: border-box; overflow: hidden;
+            background-attachment: fixed; padding: 16px; box-sizing: border-box; overflow-x: hidden; /* <<< Evita desborde a nivel de body */
         }
         .app-container { width: 100%; max-width: 1600px; }
         #menuView, #view901, #viewTerminaciones { transition: opacity 0.3s ease-in-out, display 0.3s; }
@@ -107,7 +109,7 @@
         #summaryContainer table th, #summaryContainer table td { text-align: right; }
         #summaryContainer table th:first-child, #summaryContainer table td:first-child { 
             text-align: left; font-weight: bold; position: sticky; left: 0; z-index: 1;
-            background-color: var(--thead-bg); /* AJUSTE: Usar un fondo más opaco */
+            background-color: var(--sticky-col-bg); /* <<< AJUSTE DEFINITIVO: Usar el fondo opaco */
         }
         #summaryContainer table .grand-total { font-weight: bold; border-top: 2px solid var(--border-color); }
 
@@ -171,15 +173,15 @@
             .main-content {
                 min-height: 50vh;
                 gap: 12px;
-                min-width: 0; /* AJUSTE CLAVE: Evita que el contenedor se expanda por contenido ancho. */
+                min-width: 0; 
             }
             .card {
                 padding: 16px;
             }
             
             .table-wrapper {
-                overflow-x: auto; /* AJUSTE CLAVE: Permite el scroll horizontal DENTRO de las tablas. */
-                -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+                overflow-x: auto; 
+                -webkit-overflow-scrolling: touch; 
             }
             
             table th, table td {
@@ -190,10 +192,6 @@
             #summaryContainer table th:first-child,
             #summaryContainer table td:first-child {
                 text-align: left;
-            }
-
-            .hide-on-mobile {
-                display: none !important;
             }
 
             .modal-content {
@@ -218,10 +216,10 @@
             }
         }
         
-        /* AJUSTE: Nuevo media query para modo horizontal */
-        @media (max-width: 900px) and (orientation: landscape) {
-            .hide-on-mobile {
-                display: table-cell !important; /* Muestra todas las columnas */
+        /* AJUSTE: Muestra todas las columnas en modo horizontal en dispositivos anchos (tabletas/teléfonos grandes) */
+        @media (min-width: 769px) and (orientation: landscape) {
+            #dataTableTerminaciones .hide-on-mobile {
+                display: table-cell !important;
             }
         }
         /* --- FIN DE MEJORAS PARA MÓVILES --- */
@@ -586,17 +584,20 @@
                 renderTerminacionesSummary(finalData);
             }
             
+            // <<< AJUSTE DEFINITIVO EN LA LÓGICA DE RENDERIZADO DE LA TABLA >>>
             function renderTerminacionesTable(data) {
                 const config = params.terminaciones_config.final_cols;
                 if (!config || config.length === 0) return;
                 
                 const allHeaders = config.map(c => c.key);
-                // AJUSTE: Columnas visibles en móvil (vertical)
+                // Columnas que queremos ver en móvil vertical (ahora incluye Catálogo y Área)
                 const mobileVisibleHeaders = ['Orden', 'Catálogo', 'Cantidad', 'Fecha', 'Fibras', 'Terminaciones', 'Área'];
                 const tableElement = doc('dataTableTerminaciones');
 
                 let html = '<thead><tr>';
                 allHeaders.forEach(header => {
+                    // La clase 'hide-on-mobile' se aplica a las columnas que NO están en la lista visible
+                    // Esta clase se sobreescribirá en modo horizontal por el nuevo media query en CSS
                     const isMobileHidden = !mobileVisibleHeaders.includes(header);
                     html += `<th class="${isMobileHidden ? 'hide-on-mobile' : ''}">${header}</th>`;
                 });
