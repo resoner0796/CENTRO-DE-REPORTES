@@ -149,7 +149,8 @@
         #login-error-msg { color: var(--danger-color); text-align: center; margin-top: 10px; font-weight: 500; height: 1em; }
 
         /* --- INICIO DE MEJORAS PARA MÓVILES --- */
-        @media (max-width: 800px), (max-height: 450px) {
+        /* Aplica el layout vertical a pantallas de hasta 900px de ancho O pantallas de menos de 450px de alto (móviles en horizontal) */
+        @media (max-width: 900px), (max-height: 450px) {
             body {
                 overflow-y: auto;
                 padding: 8px;
@@ -164,7 +165,7 @@
                 font-size: 1rem;
             }
             .main-container {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr; /* <<< AJUSTE CLAVE: Siempre una columna en móvil */
                 grid-template-rows: auto;
                 height: auto;
                 gap: 12px;
@@ -217,7 +218,6 @@
                 grid-column: 1;
             }
         }
-        
         /* --- FIN DE MEJORAS PARA MÓVILES --- */
     </style>
 </head>
@@ -278,8 +278,8 @@
                     <div class="card" id="summaryContainer">
                         <div class="summary-header">
                            <h3>Resumen de Terminaciones</h3>
-                           <p>Cargue los archivos para ver el resumen.</p>
                         </div>
+                        <p>Cargue los archivos para ver el resumen.</p>
                     </div>
                     <div class="card table-container">
                         <div class="table-wrapper">
@@ -592,14 +592,14 @@
 
                 let html = '<thead><tr>';
                 allHeaders.forEach(header => {
-                    html += `<th>${header}</th>`; // <<< Lógica de ocultar columnas eliminada
+                    html += `<th>${header}</th>`;
                 });
                 html += '</tr></thead><tbody>';
 
                 data.forEach(row => {
                     html += '<tr>';
                     allHeaders.forEach(header => {
-                        html += `<td>${row[header] ?? ''}</td>`; // <<< Lógica de ocultar columnas eliminada
+                        html += `<td>${row[header] ?? ''}</td>`;
                     });
                     html += '</tr>';
                 });
@@ -636,7 +636,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                     </div>
-                    <div class="table-wrapper"><table><thead><tr><th>Área</th>`;
+                    <div id="summaryTableWrapper" class="table-wrapper"><table><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
 
@@ -671,29 +671,41 @@
                 doc('exportSummaryBtn').addEventListener('click', exportSummaryAsJPG);
             }
             
+            // <<< FUNCIÓN DE EXPORTACIÓN MEJORADA >>>
             function exportSummaryAsJPG() {
                 const summaryCard = doc('summaryContainer');
                 const exportBtn = doc('exportSummaryBtn');
                 
-                if (!summaryCard || !html2canvas) return;
+                if (!summaryCard || typeof html2canvas === 'undefined') {
+                    console.error("html2canvas no está disponible.");
+                    return;
+                }
 
                 exportBtn.disabled = true;
-                exportBtn.innerHTML = 'Exportando...';
+                exportBtn.innerHTML = '...';
 
-                // Usar un color de fondo sólido para la captura
                 const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
                 const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
                 
-                // Ocultar el botón para que no salga en la captura
-                exportBtn.style.display = 'none';
+                exportBtn.style.visibility = 'hidden';
 
                 html2canvas(summaryCard, { 
                     backgroundColor: bgColor, 
-                    scale: 2, // Aumentar resolución
+                    scale: 2.5,
                     useCORS: true,
+                    // onclone es la clave para capturar el contenido completo sin afectar la UI
                     onclone: (clonedDoc) => {
-                        // Asegurarse de que el padding se elimina en el clon para una captura limpia
-                        clonedDoc.getElementById('summaryContainer').style.padding = '0';
+                        const clonedCard = clonedDoc.getElementById('summaryContainer');
+                        const clonedWrapper = clonedCard.querySelector('.table-wrapper');
+                        
+                        // Elimina el padding para una captura limpia
+                        clonedCard.style.padding = '16px'; 
+
+                        // Fuerza al wrapper a ser visible y tan ancho como su contenido
+                        if (clonedWrapper) {
+                            clonedWrapper.style.overflow = 'visible';
+                            clonedWrapper.style.width = `${clonedWrapper.scrollWidth}px`;
+                        }
                     }
                 }).then(canvas => {
                     const link = document.createElement('a');
@@ -701,8 +713,7 @@
                     link.href = canvas.toDataURL('image/jpeg', 0.95);
                     link.click();
                 }).finally(() => {
-                    // Volver a mostrar el botón y restaurar su estado
-                    exportBtn.style.display = 'flex';
+                    exportBtn.style.visibility = 'visible';
                     exportBtn.disabled = false;
                     exportBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
                 });
