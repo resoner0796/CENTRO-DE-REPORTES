@@ -454,7 +454,7 @@
                         if (area === 'UNAP LEGACY') {
                             // --- CORRECCIÓN APLICADA AQUÍ ---
                             // Se elimina la condición ternaria para que siempre extraiga el 6to dígito.
-                            fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                            fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1);
                         }
                         else if (area === 'MPORT FLEX') {
                             fibras = (String(catalogo).startsWith('MSA') || String(catalogo).startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
