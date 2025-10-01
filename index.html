@@ -91,10 +91,11 @@
         .icon-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
         .icon-btn:hover { color: var(--text-primary); background-color: var(--surface-hover-color); }
         .main-content { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-        #summaryContainer { flex-shrink: 0; height: 300px; overflow: auto; padding: 16px; }
+        #summaryContainer { flex-shrink: 0; padding: 16px; }
         #summaryContainer h3 { margin-top: 0; }
         .table-container { flex-grow: 1; min-height: 0; }
         .table-wrapper { overflow: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        #summaryContainer .table-wrapper { border: none; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
@@ -144,7 +145,7 @@
         @media (max-width: 768px) {
             body {
                 overflow-y: auto;
-                padding: 8px; /* Reducir padding del body */
+                padding: 8px;
             }
             .app-header {
                 margin-bottom: 16px;
@@ -157,7 +158,7 @@
             }
             .main-container {
                 grid-template-columns: 1fr;
-                grid-template-rows: auto; /* Simplificar grid */
+                grid-template-rows: auto;
                 height: auto;
                 gap: 12px;
             }
@@ -169,34 +170,32 @@
                 gap: 12px;
             }
             .card {
-                padding: 16px; /* Reducir padding de las tarjetas */
-            }
-            #summaryContainer {
-                height: auto;
-                max-height: 45vh;
-            }
-            .table-container {
-                overflow: hidden; 
+                padding: 16px;
             }
             
-            /* Estilos generales para todas las tablas en móvil */
-            table th, table td {
-                padding: 8px 10px; /* Reducir padding */
-                font-size: 0.8rem; /* Reducir fuente */
-                text-align: center; /* Centrar texto como se pidió */
+            /* --- AJUSTE CLAVE: Evitar expansión de contenedores --- */
+            .table-container, #summaryContainer {
+                overflow: hidden; /* Previene que la tarjeta se expanda */
             }
-            /* Para tablas de resumen, mantener alineación izquierda en la primera columna */
+            .table-wrapper {
+                overflow-x: auto; /* Permite scroll horizontal DENTRO del wrapper */
+                -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+            }
+            
+            table th, table td {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+                text-align: center;
+            }
             #summaryContainer table th:first-child,
             #summaryContainer table td:first-child {
                 text-align: left;
             }
 
-            /* Clase para ocultar columnas en la tabla principal de terminaciones */
             .hide-on-mobile {
                 display: none !important;
             }
 
-            /* Ajustes al modal para que se vea mejor en móvil */
             .modal-content {
                 width: 95%;
                 max-height: 85vh;
@@ -204,20 +203,18 @@
                 flex-direction: column;
             }
             #modalBody {
-                overflow-y: auto; /* Hacer scrollable el contenido del modal si es muy largo */
+                overflow-y: auto;
             }
             .param-item, .area-item {
-                /* Convertir el grid a un layout de bloque para que los elementos se apilen */
                 grid-template-columns: 1fr;
                 gap: 8px;
                 text-align: left;
             }
             .param-item .btn-danger, .area-item .btn-danger {
-                /* Posicionar el botón de borrar al final */
                 justify-self: end;
             }
             .param-value-container {
-                grid-column: 1; /* Resetear el spanning de columna */
+                grid-column: 1;
             }
         }
         /* --- FIN DE MEJORAS PARA MÓVILES --- */
@@ -582,18 +579,15 @@
                 renderTerminacionesSummary(finalData);
             }
             
-            // --- FUNCIÓN MODIFICADA PARA LA VISTA MÓVIL ---
             function renderTerminacionesTable(data) {
                 const config = params.terminaciones_config.final_cols;
                 if (!config || config.length === 0) return;
                 
                 const allHeaders = config.map(c => c.key);
-                // Definimos las columnas que SÍ queremos ver en móvil
                 const mobileVisibleHeaders = ['Orden', 'Cantidad', 'Fecha', 'Fibras', 'Terminaciones', 'Área'];
                 const tableElement = doc('dataTableTerminaciones');
 
                 let html = '<thead><tr>';
-                // Construimos los encabezados, añadiendo una clase para ocultar en móvil si no está en la lista de visibles
                 allHeaders.forEach(header => {
                     const isMobileHidden = !mobileVisibleHeaders.includes(header);
                     html += `<th class="${isMobileHidden ? 'hide-on-mobile' : ''}">${header}</th>`;
@@ -602,7 +596,6 @@
 
                 data.forEach(row => {
                     html += '<tr>';
-                    // Hacemos lo mismo para las celdas, asegurando que la clase coincida con su encabezado
                     allHeaders.forEach(header => {
                         const isMobileHidden = !mobileVisibleHeaders.includes(header);
                         html += `<td class="${isMobileHidden ? 'hide-on-mobile' : ''}">${row[header] ?? ''}</td>`;
@@ -612,6 +605,7 @@
                 tableElement.innerHTML = html + '</tbody>';
             }
 
+            // --- FUNCIÓN MODIFICADA PARA EVITAR DESBORDAMIENTO DEL RESUMEN ---
             function renderTerminacionesSummary(data) {
                 const container = doc('summaryContainer');
                 if (!data || data.length === 0) {
@@ -635,6 +629,7 @@
                 });
 
                 const sortedDates = [...dates].sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
+                // Se envuelve la tabla en un 'table-wrapper' para hacerla scrolleable
                 let summaryHTML = `<div class="table-wrapper"><table><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
@@ -664,7 +659,7 @@
                 });
                 summaryHTML += `<td>${grandTotal}</td>`;
 
-                summaryHTML += `</tr></tbody></table></div>`;
+                summaryHTML += `</tr></tbody></table></div>`; // Se cierra el 'table-wrapper'
                 container.innerHTML = `<h3>Resumen de Terminaciones</h3>${summaryHTML}`;
             }
             
