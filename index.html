@@ -140,13 +140,87 @@
         .helper-pill:hover { background-color: var(--primary-color); color: var(--primary-text-color); border-color: var(--primary-color); }
         #login-error-msg { color: var(--danger-color); text-align: center; margin-top: 10px; font-weight: 500; height: 1em; }
 
+        /* --- INICIO DE MEJORAS PARA MÓVILES --- */
         @media (max-width: 768px) {
-            body { overflow-y: auto; }
-            .main-container { grid-template-columns: 1fr; grid-template-rows: auto auto auto; height: auto; }
-            .sidebar { height: auto; }
-            .main-content { min-height: 50vh; }
-            #summaryContainer { height: auto; max-height: 40vh; }
+            body {
+                overflow-y: auto;
+                padding: 8px; /* Reducir padding del body */
+            }
+            .app-header {
+                margin-bottom: 16px;
+            }
+            .app-branding {
+                font-size: 2rem;
+            }
+            .app-title {
+                font-size: 1rem;
+            }
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto; /* Simplificar grid */
+                height: auto;
+                gap: 12px;
+            }
+            .sidebar {
+                height: auto;
+            }
+            .main-content {
+                min-height: 50vh;
+                gap: 12px;
+            }
+            .card {
+                padding: 16px; /* Reducir padding de las tarjetas */
+            }
+            #summaryContainer {
+                height: auto;
+                max-height: 45vh;
+            }
+            .table-container {
+                overflow: hidden; 
+            }
+            
+            /* Estilos generales para todas las tablas en móvil */
+            table th, table td {
+                padding: 8px 10px; /* Reducir padding */
+                font-size: 0.8rem; /* Reducir fuente */
+                text-align: center; /* Centrar texto como se pidió */
+            }
+            /* Para tablas de resumen, mantener alineación izquierda en la primera columna */
+            #summaryContainer table th:first-child,
+            #summaryContainer table td:first-child {
+                text-align: left;
+            }
+
+            /* Clase para ocultar columnas en la tabla principal de terminaciones */
+            .hide-on-mobile {
+                display: none !important;
+            }
+
+            /* Ajustes al modal para que se vea mejor en móvil */
+            .modal-content {
+                width: 95%;
+                max-height: 85vh;
+                display: flex;
+                flex-direction: column;
+            }
+            #modalBody {
+                overflow-y: auto; /* Hacer scrollable el contenido del modal si es muy largo */
+            }
+            .param-item, .area-item {
+                /* Convertir el grid a un layout de bloque para que los elementos se apilen */
+                grid-template-columns: 1fr;
+                gap: 8px;
+                text-align: left;
+            }
+            .param-item .btn-danger, .area-item .btn-danger {
+                /* Posicionar el botón de borrar al final */
+                justify-self: end;
+            }
+            .param-value-container {
+                grid-column: 1; /* Resetear el spanning de columna */
+            }
         }
+        /* --- FIN DE MEJORAS PARA MÓVILES --- */
     </style>
 </head>
 <body class="dark-theme">
@@ -468,8 +542,6 @@
                         let fibras = 0;
                         
                         if (area === 'UNAP LEGACY') {
-                            // --- CORRECCIÓN FINAL Y DEFINITIVA APLICADA AQUÍ ---
-                            // Esta lógica ahora maneja ambos formatos de catálogo para UNAP LEGACY.
                             fibras = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         }
                         else if (area === 'MPORT FLEX') {
@@ -510,16 +582,31 @@
                 renderTerminacionesSummary(finalData);
             }
             
+            // --- FUNCIÓN MODIFICADA PARA LA VISTA MÓVIL ---
             function renderTerminacionesTable(data) {
                 const config = params.terminaciones_config.final_cols;
                 if (!config || config.length === 0) return;
-                const headers = config.map(c => c.key);
+                
+                const allHeaders = config.map(c => c.key);
+                // Definimos las columnas que SÍ queremos ver en móvil
+                const mobileVisibleHeaders = ['Orden', 'Cantidad', 'Fecha', 'Fibras', 'Terminaciones', 'Área'];
                 const tableElement = doc('dataTableTerminaciones');
 
-                let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+                let html = '<thead><tr>';
+                // Construimos los encabezados, añadiendo una clase para ocultar en móvil si no está en la lista de visibles
+                allHeaders.forEach(header => {
+                    const isMobileHidden = !mobileVisibleHeaders.includes(header);
+                    html += `<th class="${isMobileHidden ? 'hide-on-mobile' : ''}">${header}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+
                 data.forEach(row => {
                     html += '<tr>';
-                    headers.forEach(header => { html += `<td>${row[header] ?? ''}</td>`; });
+                    // Hacemos lo mismo para las celdas, asegurando que la clase coincida con su encabezado
+                    allHeaders.forEach(header => {
+                        const isMobileHidden = !mobileVisibleHeaders.includes(header);
+                        html += `<td class="${isMobileHidden ? 'hide-on-mobile' : ''}">${row[header] ?? ''}</td>`;
+                    });
                     html += '</tr>';
                 });
                 tableElement.innerHTML = html + '</tbody>';
