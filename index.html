@@ -303,7 +303,7 @@
                 modalBody.querySelector('.addBtn').addEventListener('click', () => { const activeTab = modalBody.querySelector('.tab-content.active'); if(activeTab.id === 'tab-areas') { activeTab.querySelector('.area-list').insertAdjacentHTML('beforeend', createAreaItemHTML('', '')); } else if(activeTab.id === 'tab-final') { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createFinalColHTML('', 'source', '')); } else { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createSourceColHTML('', '')); } });
                 doc('saveTerminacionesSettingsBtn').addEventListener('click', saveTerminacionesSettings);
             }
-            function createSourceColHTML(key, excel_col) { return `<li class="param-item" style="grid-template-columns: 1fr 1fr auto;"><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Nombre Columna en Excel" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            function createSourceColHTML(key, excel_col) { return `<li class="param-item" style="grid-template-columns: 1fr 1fr auto;"><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Letra de Columna (ej. A, B, C)" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             function createAreaItemHTML(code, name) { return `<li class="area-item"><input type="text" class="area-code" placeholder="Código en Excel" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             function createFinalColHTML(key, type, value) { const options = `<option value="source" ${type === 'source' ? 'selected' : ''}>Dato Directo</option><option value="formula" ${type === 'formula' ? 'selected' : ''}>Fórmula</option>`; const isFormula = type === 'formula'; return `<li class="param-item" style="grid-template-columns:1fr 1fr 2fr auto"><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${options}</select><div><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             window.populateFormulaHelpers = (inputElement, isFormula) => { const container = inputElement.nextElementSibling; container.innerHTML = ''; if (!isFormula) return; const modalBody = inputElement.closest('#modalBody'); if (!modalBody) return; const zpptwc_cols = Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => el.querySelector('.param-key').value); const coois_cols = Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => el.querySelector('.param-key').value); const availableCols = [...zpptwc_cols, ...coois_cols, 'Area'].filter(Boolean); const uniqueCols = [...new Set(availableCols)]; uniqueCols.forEach(colName => { const pill = document.createElement('button'); pill.className = 'helper-pill'; pill.textContent = colName; pill.onclick = (e) => { e.preventDefault(); insertAtCursor(inputElement, `{${colName}}`); }; container.appendChild(pill); }); };
@@ -316,8 +316,8 @@
                     if (!modalBody) throw new Error("El cuerpo del modal no fue encontrado.");
                     
                     const newConfig = {
-                        zpptwc_cols: Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
-                        coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value })),
+                        zpptwc_cols: Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value.toUpperCase() })),
+                        coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value, excel_col: el.querySelector('.param-excel-col').value.toUpperCase() })),
                         area_config: { 
                             source_col: modalBody.querySelector('#area-source-col').value, 
                             mappings: Array.from(modalBody.querySelectorAll('#tab-areas .area-item')).map(el => ({ code: el.querySelector('.area-code').value, name: el.querySelector('.area-name').value })) 
@@ -357,24 +357,45 @@
             setupFileHandler('fileDropArea901', 'fileInput901', '901');
             setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
             setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
+
+            function extractDataByColLetters(worksheet, columnMapping) {
+                const range = XLSX.utils.decode_range(worksheet['!ref']);
+                const data = [];
+                for (let R = 1; R <= range.e.r; ++R) { // Start from row 2 (index 1)
+                    let rowData = {};
+                    let isRowEmpty = true;
+                    for (const mapping of columnMapping) {
+                        const cellAddress = mapping.excel_col + (R + 1);
+                        const cell = worksheet[cellAddress];
+                        const value = cell ? cell.v : undefined;
+                        rowData[mapping.key] = value;
+                        if(value !== undefined) isRowEmpty = false;
+                    }
+                    if (isRowEmpty) break;
+                    data.push(rowData);
+                }
+                return data;
+            }
             
-            function handleFile(file, configKey) {
-                if(configKey === '901') {
+            async function handleFile(file, configKey) {
+                if(configKey === '901') { 
                     handle901File(file); 
                 } else {
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         try {
-                            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                             const ws = wb.Sheets[wb.SheetNames[0]];
-                            const data = XLSX.utils.sheet_to_json(ws, { raw: true, defval: null });
+                            
+                            const mapping = (configKey === 'zpptwc') ? params.terminaciones_config.zpptwc_cols : params.terminaciones_config.coois_cols;
+                            const data = extractDataByColLetters(ws, mapping);
 
                             reportData[configKey] = data;
                             doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
                             processTerminacionesReport();
                         } catch (err) { 
                             console.error("Error processing file:", err);
-                            showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel.</p>'); 
+                            showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo.</p>'); 
                         }
                     };
                     reader.readAsArrayBuffer(file);
@@ -387,10 +408,10 @@
                 if (!reportData.zpptwc || !reportData.coois) return;
                 
                 const config = params.terminaciones_config;
-                const zpptwcKey = config.zpptwc_cols.find(c => c.key === 'Orden')?.excel_col;
-                const cooisKey = config.coois_cols.find(c => c.key === 'Orden')?.excel_col;
+                const zpptwcKey = 'Orden';
+                const cooisKey = 'Orden';
 
-                if (!zpptwcKey || !cooisKey) {
+                if (!config.zpptwc_cols.some(c=>c.key === zpptwcKey) || !config.coois_cols.some(c=>c.key === cooisKey)) {
                     showModal('Error de Configuración', '<p>Asegúrese de mapear una columna con el nombre clave "Orden" en ambos reportes de SAP.</p>');
                     return;
                 }
@@ -399,27 +420,18 @@
                 
                 const finalData = reportData.zpptwc.map(zpptwcRow => {
                     const cooisRow = cooisMap.get(zpptwcRow[zpptwcKey]) || {};
-                    let merged = {};
-
-                    config.zpptwc_cols.forEach(c => { merged[c.key] = zpptwcRow[c.excel_col]; });
-                    config.coois_cols.forEach(c => { merged[c.key] = cooisRow[c.excel_col]; });
+                    let merged = {...zpptwcRow, ...cooisRow};
                     
                     let finalRow = {};
                     
-                    // Pre-calculate Area
                     const areaCode = merged[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
                     
-                    // Add all merged data to finalRow for formula access
                     Object.assign(finalRow, merged);
                     
-                    // Map direct source columns first
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
-                        finalRow[col.key] = merged[col.value];
-                    });
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = merged[col.value]; });
 
-                    // Iteratively solve formulas
                     const formulas = config.final_cols.filter(c => c.type === 'formula');
                     let solvedFormulas = new Set();
                     let iterations = 0;
@@ -435,10 +447,7 @@
                                         const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
                                         finalRow[col.key] = func(finalRow, formulaHelpers);
                                         solvedFormulas.add(col.key);
-                                    } catch (e) {
-                                        finalRow[col.key] = '¡ERROR!';
-                                        solvedFormulas.add(col.key); // Mark as solved to avoid infinite loop
-                                    }
+                                    } catch (e) { finalRow[col.key] = '¡ERROR!'; solvedFormulas.add(col.key); }
                                 }
                             }
                         });
