@@ -94,7 +94,7 @@
         #summaryContainer { flex-shrink: 0; height: 300px; overflow: auto; padding: 16px; }
         #summaryContainer h3 { margin-top: 0; }
         .table-container { flex-grow: 1; min-height: 0; }
-        .table-wrapper { overflow-y: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        .table-wrapper { overflow: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
@@ -431,12 +431,12 @@
                             finalRow[key] = value;
                         }
                     }
-
+                    
                     // 2. Map direct source columns to finalRow first
                     config.final_cols.filter(c => c.type === 'source').forEach(col => {
                         finalRow[col.key] = finalRow[col.value];
                     });
-                    
+
                     // 3. Add Area (it's a dependency for formulas)
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
@@ -448,13 +448,11 @@
                         const area = finalRow['Area'];
                         const catalogo = finalRow['Catalogo'];
                         let fibras = 0;
-                        if (area === 'UNAP LEGACY') {
-                            fibras = String(catalogo).startsWith('MTS') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : 0; // Corrected Logic
-                        }
+                        if (area === 'UNAP LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         else if (area === 'MPORT FLEX') {
                             fibras = (String(catalogo).startsWith('MSA') || String(catalogo).startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
                         }
-                        else if (area === 'EVOLV MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                        else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         else if (area === 'NON STD') fibras = 2;
                         else if (area === 'SPECIALTY') fibras = 12;
                         else if (area === 'MULTIPORT') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
@@ -557,7 +555,7 @@
                 summaryHTML += `<td>${grandTotal}</td>`;
 
                 summaryHTML += `</tr></tbody></table></div>`;
-                container.innerHTML = summaryHTML;
+                container.innerHTML = `<h3>Resumen de Terminaciones</h3>${summaryHTML}`;
             }
             
             // --- Lógica de 901 ---
