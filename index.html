@@ -399,22 +399,47 @@
                     config.zpptwc_cols.forEach(c => { merged[c.key] = zpptwcRow[c.excel_col]; });
                     config.coois_cols.forEach(c => { merged[c.key] = cooisRow[c.excel_col]; });
                     
+                    let finalRow = {};
+                    
+                    // Pre-calculate Area
                     const areaCode = merged[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
-                    merged['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
+                    finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
                     
-                    let finalRow = {};
-                    config.final_cols.forEach(col => {
-                        if (col.type === 'source') {
-                            finalRow[col.key] = merged[col.value];
-                        } else if (col.type === 'formula') {
-                            try {
-                                let formula = col.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
-                                const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
-                                finalRow[col.key] = func(merged, formulaHelpers);
-                            } catch (e) { finalRow[col.key] = '¡ERROR!'; }
-                        }
-                    });
+                    // Add all merged data to finalRow for formula access
+                    Object.assign(finalRow, merged);
+
+                    // Iteratively solve formulas
+                    const formulas = config.final_cols.filter(c => c.type === 'formula');
+                    let solved = false;
+                    let iterations = 0;
+                    do {
+                        solved = false;
+                        formulas.forEach(col => {
+                            if (finalRow[col.key] === undefined) {
+                                const dependencies = (col.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1));
+                                const allDependenciesMet = dependencies.every(dep => finalRow[dep] !== undefined);
+
+                                if (allDependenciesMet) {
+                                    try {
+                                        let formula = col.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
+                                        const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
+                                        finalRow[col.key] = func(finalRow, formulaHelpers);
+                                        solved = true;
+                                    } catch (e) {
+                                        finalRow[col.key] = '¡ERROR!';
+                                    }
+                                }
+                            }
+                        });
+                        iterations++;
+                    } while (solved && iterations < 10);
+
+                    // Map direct source columns
+                     config.final_cols.filter(c => c.type === 'source').forEach(col => {
+                        finalRow[col.key] = merged[col.value];
+                     });
+
 
                     if (finalRow['Terminaciones'] !== undefined) {
                         let value = parseFloat(finalRow['Terminaciones']);
@@ -460,37 +485,13 @@
                 const ctx = doc('terminacionesChart').getContext('2d'); 
                 if (terminacionesChartInstance) terminacionesChartInstance.destroy(); 
                 
-                const chartColors = [
-                    'rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)',
-                    'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)'
-                ];
+                const chartColors = [ 'rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)' ];
                 const borderColors = chartColors.map(c => c.replace('0.6', '1'));
 
                 terminacionesChartInstance = new Chart(ctx, { 
                     type: 'bar', 
-                    data: { 
-                        labels: labels, 
-                        datasets: [{ 
-                            label: 'Total de Terminaciones por Área',
-                            data: data, 
-                            backgroundColor: chartColors,
-                            borderColor: borderColors,
-                            borderWidth: 1 
-                        }] 
-                    }, 
-                    options: { 
-                        indexAxis: 'y', // <-- Esto hace la gráfica horizontal
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        plugins: { 
-                            legend: { display: false },
-                            title: { display: true, text: 'Resumen de Terminaciones por Área', color: 'var(--text-secondary)' }
-                        },
-                        scales: {
-                            x: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } },
-                            y: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } }
-                        }
-                    } 
+                    data: { labels: labels, datasets: [{ label: 'Total de Terminaciones por Área', data: data, backgroundColor: chartColors, borderColor: borderColors, borderWidth: 1 }] }, 
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Resumen de Terminaciones por Área', color: 'var(--text-secondary)' } }, scales: { x: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } }, y: { ticks: { color: 'var(--text-secondary)' }, grid: { color: 'var(--border-color)' } } } } 
                 }); 
             }
             
@@ -514,4 +515,3 @@
     </script>
 </body>
 </html>
-
