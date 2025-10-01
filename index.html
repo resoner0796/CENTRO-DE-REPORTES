@@ -305,10 +305,17 @@
             }
             function createSourceColHTML(key, excel_col) { return `<li class="param-item" style="grid-template-columns: 1fr 1fr auto;"><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Letra de Columna (ej. A, B)" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             function createAreaItemHTML(code, name) { return `<li class="area-item" style="grid-template-columns: 1fr 2fr auto;"><input type="text" class="area-code" placeholder="Código MRP" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
-            function createFinalColHTML(key, type, value) { const options = `<option value="source">Dato Directo</option><option value="formula">Fórmula</option>`; let selectedOptions = options.replace(`value="${type}"`,`value="${type}" selected`); const isFormula = type === 'formula'; return `<li class="param-item" style="grid-template-columns:1fr 1fr 2fr auto"><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${selectedOptions}</select><div><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            function createFinalColHTML(key, type, value) { 
+                const options = `<option value="source">Dato Directo</option><option value="formula">Fórmula</option><option value="fibras_auto">Fibras (Automático)</option><option value="terminaciones_auto">Terminaciones (Automático)</option><option value="familia_auto">Familia (Automático)</option>`; 
+                let selectedOptions = options.replace(`value="${type}"`,`value="${type}" selected`); 
+                const isFormula = type === 'formula';
+                const isSource = type === 'source';
+                const isAuto = !isFormula && !isSource;
+                return `<li class="param-item" style="grid-template-columns:1fr 1fr 2fr auto"><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${selectedOptions}</select><div class="${isAuto ? 'hidden' : ''}"><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; 
+            }
             window.populateFormulaHelpers = (inputElement, isFormula) => { const container = inputElement.nextElementSibling; container.innerHTML = ''; if (!isFormula) return; const modalBody = inputElement.closest('#modalBody'); if (!modalBody) return; const currentKey = inputElement.closest('.param-item').querySelector('.param-key').value; const zpptwc_cols = Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => el.querySelector('.param-key').value); const coois_cols = Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => el.querySelector('.param-key').value); const final_cols = Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => el.querySelector('.param-key').value); const availableCols = [...zpptwc_cols, ...coois_cols, ...final_cols.filter(k => k !== currentKey), 'Area'].filter(Boolean); const uniqueCols = [...new Set(availableCols)]; uniqueCols.forEach(colName => { const pill = document.createElement('button'); pill.className = 'helper-pill'; pill.textContent = colName; pill.onclick = (e) => { e.preventDefault(); insertAtCursor(inputElement, `{${colName}}`); }; container.appendChild(pill); }); };
             function insertAtCursor(input, text) { const start = input.selectionStart; input.value = input.value.substring(0, start) + text + input.value.substring(input.selectionEnd); input.focus(); input.selectionEnd = start + text.length; }
-            doc('modalOverlay').addEventListener('change', (e) => { if (e.target.classList.contains('param-type')) { const item = e.target.closest('.param-item'); const input = item.querySelector('.param-value-input'); const isFormula = e.target.value === 'formula'; input.placeholder = isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'; input.value = ''; input.classList.toggle('hidden', e.target.value === 'area_auto'); } });
+            doc('modalOverlay').addEventListener('change', (e) => { if (e.target.classList.contains('param-type')) { const item = e.target.closest('.param-item'); const inputDiv = item.querySelector('div'); const isAuto = ['fibras_auto', 'terminaciones_auto', 'familia_auto'].includes(e.target.value); inputDiv.classList.toggle('hidden', isAuto); } });
             
             async function saveTerminacionesSettings() {
                 try {
@@ -379,7 +386,7 @@
                                     }
                                 }
                                 return rowData;
-                            }).filter(row => row.Orden); // Filter out empty rows
+                            }).filter(row => row.Orden);
 
                             reportData[configKey] = data;
                             doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
@@ -417,15 +424,15 @@
                     // 1. Clean and format all base data
                     for (const key in merged) {
                         let value = merged[key];
+                        if (typeof value === 'string') value = value.trim();
                         if (key === 'Orden' || key === 'Material' || key === 'Operacion') {
-                            value = String(value || '').replace(/^0+/, '');
+                            finalRow[key] = String(value || '').replace(/^0+/, '');
                         } else if (key === 'Fecha' && value instanceof Date) {
                             const d = value;
-                            value = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                        } else if (typeof value === 'string') {
-                            value = value.trim();
+                            finalRow[key] = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                        } else {
+                            finalRow[key] = value;
                         }
-                        finalRow[key] = value;
                     }
 
                     // 2. Add Area (it's a dependency for formulas)
@@ -438,36 +445,59 @@
                         finalRow[col.key] = finalRow[col.value];
                     });
 
-                    // 4. Iteratively solve formulas
-                    const formulas = config.final_cols.filter(c => c.type === 'formula');
-                    let solvedInThisIteration;
-                    let iterations = 0;
-                    do {
-                        solvedInThisIteration = false;
-                        formulas.forEach(col => {
-                            if (finalRow[col.key] === undefined) {
-                                const dependencies = (col.value.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1).trim());
-                                const allDependenciesMet = dependencies.every(dep => finalRow[dep] !== undefined);
+                    // 4. Process Automatic Columns
+                    config.final_cols.forEach(col => {
+                        switch(col.type) {
+                            case 'fibras_auto':
+                                const area = finalRow['Area'];
+                                const catalogo = finalRow['Catalogo'];
+                                if (area === 'NON STD') finalRow[col.key] = 2;
+                                else if (area === 'SPECIALTY') finalRow[col.key] = 12;
+                                else if (area === 'EVOLV MTB DEMARC') finalRow[col.key] = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                                else if (area === 'EVOLV MTB RPX') finalRow[col.key] = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                                else if (area === 'MOB LEGACY') finalRow[col.key] = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                                else if (area === 'MTB DEMARC') finalRow[col.key] = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                                else if (area === 'MPORT FLEX') finalRow[col.key] = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                                else if (area === 'UNAP LEGACY') finalRow[col.key] = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                                else finalRow[col.key] = 0;
+                                break;
+                            case 'familia_auto':
+                                finalRow[col.key] = formulaHelpers.EXTRAER(finalRow['Catalogo'], 1, 3);
+                                break;
+                        }
+                    });
 
-                                if (allDependenciesMet) {
-                                    try {
-                                        let formula = col.value.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
-                                        const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
-                                        finalRow[col.key] = func(finalRow, formulaHelpers);
-                                        solvedInThisIteration = true;
-                                    } catch (e) { finalRow[col.key] = '¡ERROR!'; }
-                                }
-                            }
-                        });
-                        iterations++;
-                    } while (solvedInThisIteration && iterations < 10);
+                    // 5. Process Terminaciones and other formulas iteratively
+                     const formulas = config.final_cols.filter(c => c.type === 'terminaciones_auto' || c.type === 'formula');
+                     let solvedInThisIteration;
+                     let iterations = 0;
+                     do {
+                         solvedInThisIteration = false;
+                         formulas.forEach(col => {
+                             if (finalRow[col.key] === undefined) {
+                                 let formulaStr = col.type === 'terminaciones_auto' ? '{Fibras} * {Cantidad}' : col.value;
+                                 const dependencies = (formulaStr.match(/\{([^}]+)\}/g) || []).map(d => d.slice(1, -1).trim());
+                                 const allDependenciesMet = dependencies.every(dep => finalRow[dep] !== undefined && finalRow[dep] !== null);
 
-                    // 5. Final cleaning on calculated fields
+                                 if (allDependenciesMet) {
+                                     try {
+                                         let formula = formulaStr.replace(/\{([^}]+)\}/g, (match, key) => `data['${key.trim()}']`);
+                                         const func = new Function('data', 'helpers', `const {${Object.keys(helpers).join(',')}} = helpers; return ${formula}`);
+                                         finalRow[col.key] = func(finalRow, formulaHelpers);
+                                         solvedInThisIteration = true;
+                                     } catch (e) { finalRow[col.key] = '¡ERROR!'; }
+                                 }
+                             }
+                         });
+                         iterations++;
+                     } while (solvedInThisIteration && iterations < 5);
+
+
                     if (finalRow['Terminaciones'] !== undefined) {
                         let value = parseFloat(finalRow['Terminaciones']);
                         finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
                     }
-                    
+
                     return finalRow;
                 });
                 
