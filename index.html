@@ -111,10 +111,12 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
-        th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: middle; }
+        th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: top; }
+        #dataTable901 th { text-align: center; }
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
         .filter-input { 
+            display: block;
             width: 100%; 
             box-sizing: border-box;
             background-color: var(--surface-color); 
@@ -719,16 +721,16 @@
                             const isToday = rowDate.getTime() === today.getTime();
                             const isPast = rowDate.getTime() < today.getTime();
                             
-                            let userIsAllowed = false;
+                            let userValue = '';
                             if (userColumnMap) {
                                 const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0];
                                 const userCellAddress = userCol + (R + 1);
                                 const userCell = ws[userCellAddress];
-                                const userValue = (userCell ? String(userCell.v) : '').toUpperCase();
-                                userIsAllowed = allowedUsers.includes(userValue);
+                                userValue = (userCell ? String(userCell.v) : '').toUpperCase();
                             }
+                            const userIsOnFilterList = allowedUsers.includes(userValue);
 
-                            if (isPast || (isToday && userIsAllowed)) {
+                            if (isPast || (isToday && userIsOnFilterList)) {
                                 let rowData = {};
                                 config.columns.forEach(p => {
                                     const cellConfig = p.startCell.trim().toUpperCase();
@@ -740,8 +742,9 @@
                                         cols.forEach(col => {
                                             const cellAddress = col + (R + 1);
                                             const cell = ws[cellAddress];
-                                            if (cell && cell.v !== undefined && cell.v !== null && cell.v !== 0 && String(cell.v).trim() !== '') {
-                                                values.push(cell.w || cell.v);
+                                            const cellValue = cell ? (cell.w || cell.v) : undefined;
+                                            if (cellValue !== undefined && cellValue !== null && cellValue !== 0 && String(cellValue).trim() !== '') {
+                                                values.push(cellValue);
                                             }
                                         });
                                         value = values.join(' / ');
@@ -752,16 +755,15 @@
                                         value = cell ? (cell.w || cell.v) : undefined;
                                     }
                                     
-                                    if (p.key.toLowerCase() === 'qty' && value !== undefined) {
-                                        const num = parseFloat(value);
-                                        if (!isNaN(num) && num === parseInt(num, 10)) {
-                                            value = parseInt(num, 10);
+                                    if (p.key.toLowerCase() === 'qty' && typeof value === 'number') {
+                                        if (value === parseInt(value, 10)) {
+                                            value = parseInt(value, 10);
                                         }
                                     }
                                     rowData[p.key] = value;
                                 });
 
-                                if (allowedUsers.length === 0 || userIsAllowed) {
+                                if (userIsOnFilterList) {
                                     if (isToday) {
                                         rowData.colorClass = 'row-today';
                                     } else if (rowDate.getTime() === yesterday.getTime()) {
