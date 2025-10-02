@@ -324,17 +324,17 @@
                         <button class="tab-btn" data-tab="areas">3. Mapeo de Áreas</button>
                         <button class="tab-btn" data-tab="final">4. Columnas Finales</button>
                     </div>
-                    <div id="tab-zpptwc" class="tab-content active"><p>Define un nombre clave y la letra de la columna para cada dato del reporte Zpptwc.</p><ul class="param-list">${config.zpptwc_cols.map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul></div>
-                    <div id="tab-coois" class="tab-content"><p>Define un nombre clave y la letra de la columna para cada dato del reporte Coois.</p><ul class="param-list">${config.coois_cols.map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul></div>
+                    <div id="tab-zpptwc" class="tab-content active"><p>Define un nombre clave y la letra de la columna para cada dato del reporte Zpptwc.</p><ul class="param-list">${(config.zpptwc_cols || []).map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul></div>
+                    <div id="tab-coois" class="tab-content"><p>Define un nombre clave y la letra de la columna para cada dato del reporte Coois.</p><ul class="param-list">${(config.coois_cols || []).map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul></div>
                     <div id="tab-areas" class="tab-content">
                         <div class="area-source-container">
                             <label for="area-source-col">Columna Clave de Coois con Código de Área</label>
-                            <input type="text" id="area-source-col" placeholder="Ej. MRP" value="${config.area_config.source_col || ''}">
+                            <input type="text" id="area-source-col" placeholder="Ej. MRP" value="${(config.area_config || {}).source_col || ''}">
                             <p>Usa el "Nombre Clave" (definido en la pestaña 2) de la columna del reporte Coois que contiene el código de área (ej. MRP).</p>
                         </div>
-                        <ul class="area-list">${config.area_config.mappings.map(a => createAreaItemHTML(a.code, a.name)).join('')}</ul>
+                        <ul class="area-list">${((config.area_config || {}).mappings || []).map(a => createAreaItemHTML(a.code, a.name)).join('')}</ul>
                     </div>
-                    <div id="tab-final" class="tab-content"><p>Define las columnas que aparecerán en el reporte final. Para cálculos complejos, usa los tipos automáticos.</p><ul class="param-list">${config.final_cols.map(p => createFinalColHTML(p.key, p.type, p.value)).join('')}</ul></div>
+                    <div id="tab-final" class="tab-content"><p>Define las columnas que aparecerán en el reporte final. Para cálculos complejos, usa los tipos automáticos.</p><ul class="param-list">${(config.final_cols || []).map(p => createFinalColHTML(p.key, p.type, p.value)).join('')}</ul></div>
                     <button class="addBtn btn" style="width: auto; padding: 8px 16px;">Añadir Fila</button>
                     <button id="saveTerminacionesSettingsBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Configuración</button>`;
                 showModal('Configurar Automatización de Terminaciones', content);
@@ -486,7 +486,14 @@
                         else if (area === 'MPORT FLEX') { fibras = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2); }
                         else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         else if (area === 'NON STD') fibras = 2; else if (area === 'SPECIALTY') fibras = 12;
-                        else if (area === 'MULTIPORT') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                        else if (area === 'MULTIPORT') {
+                            const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                            if (catalogo.startsWith('DFB')) {
+                                fibras = extractedFibers * 2;
+                            } else {
+                                fibras = extractedFibers;
+                            }
+                        }
                         else if (area === 'EVOLV MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
                         else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
                         else if (area === 'MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
@@ -618,7 +625,6 @@
                         element.style.color = originalColor;
                     }, 1500);
                 }).catch(err => {
-                    // Fallback for older browsers / http
                     const textarea = document.createElement('textarea');
                     textarea.value = text;
                     document.body.appendChild(textarea);
@@ -697,7 +703,7 @@
                             } else if (dateCell.v instanceof Date) {
                                 rowDate = dateCell.v;
                             } else {
-                                continue; // Skip if date format is not recognized
+                                continue; 
                             }
                             rowDate.setHours(0,0,0,0);
                             
