@@ -112,6 +112,7 @@
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
         th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: middle; }
+        #dataTable901 th { vertical-align: top; } /* Reajuste para alinear bien el contenido del th */
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
         .filter-input { 
@@ -626,7 +627,7 @@
                 }).finally(() => {
                     exportBtn.style.visibility = 'visible';
                     exportBtn.disabled = false;
-                    exportBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+                    exportBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
                 });
             }
 
@@ -720,11 +721,12 @@
                             const isPast = rowDate.getTime() < today.getTime();
                             
                             let userIsAllowed = false;
+                            let userValue = '';
                             if (userColumnMap) {
                                 const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0];
                                 const userCellAddress = userCol + (R + 1);
                                 const userCell = ws[userCellAddress];
-                                const userValue = (userCell ? String(userCell.v) : '').toUpperCase();
+                                userValue = (userCell ? String(userCell.v) : '').toUpperCase();
                                 userIsAllowed = allowedUsers.includes(userValue);
                             }
 
@@ -735,16 +737,24 @@
                                     const cellAddress = col + (R + 1);
                                     const cell = ws[cellAddress];
                                     let value = cell ? (cell.w || cell.v) : undefined;
+                                    
+                                    if (p.key.toLowerCase() === 'qty' && value !== undefined) {
+                                        const num = parseFloat(value);
+                                        if (!isNaN(num) && num === parseInt(num, 10)) {
+                                            value = parseInt(num, 10);
+                                        }
+                                    }
                                     rowData[p.key] = value;
                                 });
 
-                                // Determinar color solo para las filas que se van a incluir
-                                if (isToday) {
-                                    rowData.colorClass = 'row-today';
-                                } else if (rowDate.getTime() === yesterday.getTime()) {
-                                    rowData.colorClass = 'row-yesterday';
-                                } else {
-                                    rowData.colorClass = 'row-past';
+                                if (userIsAllowed) {
+                                    if (isToday) {
+                                        rowData.colorClass = 'row-today';
+                                    } else if (rowDate.getTime() === yesterday.getTime()) {
+                                        rowData.colorClass = 'row-yesterday';
+                                    } else {
+                                        rowData.colorClass = 'row-past';
+                                    }
                                 }
                                 extractedData.push(rowData);
                             }
