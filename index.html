@@ -112,7 +112,6 @@
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
         th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: middle; }
-        #dataTable901 th { vertical-align: top; }
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
         .filter-input { 
@@ -726,9 +725,7 @@
                                 const userCellAddress = userCol + (R + 1);
                                 const userCell = ws[userCellAddress];
                                 const userValue = (userCell ? String(userCell.v) : '').toUpperCase();
-                                if (allowedUsers.length === 0 || allowedUsers.includes(userValue)) {
-                                    userIsAllowed = true;
-                                }
+                                userIsAllowed = allowedUsers.includes(userValue);
                             }
 
                             if (isPast || (isToday && userIsAllowed)) {
@@ -738,12 +735,12 @@
                                     let value;
 
                                     if (cellConfig.includes(',')) {
-                                        const cols = cellConfig.split(',').map(c => c.match(/[A-Z]+/)[0]);
+                                        const cols = cellConfig.split(',').map(c => c.trim().match(/[A-Z]+/)[0]);
                                         const values = [];
                                         cols.forEach(col => {
                                             const cellAddress = col + (R + 1);
                                             const cell = ws[cellAddress];
-                                            if (cell && cell.v !== undefined) {
+                                            if (cell && cell.v !== undefined && cell.v !== null && cell.v !== 0 && String(cell.v).trim() !== '') {
                                                 values.push(cell.w || cell.v);
                                             }
                                         });
@@ -764,7 +761,7 @@
                                     rowData[p.key] = value;
                                 });
 
-                                if (userIsAllowed) {
+                                if (allowedUsers.length === 0 || userIsAllowed) {
                                     if (isToday) {
                                         rowData.colorClass = 'row-today';
                                     } else if (rowDate.getTime() === yesterday.getTime()) {
