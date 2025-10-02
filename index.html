@@ -152,76 +152,24 @@
         .helper-pill:hover { background-color: var(--primary-color); color: var(--primary-text-color); border-color: var(--primary-color); }
         #login-error-msg { color: var(--danger-color); text-align: center; margin-top: 10px; font-weight: 500; height: 1em; }
 
-        /* --- INICIO DE MEJORAS PARA MÓVILES --- */
         @media (max-width: 900px), (max-height: 450px) {
-            body {
-                overflow-y: auto;
-                padding: 8px;
-            }
-            .app-header {
-                margin-bottom: 16px;
-            }
-            .app-branding {
-                font-size: 2rem;
-            }
-            .app-title {
-                font-size: 1rem;
-            }
-            .main-container {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto;
-                height: auto;
-                gap: 12px;
-            }
-            .sidebar {
-                height: auto;
-            }
-            .main-content {
-                min-height: 50vh;
-                gap: 12px;
-                min-width: 0; 
-            }
-            .card {
-                padding: 16px;
-            }
-            
-            .table-wrapper {
-                overflow-x: auto; 
-                -webkit-overflow-scrolling: touch; 
-            }
-            
-            table th, table td {
-                padding: 8px 10px;
-                font-size: 0.8rem;
-                text-align: center;
-            }
-            #summaryContainer table th:first-child,
-            #summaryContainer table td:first-child {
-                text-align: left;
-            }
-
-            .modal-content {
-                width: 95%;
-                max-height: 85vh;
-                display: flex;
-                flex-direction: column;
-            }
-            #modalBody {
-                overflow-y: auto;
-            }
-            .param-item, .area-item {
-                grid-template-columns: 1fr;
-                gap: 8px;
-                text-align: left;
-            }
-            .param-item .btn-danger, .area-item .btn-danger {
-                justify-self: end;
-            }
-            .param-value-container {
-                grid-column: 1;
-            }
+            body { overflow-y: auto; padding: 8px; }
+            .app-header { margin-bottom: 16px; }
+            .app-branding { font-size: 2rem; }
+            .app-title { font-size: 1rem; }
+            .main-container { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; gap: 12px; }
+            .sidebar { height: auto; }
+            .main-content { min-height: 50vh; gap: 12px; min-width: 0; }
+            .card { padding: 16px; }
+            .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            table th, table td { padding: 8px 10px; font-size: 0.8rem; text-align: center; }
+            #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; }
+            .modal-content { width: 95%; max-height: 85vh; display: flex; flex-direction: column; }
+            #modalBody { overflow-y: auto; }
+            .param-item, .area-item { grid-template-columns: 1fr; gap: 8px; text-align: left; }
+            .param-item .btn-danger, .area-item .btn-danger { justify-self: end; }
+            .param-value-container { grid-column: 1; }
         }
-        /* --- FIN DE MEJORAS PARA MÓVILES --- */
     </style>
 </head>
 <body class="dark-theme">
@@ -231,7 +179,6 @@
     </div>
 
     <div class="app-container">
-        <!-- VISTA DEL MENÚ PRINCIPAL -->
         <div id="menuView">
             <div class="menu-wrapper">
                 <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Centro de Reportes</h2></header>
@@ -244,7 +191,6 @@
             </div>
         </div>
 
-        <!-- VISTA 901 MEJORADA -->
         <div id="view901">
             <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte 901</h2></header>
             <div class="main-container">
@@ -269,7 +215,6 @@
             </div>
         </div>
 
-        <!-- VISTA REPORTE TERMINACIONES -->
         <div id="viewTerminaciones">
              <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Terminaciones</h2></header>
             <div class="main-container">
@@ -294,11 +239,9 @@
         </div>
     </div>
 
-    <!-- MODAL GENERAL -->
     <div id="modalOverlay" class="modal-overlay"><div id="modalContent" class="modal-content"><span id="modalClose" class="modal-close">&times;</span><h2 id="modalTitle" class="modal-title"></h2><div id="modalBody" style="margin-top:16px; color: var(--text-secondary);"></div></div></div>
 
     <script>
-        // No se requiere la configuración de Firebase para 901, pero se mantiene para Terminaciones
         const firebaseConfig = { apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDX0", authDomain: "rastreador-de-ordenes.firebaseapp.com", projectId: "rastreador-de-ordenes", storageBucket: "rastreador-de-ordenes.appspot.com", messagingSenderId: "956052823395", appId: "1:956052823395:web:2ba74d9591d2b24c3cc756" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -308,7 +251,7 @@
             const views = { menu: doc('menuView'), '901': doc('view901'), terminaciones: doc('viewTerminaciones') };
             let session = { isMaster: false }; let activeView = 'menu';
             let params = { 
-                '901_config': { columns: [] }, // Se elimina userFilter de la configuración inicial
+                '901_config': { columns: [], userFilter: [] },
                 terminaciones_config: {
                     zpptwc_cols: [],
                     coois_cols: [],
@@ -316,7 +259,7 @@
                     area_config: { source_col: '', mappings: [] }
                 }
             };
-            let reportData = { zpptwc: null, coois: null, '901_all': [] };
+            let reportData = { zpptwc: null, coois: null };
             
             function switchView(viewKey) {
                 const currentViewEl = views[activeView]; const nextViewEl = views[viewKey]; if (!nextViewEl) return;
@@ -324,7 +267,6 @@
                 setTimeout(() => {
                     currentViewEl.style.display = 'none'; nextViewEl.style.display = viewKey === 'menu' ? 'flex' : 'block';
                     requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
-                    // Se elimina la llamada a listenTo901Data()
                 }, 300);
             }
             doc('view901Btn').addEventListener('click', () => switchView('901'));
@@ -346,27 +288,28 @@
 
             function showParamsModal() {
                 if (activeView === '901') {
-                    // --- AJUSTE: Modal de configuración 901 simplificado ---
                     const config = params['901_config'];
-                    const paramsHTML = `<ul class="param-list param-list-901">${config.columns.map(p => createParamItem901(p.key, p.startCell)).join('')}</ul>`;
-                    const content = `<p style="text-align:center;">Define los nombres de columna y la celda de inicio de cada una (ej. A2).</p>${paramsHTML}<button id="addParam901Btn" class="btn" style="width: auto; padding: 8px 16px;">Añadir Columna</button><button id="saveParams901Btn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Mapeo</button>`;
-                    showModal('Configurar Mapeo de 901', content);
+                    const filterText = (config.userFilter || []).join(', ');
+                    const paramsHTML = `<ul class="param-list param-list-901">${(config.columns || []).map(p => createParamItem901(p.key, p.startCell)).join('')}</ul>`;
+                    const content = `<div class="user-filter-container"><label for="userFilterInput">Filtrar por Usuarios (separados por coma)</label><textarea id="userFilterInput" placeholder="PINTORA2, LUNAU2... (dejar vacío para incluir a todos)">${filterText}</textarea></div><hr style="border-color: var(--border-color); margin: 16px 0;"><p style="text-align:center;">Define los nombres de columna y la celda de inicio de cada una (ej. A2).</p>${paramsHTML}<button id="addParam901Btn" class="btn" style="width: auto; padding: 8px 16px;">Añadir Columna</button><button id="saveParams901Btn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Mapeo y Filtros</button>`;
+                    showModal('Configurar Mapeo y Filtros de 901', content);
                     doc('addParam901Btn').addEventListener('click', () => doc('modalBody').querySelector('.param-list-901').insertAdjacentHTML('beforeend', createParamItem901('', '')));
                     doc('saveParams901Btn').addEventListener('click', saveParams901);
                 } else if (activeView === 'terminaciones') {
                     showTerminacionesConfigModal();
                 }
             }
+
             function createParamItem901(key, startCell) { return `<li class="param-item" style="grid-template-columns: 1fr 1fr auto;"><input type="text" class="param-key" placeholder="Nombre de Columna" value="${key || ''}"><input type="text" class="param-cell" placeholder="Celda de Inicio (ej. A2)" value="${startCell || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             
-            // --- AJUSTE: saveParams901 simplificado (sin userFilter) ---
             async function saveParams901() { 
                 const newColumns = Array.from(doc('modalBody').querySelectorAll('.param-item')).map(item => ({ key: item.querySelector('.param-key').value.trim(), startCell: item.querySelector('.param-cell').value.trim().toUpperCase() })).filter(p => p.key && p.startCell); 
-                const newConfig = { columns: newColumns }; 
+                const userFilter = doc('userFilterInput').value.split(',').map(u => u.trim()).filter(Boolean);
+                const newConfig = { columns: newColumns, userFilter: userFilter }; 
                 try { 
                     await db.collection('report_configs').doc('901_params').set(newConfig); 
                     params['901_config'] = newConfig; 
-                    showModal('Éxito', '<p>Mapeo de 901 guardado.</p>'); 
+                    showModal('Éxito', '<p>Mapeo y filtros de 901 guardados.</p>'); 
                 } catch (e) { 
                     showModal('Error', '<p>No se pudo guardar la configuración.</p>'); 
                 } 
@@ -411,7 +354,6 @@
                 try {
                     const modalBody = document.getElementById('modalBody');
                     if (!modalBody) throw new Error("El cuerpo del modal no fue encontrado.");
-                    
                     const newConfig = {
                         zpptwc_cols: Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), excel_col: el.querySelector('.param-excel-col').value.trim().toUpperCase() })),
                         coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), excel_col: el.querySelector('.param-excel-col').value.trim().toUpperCase() })),
@@ -421,7 +363,6 @@
                         },
                         final_cols: Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), type: el.querySelector('.param-type').value, value: el.querySelector('.param-value-input').value.trim() })),
                     };
-
                     await db.collection('report_configs').doc('terminaciones_params_v2').set(newConfig); 
                     params.terminaciones_config = newConfig; 
                     showModal('Éxito', '<p>Configuración de Terminaciones guardada.</p>'); 
@@ -438,7 +379,7 @@
                     if (docRef.exists) {
                         const data = docRef.data();
                         if (configKey === '901_config') {
-                            params[configKey] = { columns: data.columns || [] }; // No cargar userFilter
+                            params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
                         } else {
                             params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
                         }
@@ -468,9 +409,7 @@
                             const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                             const ws = wb.Sheets[wb.SheetNames[0]];
                             const mapping = (configKey === 'zpptwc') ? params.terminaciones_config.zpptwc_cols : params.terminaciones_config.coois_cols;
-                            
                             const sheetData = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: null, range: 1 });
-                            
                             const data = sheetData.map(row => {
                                 let rowData = {};
                                 for (const map of mapping) {
@@ -480,12 +419,10 @@
                                 }
                                 return rowData;
                             }).filter(row => row.Orden);
-
                             reportData[configKey] = data;
                             doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
                             processTerminacionesReport();
                         } catch (err) { 
-                            console.error("Error processing file:", err);
                             showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo de letras de columna.</p>'); 
                         }
                     };
@@ -499,17 +436,12 @@
                     if (typeof text !== 'string' || text === null) return 0;
                     const code = String(text).substring(start - 1, start - 1 + length).toUpperCase();
                     if (!code) return 0;
-
                     switch (code) {
-                        case '1': return 1; case '2': return 2; case '3': return 3;
-                        case '4': return 4; case '5': return 5; case '6': return 6;
-                        case '7': return 7; case '8': return 8; case '9': return 9;
-                        case 'A': return 1; case 'B': return 2; case 'C': return 4;
-                        case 'D': return 6; case 'E': return 8; case 'F': return 12;
-                        case 'G': return 24;case 'T': return 12;
-                        default:
-                            const num = parseFloat(code);
-                            return isNaN(num) ? 0 : num;
+                        case '1': return 1; case '2': return 2; case '3': return 3; case '4': return 4;
+                        case '5': return 5; case '6': return 6; case '7': return 7; case '8': return 8;
+                        case '9': return 9; case 'A': return 1; case 'B': return 2; case 'C': return 4;
+                        case 'D': return 6; case 'E': return 8; case 'F': return 12; case 'G': return 24;
+                        case 'T': return 12; default: const num = parseFloat(code); return isNaN(num) ? 0 : num;
                     }
                 },
                 IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse,
@@ -517,23 +449,18 @@
 
             function processTerminacionesReport() {
                 if (!reportData.zpptwc || !reportData.coois) return;
-                
                 const config = params.terminaciones_config;
                 const joinKey = 'Orden';
-
                 if (!config.zpptwc_cols.some(c=>c.key === joinKey) || !config.coois_cols.some(c=>c.key === joinKey)) {
                     showModal('Error de Configuración', '<p>Asegúrese de mapear una columna con el nombre clave "Orden" en ambos reportes.</p>');
                     return;
                 }
-                
                 const cooisMap = new Map(reportData.coois.map(row => [String(row[joinKey] || '').replace(/^0+/, ''), row]));
-                
                 const finalData = reportData.zpptwc.map(zpptwcRow => {
                     const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
                     const cooisRow = cooisMap.get(cleanOrder) || {};
                     let merged = {...zpptwcRow, ...cooisRow};
                     let finalRow = {};
-
                     for (const key in merged) {
                         let value = merged[key];
                         if (typeof value === 'string') value = value.trim();
@@ -546,58 +473,39 @@
                             finalRow[key] = value;
                         }
                     }
-
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
-                    
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => {
-                        finalRow[col.key] = finalRow[col.value];
-                    });
-
+                    config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
                     const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
                     if (autoFibrasCol) {
                         const area = (finalRow['Area'] || '').trim();
                         const catalogo = finalRow['Catalogo'] || '';
                         let fibras = 0;
-                        
-                        if (area === 'UNAP LEGACY') {
-                            fibras = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                        }
-                        else if (area === 'MPORT FLEX') {
-                            fibras = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2);
-                        }
+                        if (area === 'UNAP LEGACY') { fibras = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); }
+                        else if (area === 'MPORT FLEX') { fibras = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2); }
                         else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                        else if (area === 'NON STD') fibras = 2;
-                        else if (area === 'SPECIALTY') fibras = 12;
+                        else if (area === 'NON STD') fibras = 2; else if (area === 'SPECIALTY') fibras = 12;
                         else if (area === 'MULTIPORT') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
                         else if (area === 'EVOLV MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
                         else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
                         else if (area === 'MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
-
                         finalRow[autoFibrasCol.key] = fibras;
                     }
-                    
                     const autoFamiliaCol = config.final_cols.find(c => c.type === 'familia_auto');
-                    if(autoFamiliaCol) {
-                        finalRow[autoFamiliaCol.key] = formulaHelpers.EXTRAER(finalRow['Catalogo'], 1, 3);
-                    }
-                    
+                    if(autoFamiliaCol) { finalRow[autoFamiliaCol.key] = formulaHelpers.EXTRAER(finalRow['Catalogo'], 1, 3); }
                     const autoTermCol = config.final_cols.find(c => c.type === 'terminaciones_auto');
                     if(autoTermCol) {
                         const fibras = finalRow['Fibras'] || 0;
                         const cantidad = parseFloat(finalRow['Cantidad']) || 0;
                         finalRow[autoTermCol.key] = fibras * cantidad;
                     }
-
                     if (finalRow['Terminaciones'] !== undefined) {
                         let value = parseFloat(finalRow['Terminaciones']);
                         finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
                     }
-
                     return finalRow;
                 });
-                
                 renderTerminacionesTable(finalData);
                 renderTerminacionesSummary(finalData);
             }
@@ -605,21 +513,14 @@
             function renderTerminacionesTable(data) {
                 const config = params.terminaciones_config.final_cols;
                 if (!config || config.length === 0) return;
-                
                 const allHeaders = config.map(c => c.key);
                 const tableElement = doc('dataTableTerminaciones');
-
                 let html = '<thead><tr>';
-                allHeaders.forEach(header => {
-                    html += `<th>${header}</th>`;
-                });
+                allHeaders.forEach(header => { html += `<th>${header}</th>`; });
                 html += '</tr></thead><tbody>';
-
                 data.forEach(row => {
                     html += '<tr>';
-                    allHeaders.forEach(header => {
-                        html += `<td>${row[header] ?? ''}</td>`;
-                    });
+                    allHeaders.forEach(header => { html += `<td>${row[header] ?? ''}</td>`; });
                     html += '</tr>';
                 });
                 tableElement.innerHTML = html + '</tbody>';
@@ -631,14 +532,12 @@
                     container.innerHTML = `<div class="summary-header"><h3>Resumen de Terminaciones</h3></div><p>No hay datos para mostrar.</p>`;
                     return;
                 }
-
                 const pivot = {};
                 const dates = new Set();
                 data.forEach(row => {
                     const area = row['Area'] || 'Sin Área';
                     const fecha = row['Fecha'] || 'Sin Fecha';
                     const terminaciones = row['Terminaciones'] || 0;
-                    
                     if (typeof terminaciones === 'number' && terminaciones > 0) {
                         dates.add(fecha);
                         if (!pivot[area]) pivot[area] = {};
@@ -646,25 +545,14 @@
                         pivot[area][fecha] += terminaciones;
                     }
                 });
-
                 const sortedDates = [...dates].sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-                let summaryHTML = `
-                    <div class="summary-header">
-                        <h3>Resumen de Terminaciones</h3>
-                        <button id="exportSummaryBtn" class="icon-btn" title="Exportar como JPG">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        </button>
-                    </div>
-                    <div id="summaryTableWrapper" class="table-wrapper"><table><thead><tr><th>Área</th>`;
+                let summaryHTML = `<div class="summary-header"><h3>Resumen de Terminaciones</h3><button id="exportSummaryBtn" class="icon-btn" title="Exportar como JPG"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div><div id="summaryTableWrapper" class="table-wrapper"><table><thead><tr><th>Área</th>`;
                 sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
                 summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
-
                 let colTotals = {};
                 sortedDates.forEach(date => colTotals[date] = 0);
                 let grandTotal = 0;
-                
                 const sortedAreas = Object.keys(pivot).sort();
-
                 for(const area of sortedAreas) {
                     let rowTotal = 0;
                     summaryHTML += `<tr><td>${area}</td>`;
@@ -677,43 +565,28 @@
                     summaryHTML += `<td class="grand-total">${rowTotal}</td></tr>`;
                     grandTotal += rowTotal;
                 }
-
                 summaryHTML += `<tr class="grand-total"><td >Total General</td>`;
-                sortedDates.forEach(date => {
-                    summaryHTML += `<td>${colTotals[date]}</td>`;
-                });
-                summaryHTML += `<td>${grandTotal}</td>`;
-
-                summaryHTML += `</tr></tbody></table></div>`;
+                sortedDates.forEach(date => { summaryHTML += `<td>${colTotals[date]}</td>`; });
+                summaryHTML += `<td>${grandTotal}</td></tr></tbody></table></div>`;
                 container.innerHTML = summaryHTML;
-                
                 doc('exportSummaryBtn').addEventListener('click', exportSummaryAsJPG);
             }
             
             function exportSummaryAsJPG() {
                 const summaryCard = doc('summaryContainer');
                 const exportBtn = doc('exportSummaryBtn');
-                
                 if (!summaryCard || typeof html2canvas === 'undefined') { return; }
-
                 exportBtn.disabled = true;
                 exportBtn.innerHTML = '...';
-
                 const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
                 const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
-                
                 exportBtn.style.visibility = 'hidden';
-
                 html2canvas(summaryCard, { 
-                    backgroundColor: bgColor, 
-                    scale: 2.5,
-                    useCORS: true,
+                    backgroundColor: bgColor, scale: 2.5, useCORS: true,
                     onclone: (clonedDoc) => {
                         const clonedCard = clonedDoc.getElementById('summaryContainer');
                         const clonedWrapper = clonedCard.querySelector('.table-wrapper');
-                        
                         clonedCard.style.padding = '16px'; 
-
                         if (clonedWrapper) {
                             clonedWrapper.style.overflow = 'visible';
                             clonedWrapper.style.width = `${clonedWrapper.scrollWidth}px`;
@@ -731,113 +604,129 @@
                 });
             }
 
-            // --- INICIO: Lógica de 901 completamente renovada ---
+            // --- INICIO: Lógica 901 Actualizada y Corregida ---
             
-            // Nueva función para copiar al portapapeles
             window.copyToClipboard = (text, element) => {
                 if (!text) return;
                 const originalText = element.textContent;
                 const originalColor = element.style.color;
-
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-
-                element.textContent = '¡Copiado!';
-                element.style.color = 'var(--success-color)';
-                setTimeout(() => {
-                    element.textContent = originalText;
-                    element.style.color = originalColor;
-                }, 1500);
+                navigator.clipboard.writeText(text).then(() => {
+                    element.textContent = '¡Copiado!';
+                    element.style.color = 'var(--success-color)';
+                    setTimeout(() => {
+                        element.textContent = originalText;
+                        element.style.color = originalColor;
+                    }, 1500);
+                }).catch(err => {
+                    // Fallback for older browsers / http
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    
+                    element.textContent = '¡Copiado!';
+                    element.style.color = 'var(--success-color)';
+                    setTimeout(() => {
+                        element.textContent = originalText;
+                        element.style.color = originalColor;
+                    }, 1500);
+                });
             };
 
-            // Nueva función para convertir fecha de Excel a objeto Date (para comparación)
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
-                // La resta de 25569 es para convertir del formato de fecha de Excel al de Unix.
-                // Multiplicar por 86400000 convierte los días a milisegundos.
                 const excelEpoch = new Date(1899, 11, 30);
                 const date = new Date(excelEpoch.getTime() + serial * 86400000);
-                date.setHours(0,0,0,0);
-                return date;
+                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
 
             async function handle901File(file) { 
-                const config = params['901_config']; 
+                const config = params['901_config'];
                 if (!config.columns || config.columns.length === 0) {
-                    showModal('Error de Configuración', `<p>Por favor, configure el mapeo de columnas para el reporte 901 en el panel de configuración.</p>`); 
-                    return; 
+                    showModal('Error de Configuración', `<p>Por favor, configure el mapeo de columnas para el reporte 901.</p>`);
+                    return;
                 }
                 const dateColumnMap = config.columns.find(p => p.key.toLowerCase() === 'fecha');
+                const userColumnMap = config.columns.find(p => p.key.toLowerCase() === 'usuario');
+
                 if (!dateColumnMap) {
-                    showModal('Error de Configuración', `<p>Debe existir una columna llamada "Fecha" en el mapeo para poder filtrar.</p>`); 
+                    showModal('Error de Configuración', `<p>Debe existir una columna llamada "Fecha" en el mapeo.</p>`);
+                    return;
+                }
+                if (config.userFilter && config.userFilter.length > 0 && !userColumnMap) {
+                    showModal('Error de Configuración', `<p>Se especificaron filtros de usuario, pero no hay una columna mapeada como "Usuario".</p>`);
                     return;
                 }
 
+                const allowedUsers = (config.userFilter || []).map(u => u.toUpperCase());
                 const reader = new FileReader(); 
                 reader.onload = async (e) => { 
                     try { 
-                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true }); 
-                        const ws = wb.Sheets[wb.SheetNames[0]]; 
-                        const range = XLSX.utils.decode_range(ws['!ref']); 
-                        const maxRow = range.e.r; 
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const range = XLSX.utils.decode_range(ws['!ref']);
                         
-                        const extractedData = []; 
-                        const firstColStartRow = parseInt(config.columns[0].startCell.match(/\d+/)[0], 10) - 1; 
-
+                        const extractedData = [];
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
 
-                        for (let R = firstColStartRow; R <= maxRow; ++R) { 
-                            let rowData = {}; 
-                            let isRowEmpty = true; 
-                            
-                            // Extraer y validar la fecha primero
-                            const dateColLetter = dateColumnMap.startCell.match(/[A-Z]+/)[0];
-                            const dateCellAddress = dateColLetter + (R + 1);
+                        for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+                            if (allowedUsers.length > 0 && userColumnMap) {
+                                const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0];
+                                const userCellAddress = userCol + (R + 1);
+                                const userCell = ws[userCellAddress];
+                                const userValue = (userCell ? String(userCell.v) : '').toUpperCase();
+                                if (!allowedUsers.includes(userValue)) {
+                                    continue;
+                                }
+                            }
+
+                            const dateCol = dateColumnMap.startCell.match(/[A-Z]+/)[0];
+                            const dateCellAddress = dateCol + (R + 1);
                             const dateCell = ws[dateCellAddress];
-                            const dateValue = dateCell ? dateCell.v : null;
-                            const rowDate = excelSerialToDateObject(dateValue);
                             
-                            // Si no hay fecha o la fecha es de hoy o futura, saltar la fila
-                            if (!rowDate || rowDate.getTime() >= today.getTime()) {
+                            if (!dateCell || !dateCell.v) {
                                 continue;
                             }
+
+                            let rowDate;
+                            if (dateCell.t === 'n') {
+                                rowDate = excelSerialToDateObject(dateCell.v);
+                            } else if (dateCell.v instanceof Date) {
+                                rowDate = dateCell.v;
+                            } else {
+                                continue; // Skip if date format is not recognized
+                            }
+                            rowDate.setHours(0,0,0,0);
                             
-                            config.columns.forEach(p => { 
-                                const col = p.startCell.match(/[A-Z]+/)[0]; 
-                                const cellAddress = col + (R + 1); 
-                                const cell = ws[cellAddress]; 
-                                let value = cell ? cell.v : undefined; 
-                                
-                                if (value !== undefined) { 
-                                    isRowEmpty = false; 
-                                    if (p.key.toLowerCase() === 'fecha') { 
-                                        // Formatear la fecha para mostrarla
-                                        value = `${String(rowDate.getDate()).padStart(2, '0')}/${String(rowDate.getMonth() + 1).padStart(2, '0')}/${rowDate.getFullYear()}`;
-                                    } 
-                                } 
-                                rowData[p.key] = value; 
-                            }); 
-                            
-                            if (isRowEmpty) continue; 
-                            extractedData.push(rowData); 
-                        } 
+                            if (rowDate.getTime() >= today.getTime()) {
+                                continue;
+                            }
+
+                            let rowData = {};
+                            config.columns.forEach(p => {
+                                const col = p.startCell.match(/[A-Z]+/)[0];
+                                const cellAddress = col + (R + 1);
+                                const cell = ws[cellAddress];
+                                let value = cell ? (cell.w || cell.v) : undefined;
+                                rowData[p.key] = value;
+                            });
+                            extractedData.push(rowData);
+                        }
                         
                         if(extractedData.length === 0){ 
-                            showModal('Sin Coincidencias', '<p>No se encontraron registros con fechas anteriores a la de hoy.</p>'); 
-                            renderTable901([]); // Limpiar la tabla si no hay datos
+                            showModal('Sin Coincidencias', '<p>No se encontraron registros que cumplan con los filtros (fecha pasada y usuarios seleccionados).</p>'); 
+                            renderTable901([]);
                             return; 
                         } 
                         
                         renderTable901(extractedData);
-                        showModal('Éxito', `<p>${extractedData.length} registros han sido cargados en la tabla.</p>`); 
+                        showModal('Éxito', `<p>${extractedData.length} registros han sido cargados.</p>`); 
                     } catch (err) { 
                         console.error("Error al procesar archivo 901:", err); 
-                        showModal('Error de Archivo', '<p>No se pudo procesar el archivo.</p>') 
+                        showModal('Error de Archivo', `<p>No se pudo procesar el archivo. Verifique el formato y la configuración.</p>`) 
                     } 
                 }; 
                 reader.readAsArrayBuffer(file); 
@@ -854,20 +743,18 @@
                 let html = '<thead><tr>'; 
                 headers.forEach(h => html += `<th>${h}<input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`); 
                 html += '</tr></thead><tbody>'; 
-                
                 data.forEach(row => { 
                     html += '<tr>'; 
                     headers.forEach(header => { 
                         const value = row[header] ?? '';
                         if (header.toUpperCase() === 'GR') {
-                            html += `<td class="copyable" onclick="copyToClipboard('${value}', this)" title="Haz clic para copiar">${value}</td>`;
+                            html += `<td class="copyable" onclick="copyToClipboard('${String(value).replace(/'/g, "\\'")}', this)" title="Haz clic para copiar">${value}</td>`;
                         } else {
                             html += `<td>${value}</td>`; 
                         }
                     }); 
                     html += '</tr>'; 
                 }); 
-                
                 tableElement.innerHTML = html + '</tbody>'; 
                 tableElement.querySelectorAll('.filter-input').forEach(input => { 
                     input.addEventListener('keyup', () => filterTable901()); 
@@ -891,9 +778,7 @@
                     row.style.display = shouldShow ? '' : 'none'; 
                 }); 
             }
-
-            // --- FIN: Lógica de 901 completamente renovada ---
-
+            
             async function initializeApp() {
                 if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
                 await Promise.all([ loadParams('901_config'), loadParams('terminaciones_config') ]);
