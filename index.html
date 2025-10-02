@@ -108,7 +108,18 @@
         th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: top; }
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
-        .filter-input { width: 100%; background-color: var(--surface-color); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; padding: 4px 6px; margin-top: 4px; font-size: 0.8rem; }
+        .filter-input { 
+            width: 100%; 
+            max-width: 120px; /* <<< AJUSTE ESTÉTICO: Limita el ancho del input */
+            box-sizing: border-box; /* Asegura que padding no aumente el ancho */
+            background-color: var(--surface-color); 
+            border: 1px solid var(--border-color); 
+            color: var(--text-primary); 
+            border-radius: 4px; 
+            padding: 4px 6px; 
+            margin-top: 4px; 
+            font-size: 0.8rem; 
+        }
         .file-drop-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-top: 16px; }
         .file-drop-area p { margin: 0; color: var(--text-dark); }
         .file-drop-area h4 { margin: 0 0 8px 0; color: var(--text-secondary); }
@@ -487,12 +498,12 @@
                         else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
                         else if (area === 'NON STD') fibras = 2; else if (area === 'SPECIALTY') fibras = 12;
                         else if (area === 'MULTIPORT') {
-                            const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                            if (catalogo.startsWith('DFB')) {
-                                fibras = extractedFibers * 2;
-                            } else {
-                                fibras = extractedFibers;
-                            }
+                             const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                             if (catalogo.startsWith('DFB')) {
+                                 fibras = extractedFibers * 2;
+                             } else {
+                                 fibras = extractedFibers;
+                             }
                         }
                         else if (area === 'EVOLV MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
                         else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
@@ -679,23 +690,11 @@
                         today.setHours(0, 0, 0, 0);
 
                         for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-                            if (allowedUsers.length > 0 && userColumnMap) {
-                                const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0];
-                                const userCellAddress = userCol + (R + 1);
-                                const userCell = ws[userCellAddress];
-                                const userValue = (userCell ? String(userCell.v) : '').toUpperCase();
-                                if (!allowedUsers.includes(userValue)) {
-                                    continue;
-                                }
-                            }
-
                             const dateCol = dateColumnMap.startCell.match(/[A-Z]+/)[0];
                             const dateCellAddress = dateCol + (R + 1);
                             const dateCell = ws[dateCellAddress];
                             
-                            if (!dateCell || !dateCell.v) {
-                                continue;
-                            }
+                            if (!dateCell || !dateCell.v) continue;
 
                             let rowDate;
                             if (dateCell.t === 'n') {
@@ -707,23 +706,34 @@
                             }
                             rowDate.setHours(0,0,0,0);
                             
-                            if (rowDate.getTime() >= today.getTime()) {
-                                continue;
+                            const isToday = rowDate.getTime() === today.getTime();
+                            const isPast = rowDate.getTime() < today.getTime();
+                            let userIsAllowed = true;
+
+                            if (allowedUsers.length > 0 && userColumnMap) {
+                                const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0];
+                                const userCellAddress = userCol + (R + 1);
+                                const userCell = ws[userCellAddress];
+                                const userValue = (userCell ? String(userCell.v) : '').toUpperCase();
+                                userIsAllowed = allowedUsers.includes(userValue);
                             }
 
-                            let rowData = {};
-                            config.columns.forEach(p => {
-                                const col = p.startCell.match(/[A-Z]+/)[0];
-                                const cellAddress = col + (R + 1);
-                                const cell = ws[cellAddress];
-                                let value = cell ? (cell.w || cell.v) : undefined;
-                                rowData[p.key] = value;
-                            });
-                            extractedData.push(rowData);
+                            // APLICAR NUEVA LÓGICA
+                            if (isPast || (isToday && userIsAllowed)) {
+                                let rowData = {};
+                                config.columns.forEach(p => {
+                                    const col = p.startCell.match(/[A-Z]+/)[0];
+                                    const cellAddress = col + (R + 1);
+                                    const cell = ws[cellAddress];
+                                    let value = cell ? (cell.w || cell.v) : undefined;
+                                    rowData[p.key] = value;
+                                });
+                                extractedData.push(rowData);
+                            }
                         }
                         
                         if(extractedData.length === 0){ 
-                            showModal('Sin Coincidencias', '<p>No se encontraron registros que cumplan con los filtros (fecha pasada y usuarios seleccionados).</p>'); 
+                            showModal('Sin Coincidencias', '<p>No se encontraron registros que cumplan con los filtros.</p>'); 
                             renderTable901([]);
                             return; 
                         } 
