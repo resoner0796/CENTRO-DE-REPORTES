@@ -36,6 +36,9 @@
             --thead-bg: rgba(55, 65, 81, 0.8);
             --sticky-col-bg: #2a2d32;
             --success-color: #4ade80;
+            --row-today-bg: rgba(74, 222, 128, 0.1);
+            --row-yesterday-bg: rgba(251, 191, 36, 0.1);
+            --row-past-bg: rgba(244, 63, 94, 0.1);
         }
 
         body.light-theme {
@@ -54,6 +57,9 @@
             --thead-bg: rgba(229, 231, 235, 0.8);
             --sticky-col-bg: #f1f5f9;
             --success-color: #22c55e;
+            --row-today-bg: rgba(34, 197, 94, 0.1);
+            --row-yesterday-bg: rgba(245, 158, 11, 0.1);
+            --row-past-bg: rgba(239, 68, 68, 0.1);
         }
 
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -105,13 +111,13 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
-        th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: top; }
+        th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: middle; }
+        #dataTable901 th { display: flex; flex-direction: column; align-items: flex-start; }
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
         .filter-input { 
             width: 100%; 
-            max-width: 120px; /* <<< AJUSTE ESTÉTICO: Limita el ancho del input */
-            box-sizing: border-box; /* Asegura que padding no aumente el ancho */
+            box-sizing: border-box;
             background-color: var(--surface-color); 
             border: 1px solid var(--border-color); 
             color: var(--text-primary); 
@@ -130,7 +136,10 @@
         }
         #summaryContainer table .grand-total { font-weight: bold; border-top: 2px solid var(--border-color); }
 
-        /* Modal Styles */
+        .row-today { background-color: var(--row-today-bg) !important; }
+        .row-yesterday { background-color: var(--row-yesterday-bg) !important; }
+        .row-past { background-color: var(--row-past-bg) !important; }
+
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
         .modal-content { transform: scale(0.95); transition: transform 0.3s; width: 90%; max-width: 800px; }
@@ -688,6 +697,8 @@
                         const extractedData = [];
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
+                        const yesterday = new Date(today);
+                        yesterday.setDate(yesterday.getDate() - 1);
 
                         for (let R = range.s.r + 1; R <= range.e.r; ++R) {
                             const dateCol = dateColumnMap.startCell.match(/[A-Z]+/)[0];
@@ -707,10 +718,11 @@
                             rowDate.setHours(0,0,0,0);
                             
                             const isToday = rowDate.getTime() === today.getTime();
-                            const isPast = rowDate.getTime() < today.getTime();
-                            let userIsAllowed = true;
-
-                            if (allowedUsers.length > 0 && userColumnMap) {
+                            const isYesterday = rowDate.getTime() === yesterday.getTime();
+                            const isPast = rowDate.getTime() < yesterday.getTime();
+                            
+                            let userIsAllowed = false;
+                            if (userColumnMap) {
                                 const userCol = userColumnMap.startCell.match(/[A-Z]+/)[0];
                                 const userCellAddress = userCol + (R + 1);
                                 const userCell = ws[userCellAddress];
@@ -718,8 +730,27 @@
                                 userIsAllowed = allowedUsers.includes(userValue);
                             }
 
-                            // APLICAR NUEVA LÓGICA
-                            if (isPast || (isToday && userIsAllowed)) {
+                            let shouldInclude = false;
+                            let colorClass = '';
+
+                            if (isToday) {
+                                if (allowedUsers.length === 0 || userIsAllowed) {
+                                    shouldInclude = true;
+                                    colorClass = 'row-today';
+                                }
+                            } else if (isYesterday) {
+                                if (allowedUsers.length === 0 || userIsAllowed) {
+                                    shouldInclude = true;
+                                    colorClass = 'row-yesterday';
+                                }
+                            } else if (isPast) {
+                                if (allowedUsers.length === 0 || userIsAllowed) {
+                                    shouldInclude = true;
+                                    colorClass = 'row-past';
+                                }
+                            }
+
+                            if (shouldInclude) {
                                 let rowData = {};
                                 config.columns.forEach(p => {
                                     const col = p.startCell.match(/[A-Z]+/)[0];
@@ -728,6 +759,7 @@
                                     let value = cell ? (cell.w || cell.v) : undefined;
                                     rowData[p.key] = value;
                                 });
+                                rowData.colorClass = colorClass;
                                 extractedData.push(rowData);
                             }
                         }
@@ -757,10 +789,10 @@
                 } 
                 const headers = paramConfig.map(p => p.key); 
                 let html = '<thead><tr>'; 
-                headers.forEach(h => html += `<th>${h}<input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`); 
+                headers.forEach(h => html += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`); 
                 html += '</tr></thead><tbody>'; 
                 data.forEach(row => { 
-                    html += '<tr>'; 
+                    html += `<tr class="${row.colorClass || ''}">`; 
                     headers.forEach(header => { 
                         const value = row[header] ?? '';
                         if (header.toUpperCase() === 'GR') {
