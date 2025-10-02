@@ -112,7 +112,6 @@
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
         th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: middle; }
-        #dataTable901 th { display: flex; flex-direction: column; align-items: flex-start; }
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
         .filter-input { 
@@ -718,8 +717,7 @@
                             rowDate.setHours(0,0,0,0);
                             
                             const isToday = rowDate.getTime() === today.getTime();
-                            const isYesterday = rowDate.getTime() === yesterday.getTime();
-                            const isPast = rowDate.getTime() < yesterday.getTime();
+                            const isPast = rowDate.getTime() < today.getTime();
                             
                             let userIsAllowed = false;
                             if (userColumnMap) {
@@ -730,27 +728,7 @@
                                 userIsAllowed = allowedUsers.includes(userValue);
                             }
 
-                            let shouldInclude = false;
-                            let colorClass = '';
-
-                            if (isToday) {
-                                if (allowedUsers.length === 0 || userIsAllowed) {
-                                    shouldInclude = true;
-                                    colorClass = 'row-today';
-                                }
-                            } else if (isYesterday) {
-                                if (allowedUsers.length === 0 || userIsAllowed) {
-                                    shouldInclude = true;
-                                    colorClass = 'row-yesterday';
-                                }
-                            } else if (isPast) {
-                                if (allowedUsers.length === 0 || userIsAllowed) {
-                                    shouldInclude = true;
-                                    colorClass = 'row-past';
-                                }
-                            }
-
-                            if (shouldInclude) {
+                            if (isPast || (isToday && userIsAllowed)) {
                                 let rowData = {};
                                 config.columns.forEach(p => {
                                     const col = p.startCell.match(/[A-Z]+/)[0];
@@ -759,7 +737,15 @@
                                     let value = cell ? (cell.w || cell.v) : undefined;
                                     rowData[p.key] = value;
                                 });
-                                rowData.colorClass = colorClass;
+
+                                // Determinar color solo para las filas que se van a incluir
+                                if (isToday) {
+                                    rowData.colorClass = 'row-today';
+                                } else if (rowDate.getTime() === yesterday.getTime()) {
+                                    rowData.colorClass = 'row-yesterday';
+                                } else {
+                                    rowData.colorClass = 'row-past';
+                                }
                                 extractedData.push(rowData);
                             }
                         }
