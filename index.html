@@ -146,7 +146,10 @@
         .row-past { background-color: var(--row-past-bg) !important; }
         
         /* New Styles for Production Report */
-        #chartContainer { position: relative; height: 250px; margin-bottom: 16px; padding: 16px; }
+        #chartContainer { position: relative; height: 280px; padding: 16px; display: flex; flex-direction: column; }
+        #chartSummary { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
+        #chartSummary strong { color: var(--text-primary); }
+
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
@@ -264,7 +267,8 @@
                 </aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
                     <div id="chartContainer" class="card">
-                        <canvas id="produccionChart"></canvas>
+                        <canvas id="produccionChart" style="flex-grow: 1;"></canvas>
+                        <div id="chartSummary"></div>
                     </div>
                     <div class="card table-container">
                         <div class="table-wrapper">
@@ -630,14 +634,10 @@
                     const areaSelect = doc('prod_area');
                     const modalAreaSelect = doc('modal_prod_area');
 
-                    // Guardar valor actual para restaurarlo después
                     const currentVal = areaSelect.value;
                     
-                    // Limpiar opciones existentes (excepto "Todas las Áreas")
                     Array.from(areaSelect.options).forEach(option => {
-                        if (option.value !== 'ALL') {
-                            option.remove();
-                        }
+                        if (option.value !== 'ALL') option.remove();
                     });
 
                     let areas = [];
@@ -652,16 +652,11 @@
                         option.textContent = areaId;
                         areaSelect.appendChild(option);
                     });
-
-                    // Clonar para el modal
-                    if(modalAreaSelect) modalAreaSelect.innerHTML = areaSelect.innerHTML;
                     
-                    // Restaurar valor
+                    if(modalAreaSelect) modalAreaSelect.innerHTML = areaSelect.innerHTML;
                     areaSelect.value = currentVal;
 
-                } catch (e) {
-                    console.error("Error cargando áreas:", e);
-                }
+                } catch (e) { console.error("Error cargando áreas:", e); }
             }
             
             async function generateProductionReport() {
@@ -688,12 +683,12 @@
                     const selectedDate = new Date(`${selectedDateStr}T00:00:00`);
                     let startTime, endTime;
 
-                    if (selectedTurno === '1') { // Turno 1: 6:30 AM a 6:30 PM del mismo día
+                    if (selectedTurno === '1') {
                         startTime = new Date(selectedDate.getTime());
                         startTime.setHours(6, 30, 0, 0);
                         endTime = new Date(selectedDate.getTime());
                         endTime.setHours(18, 29, 59, 999);
-                    } else { // Turno 2: 6:30 PM a 6:30 AM del día siguiente
+                    } else {
                         startTime = new Date(selectedDate.getTime());
                         startTime.setHours(18, 30, 0, 0);
                         endTime = new Date(selectedDate.getTime());
@@ -733,7 +728,8 @@
                                                         catalogo: catalogNumber,
                                                         empacador: empacador,
                                                         timestamp: packedDate,
-                                                        linea: empacador === packerL1 ? 'Línea 1' : 'Línea 2'
+                                                        linea: empacador === packerL1 ? 'Línea 1' : 'Línea 2',
+                                                        boxId: box.boxId || 'SIN_CAJA'
                                                     });
                                                 }
                                             }
@@ -744,19 +740,41 @@
                         }
                     });
 
-                    const processedData = allPackedItems.map(item => {
+                    const detailedData = allPackedItems.map(item => {
                         const char = item.catalogo.substring(3, 4).toUpperCase();
                         const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
                         return {
                             ...item,
                             fibras: fibras,
-                            piezas: 1,
-                            terminaciones: fibras * 1
+                            terminaciones: fibras
                         };
                     });
 
-                    renderProductionTable(processedData);
-                    renderProductionChart(processedData, startTime, selectedTurno);
+                    const groupedByBox = new Map();
+                    detailedData.forEach(item => {
+                        const key = `${item.orden}-${item.boxId}`;
+                        if (!groupedByBox.has(key)) {
+                            groupedByBox.set(key, {
+                                orden: item.orden,
+                                catalogo: item.catalogo,
+                                boxId: item.boxId,
+                                piezas: 0,
+                                terminaciones: 0,
+                                linea: item.linea,
+                                empacador: item.empacador,
+                                timestamp: item.timestamp
+                            });
+                        }
+                        const group = groupedByBox.get(key);
+                        group.piezas += 1;
+                        group.terminaciones += item.terminaciones;
+                    });
+
+                    const aggregatedData = Array.from(groupedByBox.values());
+                    aggregatedData.sort((a, b) => a.timestamp - b.timestamp);
+
+                    renderProductionTable(aggregatedData);
+                    renderProductionChart(detailedData, startTime, selectedTurno);
 
                 } catch (e) {
                     console.error("Error generando reporte:", e);
@@ -774,20 +792,17 @@
                     return;
                 }
 
-                const headers = ['Orden', 'Catálogo', 'Fibras', 'Piezas Empacadas', 'Terminaciones', 'Línea', 'Empacador'];
+                const headers = ['Orden', 'Box ID', 'Catálogo', 'Piezas Empacadas', 'Terminaciones', 'Línea'];
                 let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
-
-                data.sort((a, b) => a.timestamp - b.timestamp);
 
                 data.forEach(row => {
                     html += `<tr>
                         <td>${row.orden}</td>
+                        <td>${row.boxId}</td>
                         <td>${row.catalogo}</td>
-                        <td>${row.fibras}</td>
                         <td>${row.piezas}</td>
                         <td>${row.terminaciones}</td>
                         <td>${row.linea}</td>
-                        <td>${row.empacador}</td>
                     </tr>`;
                 });
                 table.innerHTML = html + `</tbody>`;
@@ -801,10 +816,18 @@
 
                 const hourlyData = {};
                 const labels = [];
+                const totalSummary = {
+                    linea1: { piezas: 0, terminaciones: 0 },
+                    linea2: { piezas: 0, terminaciones: 0 }
+                };
+
                 for (let i = 0; i < 12; i++) {
-                    const hour = new Date(shiftStartTime);
-                    hour.setHours(hour.getHours() + i);
-                    const label = hour.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    const startHour = new Date(shiftStartTime);
+                    startHour.setHours(startHour.getHours() + i);
+                    const endHour = new Date(startHour);
+                    endHour.setHours(endHour.getHours() + 1);
+                    const format = { hour: 'numeric', minute: 'numeric', hour12: false };
+                    const label = `${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`;
                     labels.push(label);
                     hourlyData[i] = { 'Línea 1': 0, 'Línea 2': 0 };
                 }
@@ -818,12 +841,27 @@
                             hourlyData[diffHours]['Línea 2'] += item.terminaciones;
                          }
                     }
+                    if (item.linea === 'Línea 1') {
+                        totalSummary.linea1.piezas += 1;
+                        totalSummary.linea1.terminaciones += item.terminaciones;
+                    } else {
+                        totalSummary.linea2.piezas += 1;
+                        totalSummary.linea2.terminaciones += item.terminaciones;
+                    }
                 });
+                
+                const summaryEl = doc('chartSummary');
+                summaryEl.innerHTML = `
+                    Línea 1: <strong>${totalSummary.linea1.piezas} pzas / ${totalSummary.linea1.terminaciones} term.</strong>
+                    &nbsp;&nbsp;|&nbsp;&nbsp;
+                    Línea 2: <strong>${totalSummary.linea2.piezas} pzas / ${totalSummary.linea2.terminaciones} term.</strong>
+                `;
+
 
                 const line1Data = Object.values(hourlyData).map(d => d['Línea 1']);
                 const line2Data = Object.values(hourlyData).map(d => d['Línea 2']);
 
-                const chartConfig = {
+                productionChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: labels,
@@ -848,52 +886,41 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: { color: document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827' }
-                            },
+                            legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
                             title: {
                                 display: true,
                                 text: `Producción de Terminaciones - Turno ${turno}`,
-                                color: document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827',
+                                color: 'var(--text-primary)',
                                 font: { size: 16 }
                             }
                         },
                         scales: {
-                            x: {
-                                grid: { color: 'var(--chart-grid-color)' },
-                                ticks: { color: 'var(--chart-tick-color)' }
-                            },
+                            x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
                             y: {
                                 beginAtZero: true,
                                 grid: { color: 'var(--chart-grid-color)' },
                                 ticks: { color: 'var(--chart-tick-color)' },
-                                title: {
-                                    display: true,
-                                    text: 'Total de Terminaciones',
-                                    color: 'var(--chart-tick-color)'
-                                }
+                                title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' }
                             }
                         }
                     }
-                };
-                productionChart = new Chart(ctx, chartConfig);
+                });
+                updateChartTheme();
             }
             
             function updateChartTheme() {
                 if (!productionChart) return;
-                const isDark = document.body.classList.contains('dark-theme');
-                productionChart.options.plugins.legend.labels.color = isDark ? '#F1F5F9' : '#111827';
-                productionChart.options.plugins.title.color = isDark ? '#F1F5F9' : '#111827';
+                productionChart.options.plugins.legend.labels.color = document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827';
+                productionChart.options.plugins.title.color = document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827';
                 productionChart.options.scales.x.ticks.color = 'var(--chart-tick-color)';
                 productionChart.options.scales.y.ticks.color = 'var(--chart-tick-color)';
-                 productionChart.options.scales.y.title.color = 'var(--chart-tick-color)';
+                productionChart.options.scales.y.title.color = 'var(--chart-tick-color)';
                 productionChart.options.scales.x.grid.color = 'var(--chart-grid-color)';
                 productionChart.options.scales.y.grid.color = 'var(--chart-grid-color)';
                 productionChart.update();
             }
 
-            // --- INICIO: LÓGICA REPORTE 901 ---
+            // --- INICIO: LÓGICA REPORTE TERMINACIONES ---
             function processTerminacionesReport() {
                 if (!reportData.zpptwc || !reportData.coois) return;
                 const config = params.terminaciones_config;
@@ -1058,7 +1085,7 @@
                 });
             }
 
-            // --- INICIO: Lógica 901 Actualizada y Corregida ---
+            // --- INICIO: LÓGICA REPORTE 901 ---
             
             window.copyToClipboard = (text, element) => {
                 if (!text) return;
@@ -1087,19 +1114,6 @@
                     }, 1500);
                 });
             };
-
-            function excelSerialToDateObject(serial) {
-                if (typeof serial !== 'number' || isNaN(serial)) return null;
-                 // Excel's epoch starts on 1899-12-30. JS's is 1970-01-01.
-                // The number of days between them is 25569. Excel also wrongly treats 1900 as a leap year.
-                // For dates after Feb 1900, it's (serial - 25569) * 86400000. For dates before, it's (serial - 25568).
-                // A simpler way provided by libraries is often more reliable, as done in the tracking app.
-                // Re-using the logic from the tracking app: (serial - 25569) * 86400 * 1000
-                const excelEpoch = new Date(1899, 11, 30);
-                const date = new Date(excelEpoch.getTime() + serial * 86400000);
-                // Adjust for timezone offset
-                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
-            }
 
             async function handle901File(file) { 
                 const config = params['901_config'];
