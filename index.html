@@ -585,7 +585,7 @@
                     handle901File(file); 
                 } else {
                     const reader = new FileReader();
-                    reader.onload = (e) => {
+                    reader.onload = async (e) => {
                         try {
                             const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                             const ws = wb.Sheets[wb.SheetNames[0]];
@@ -602,9 +602,24 @@
                             }).filter(row => row.Orden);
                             reportData[configKey] = data;
                             doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
+
+                            // Guardar datos de COOIS en Firestore
+                            if (configKey === 'coois') {
+                                const batch = db.batch();
+                                data.forEach(row => {
+                                    const orderId = String(row.Orden || '').replace(/^0+/, '');
+                                    if(orderId) {
+                                        const docRef = db.collection('coois_historico').doc(orderId);
+                                        batch.set(docRef, row, { merge: true });
+                                    }
+                                });
+                                await batch.commit();
+                            }
+
                             processTerminacionesReport();
                         } catch (err) { 
-                            showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo de letras de columna.</p>'); 
+                            console.error("Error al procesar archivo:", err);
+                            showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo de letras de columna y la conexión a la base de datos.</p>'); 
                         }
                     };
                     reader.readAsArrayBuffer(file);
@@ -995,15 +1010,38 @@
             }
 
             // --- INICIO: LÓGICA REPORTE TERMINACIONES ---
-            function processTerminacionesReport() {
+            async function processTerminacionesReport() {
                 if (!reportData.zpptwc || !reportData.coois) return;
+
                 const config = params.terminaciones_config;
                 const joinKey = 'Orden';
-                if (!config.zpptwc_cols.some(c=>c.key === joinKey) || !config.coois_cols.some(c=>c.key === joinKey)) {
+                if (!config.zpptwc_cols.some(c => c.key === joinKey) || !config.coois_cols.some(c => c.key === joinKey)) {
                     showModal('Error de Configuración', '<p>Asegúrese de mapear una columna con el nombre clave "Orden" en ambos reportes.</p>');
                     return;
                 }
-                const cooisMap = new Map(reportData.coois.map(row => [String(row[joinKey] || '').replace(/^0+/, ''), row]));
+
+                const cooisMap = new Map();
+                // 1. Cargar el histórico de Firebase
+                try {
+                    const snapshot = await db.collection('coois_historico').get();
+                    snapshot.forEach(doc => {
+                        cooisMap.set(doc.id, doc.data());
+                    });
+                } catch (e) {
+                    console.error("Error al cargar histórico de COOIS:", e);
+                    showModal('Advertencia', '<p>No se pudo cargar el histórico de datos COOIS. El reporte podría estar incompleto.</p>');
+                }
+
+                // 2. Sobrescribir con el archivo recién cargado
+                if (reportData.coois) {
+                    reportData.coois.forEach(row => {
+                        const cleanOrder = String(row[joinKey] || '').replace(/^0+/, '');
+                        if (cleanOrder) {
+                            cooisMap.set(cleanOrder, row);
+                        }
+                    });
+                }
+
                 const finalData = reportData.zpptwc.map(zpptwcRow => {
                     const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
                     const cooisRow = cooisMap.get(cleanOrder) || {};
