@@ -43,6 +43,8 @@
             --row-past-bg: rgba(244, 63, 94, 0.1);
             --chart-grid-color: rgba(255, 255, 255, 0.1);
             --chart-tick-color: #94A3B8;
+            --glow-green: rgba(74, 222, 128, 0.9);
+            --glow-red: rgba(251, 113, 133, 0.9);
         }
 
         body.light-theme {
@@ -66,6 +68,8 @@
             --row-past-bg: rgba(239, 68, 68, 0.1);
             --chart-grid-color: rgba(0, 0, 0, 0.1);
             --chart-tick-color: #4B5563;
+            --glow-green: rgba(34, 197, 94, 0.9);
+            --glow-red: rgba(239, 68, 68, 0.9);
         }
 
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -99,11 +103,19 @@
         .btn { padding: 16px 24px; border-radius: 12px; cursor: pointer; background-color: var(--primary-color); border: none; color: var(--primary-text-color); font-weight: 700; font-size: 1.1rem; text-align: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .theme-switcher-container { position: absolute; top: 16px; right: 16px; }
+        /* AJUSTE: Botón con efecto Glass */
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2); color: var(--text-primary);
+            padding: 12px 20px; font-size: 0.95rem; font-weight: 600;
+        }
+        .btn-glass:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+        
+        .theme-switcher-container { position: absolute; top: 16px; right: 16px; z-index: 100; }
         #themeToggleBtn { padding: 8px 12px; font-size: 1.5rem; line-height: 1; background-color: var(--surface-color); color: var(--text-secondary); border: 1px solid var(--border-color); }
         #themeToggleBtn:hover { background-color: var(--surface-hover-color); color: var(--text-primary); }
         #view901, #viewTerminaciones, #viewProduccionHora { display: none; width: 100%; }
-        .main-container { display: grid; grid-template-columns: 320px 1fr; gap: 16px; width: 100%; height: calc(100vh - 120px); }
+        .main-container { display: grid; grid-template-columns: 320px 1fr; gap: 16px; width: 100%; height: calc(100vh - 32px); }
         .sidebar { display: flex; flex-direction: column; gap: 16px; }
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
         .icon-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
@@ -111,6 +123,8 @@
         .main-content { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
         #summaryContainer { flex-shrink: 0; padding: 16px; }
         .summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        /* AJUSTE: Centrar título de la gráfica */
+        .summary-header .title-wrapper { flex-grow: 1; text-align: center; }
         .summary-header h3 { margin: 0; }
         .table-container { flex-grow: 1; min-height: 0; }
         .table-wrapper { overflow: auto; height: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
@@ -145,11 +159,12 @@
         .row-yesterday { background-color: var(--row-yesterday-bg) !important; }
         .row-past { background-color: var(--row-past-bg) !important; }
         
-        #chartContainer { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
-        #produccionChart { max-height: 250px; }
+        #chartContainer, #fibraReportContainer { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
+        #produccionChart, #fibraPieChart { max-height: 250px; }
         #chartSummary { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
         #chartSummary strong { color: var(--text-primary); }
-
+        #fibraReportContainer .fibra-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: start; }
+        #fibraReportContainer h4 { margin-top: 0; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
@@ -183,12 +198,25 @@
         .helper-pill:hover { background-color: var(--primary-color); color: var(--primary-text-color); border-color: var(--primary-color); }
         #login-error-msg { color: var(--danger-color); text-align: center; margin-top: 10px; font-weight: 500; height: 1em; }
 
+        /* AJUSTE: Estilos para el registro de empacadores */
+        .collapsible-section { border: 1px solid var(--border-color); border-radius: 8px; margin-top: 16px; }
+        .collapsible-header { background-color: var(--surface-hover-color); padding: 10px 12px; cursor: pointer; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .collapsible-header::after { content: '▼'; transition: transform 0.2s; }
+        .collapsible-section.open .collapsible-header::after { transform: rotate(180deg); }
+        .collapsible-content { padding: 12px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease-out; }
+        .collapsible-section.open .collapsible-content { max-height: 500px; padding: 12px; }
+        #addPackerForm { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+        #packerList { list-style: none; padding: 0; margin-top: 12px; max-height: 150px; overflow-y: auto; }
+        #packerList li { display: flex; justify-content: space-between; align-items: center; padding: 6px; border-radius: 4px; }
+        #packerList li:nth-child(odd) { background-color: var(--surface-color); }
+
+
         @media (max-width: 900px), (max-height: 450px) {
             body { overflow-y: auto; padding: 8px; }
             .app-header { margin-bottom: 16px; }
             .app-branding { font-size: 2rem; }
             .app-title { font-size: 1rem; }
-            .main-container { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; gap: 12px; }
+            .main-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; gap: 12px; padding-top: 0; }
             .sidebar { height: auto; }
             .main-content { min-height: 50vh; gap: 12px; min-width: 0; }
             .card { padding: 16px; }
@@ -200,6 +228,8 @@
             .param-item, .area-item { grid-template-columns: 1fr; gap: 8px; text-align: left; }
             .param-item .btn-danger, .area-item .btn-danger { justify-self: end; }
             .param-value-container { grid-column: 1; }
+            #fibraReportContainer .fibra-grid { grid-template-columns: 1fr; }
+            #addPackerForm { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -224,7 +254,6 @@
         </div>
         
         <div id="viewProduccionHora">
-            <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Producción por Hora</h2></header>
             <div class="main-container">
                 <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
                     <div class="card" style="height: 100%; display: flex; flex-direction: column;">
@@ -255,25 +284,48 @@
                             </div>
                             <div class="control-group">
                                 <label for="prod_linea1_packer">Empacador Línea 1</label>
-                                <input type="text" id="prod_linea1_packer" placeholder="ID de empacador...">
+                                <!-- AJUSTE: Input con Datalist para empacadores -->
+                                <input type="text" id="prod_linea1_packer" placeholder="ID de empacador..." list="packerList1">
+                                <datalist id="packerList1"></datalist>
                             </div>
                             <div class="control-group">
                                 <label for="prod_linea2_packer">Empacador Línea 2</label>
-                                <input type="text" id="prod_linea2_packer" placeholder="ID de empacador...">
+                                <!-- AJUSTE: Input con Datalist para empacadores -->
+                                <input type="text" id="prod_linea2_packer" placeholder="ID de empacador..." list="packerList2">
+                                <datalist id="packerList2"></datalist>
+                            </div>
+                            <!-- NUEVA FUNCIÓN: Botones de tipo de reporte -->
+                            <hr style="border-color: var(--border-color); margin: 24px 0;">
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <button id="showProduccionHoraBtn" class="btn btn-glass">Producción por Hora</button>
+                                <button id="showProduccionFibraBtn" class="btn btn-glass">Producción por Fibra</button>
                             </div>
                         </div>
                          <button id="generarReporteProduccionBtn" class="btn" style="margin-top: 16px; width: 100%;">Generar Reporte</button>
                     </div>
                 </aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <!-- AJUSTE: Header centrado al contenido principal -->
+                    <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Producción por Hora</h2></header>
+                    
                     <div id="chartContainer" class="card">
                         <div class="summary-header">
-                            <h3>Producción por Hora</h3>
+                             <!-- AJUSTE: Wrapper para centrar título de la gráfica -->
+                            <div class="title-wrapper"><h3>Producción por Hora</h3></div>
                             <button id="exportChartBtn" class="icon-btn" title="Exportar Gráfica como JPG" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
                         </div>
                         <canvas id="produccionChart"></canvas>
                         <div id="chartSummary"></div>
                     </div>
+
+                    <!-- NUEVA FUNCIÓN: Contenedor para reporte de fibra -->
+                    <div id="fibraReportContainer" class="card" style="display: none;">
+                        <div class="summary-header">
+                            <div class="title-wrapper"><h3>Producción por Fibra</h3></div>
+                        </div>
+                        <div id="fibraReportContent"></div>
+                    </div>
+
                     <div class="card table-container">
                         <div class="table-wrapper">
                             <table id="dataTableProduccion">
@@ -287,7 +339,6 @@
         </div>
 
         <div id="view901">
-            <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte 901</h2></header>
             <div class="main-container">
                 <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
                     <div class="card" style="height: 100%;">
@@ -302,22 +353,25 @@
                         <input type="file" id="fileInput901" accept=".xlsx, .xls" style="display: none;">
                     </div>
                 </aside>
-                <main class="main-content card table-container animated-startup" style="animation-delay: 0.2s;">
-                    <div class="table-wrapper">
-                        <table id="dataTable901"><thead><tr><th>Carga un archivo para ver los datos...</th></tr></thead><tbody></tbody></table>
+                <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte 901</h2></header>
+                    <div class="card table-container">
+                        <div class="table-wrapper">
+                            <table id="dataTable901"><thead><tr><th>Carga un archivo para ver los datos...</th></tr></thead><tbody></tbody></table>
+                        </div>
                     </div>
                 </main>
             </div>
         </div>
 
         <div id="viewTerminaciones">
-             <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Terminaciones</h2></header>
             <div class="main-container">
                 <aside class="sidebar animated-startup" style="animation-delay: 0.1s;"><div class="card" style="height: 100%; display: flex; flex-direction: column;"><div class="sidebar-header"><h3>Panel de Control</h3><div><button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button><button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button></div></div>
                     <div id="fileDropAreaZpptwc" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;"><h4>Reporte SAP (Zpptwc)</h4><p>Arrastra el primer archivo aquí</p></div><input type="file" id="fileInputZpptwc" accept=".xlsx, .xls" style="display: none;">
                     <div id="fileDropAreaCoois" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;"><h4>Reporte SAP (Coois)</h4><p>Arrastra el segundo archivo aquí</p></div><input type="file" id="fileInputCoois" accept=".xlsx, .xls" style="display: none;">
                 </div></aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Terminaciones</h2></header>
                     <div class="card" id="summaryContainer">
                         <div class="summary-header">
                             <h3>Resumen de Terminaciones</h3>
@@ -363,21 +417,28 @@
                 produccion_hora_config: {
                     linea1_packer: '',
                     linea2_packer: '',
-                    area: 'ALL'
+                    area: 'ALL',
+                    packers: [] // NUEVO: Almacenamiento para empacadores
                 }
             };
             let reportData = { zpptwc: null, coois: null };
             let productionChart = null;
+            let fiberPieChart = null; // NUEVO: Gráfica de pastel
+            let productionReportData = null; // NUEVO: Almacenamiento de datos del reporte
 
             // --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
             function switchView(viewKey) {
                 const currentViewEl = views[activeView]; const nextViewEl = views[viewKey]; if (!nextViewEl) return;
                 activeView = viewKey; currentViewEl.style.opacity = '0';
                 setTimeout(() => {
-                    currentViewEl.style.display = 'none'; nextViewEl.style.display = viewKey === 'menu' ? 'flex' : 'block';
+                    currentViewEl.style.display = 'none'; nextViewEl.style.display = 'block';
+                    if (viewKey === 'menu') {
+                        nextViewEl.style.display = 'flex';
+                    }
                     requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
                     if(viewKey === 'produccionHora') {
                         loadAreasForProductionReport();
+                        populatePackerDatalists();
                     }
                 }, 300);
             }
@@ -391,7 +452,7 @@
             function applyTheme(theme) { 
                 document.body.className = `${theme}-theme`; 
                 doc('themeToggleBtn').textContent = theme === 'light' ? '🌙' : '☀️';
-                if(productionChart) {
+                if(productionChart || fiberPieChart) {
                     updateChartTheme();
                 }
             }
@@ -424,34 +485,101 @@
                 }
             }
 
+            // AJUSTE: Modal de configuración para producción con registro de empacadores
             function showProduccionHoraConfigModal() {
                 const config = params.produccion_hora_config;
                 const content = `
-                    <p>Guarda los IDs de empacador que usas con más frecuencia.</p>
-                    <div class="control-group">
-                        <label for="modal_linea1_packer">Empacador Línea 1 (por defecto)</label>
-                        <input type="text" id="modal_linea1_packer" value="${config.linea1_packer || ''}">
+                    <div id="configuracionPorDefecto">
+                        <p>Guarda los IDs de empacador que usas con más frecuencia en el panel principal.</p>
+                        <div class="control-group">
+                            <label for="modal_linea1_packer">Empacador Línea 1 (por defecto)</label>
+                            <input type="text" id="modal_linea1_packer" value="${config.linea1_packer || ''}">
+                        </div>
+                        <div class="control-group">
+                            <label for="modal_linea2_packer">Empacador Línea 2 (por defecto)</label>
+                            <input type="text" id="modal_linea2_packer" value="${config.linea2_packer || ''}">
+                        </div>
+                        <div class="control-group">
+                            <label for="modal_prod_area">Área por defecto</label>
+                            <select id="modal_prod_area">${doc('prod_area').innerHTML}</select>
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <label for="modal_linea2_packer">Empacador Línea 2 (por defecto)</label>
-                        <input type="text" id="modal_linea2_packer" value="${config.linea2_packer || ''}">
-                    </div>
-                     <div class="control-group">
-                        <label for="modal_prod_area">Área por defecto</label>
-                        <select id="modal_prod_area">${doc('prod_area').innerHTML}</select>
+
+                    <div class="collapsible-section" id="packerRegistrySection">
+                        <div class="collapsible-header">Registrar Empacadores</div>
+                        <div class="collapsible-content">
+                            <p>Añade empacadores para autocompletar en el panel de control.</p>
+                            <form id="addPackerForm">
+                                <input type="text" id="newPackerId" placeholder="ID Empacador" required>
+                                <select id="newPackerLinea" required>
+                                    <option value="1">Línea 1</option>
+                                    <option value="2">Línea 2</option>
+                                </select>
+                                <select id="newPackerTurno" required>
+                                    <option value="1">Turno 1</option>
+                                    <option value="2">Turno 2</option>
+                                </select>
+                                <button type="submit" class="btn" style="padding: 8px 12px;">Añadir</button>
+                            </form>
+                            <ul id="packerList"></ul>
+                        </div>
                     </div>
                     <button id="saveProduccionHoraConfigBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Configuración</button>
                 `;
                 showModal('Configurar Reporte de Producción', content);
                 doc('modal_prod_area').value = config.area || 'ALL';
                 doc('saveProduccionHoraConfigBtn').addEventListener('click', saveProduccionHoraConfig);
+
+                const section = doc('packerRegistrySection');
+                section.querySelector('.collapsible-header').addEventListener('click', () => {
+                    section.classList.toggle('open');
+                });
+                
+                doc('addPackerForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const newPacker = {
+                        id: doc('newPackerId').value.trim().toUpperCase(),
+                        linea: doc('newPackerLinea').value,
+                        turno: doc('newPackerTurno').value
+                    };
+                    if (newPacker.id && !params.produccion_hora_config.packers.some(p => p.id === newPacker.id)) {
+                        params.produccion_hora_config.packers.push(newPacker);
+                        renderPackerListInModal();
+                        doc('newPackerId').value = '';
+                    }
+                });
+
+                renderPackerListInModal();
+            }
+            
+            function renderPackerListInModal() {
+                const listEl = doc('packerList');
+                if (!listEl) return;
+                const packers = params.produccion_hora_config.packers || [];
+                packers.sort((a, b) => a.id.localeCompare(b.id));
+
+                listEl.innerHTML = packers.map((p, index) => `
+                    <li>
+                        <span><strong>${p.id}</strong> (Línea ${p.linea}, Turno ${p.turno})</span>
+                        <button class="btn-danger" data-index="${index}" style="font-size: 0.8rem; padding: 4px 8px;">X</button>
+                    </li>
+                `).join('');
+
+                listEl.querySelectorAll('.btn-danger').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const index = parseInt(e.target.dataset.index, 10);
+                        params.produccion_hora_config.packers.splice(index, 1);
+                        renderPackerListInModal();
+                    });
+                });
             }
 
             async function saveProduccionHoraConfig() {
                 const newConfig = {
-                    linea1_packer: doc('modal_linea1_packer').value.trim(),
-                    linea2_packer: doc('modal_linea2_packer').value.trim(),
-                    area: doc('modal_prod_area').value
+                    linea1_packer: doc('modal_linea1_packer').value.trim().toUpperCase(),
+                    linea2_packer: doc('modal_linea2_packer').value.trim().toUpperCase(),
+                    area: doc('modal_prod_area').value,
+                    packers: params.produccion_hora_config.packers || []
                 };
                 try {
                     await db.collection('report_configs').doc('produccion_hora_params').set(newConfig);
@@ -554,7 +682,7 @@
                         } else if (configKey === 'terminaciones_config') {
                             params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
                         } else if (configKey === 'produccion_hora_config') {
-                            params.produccion_hora_config = { linea1_packer: '', linea2_packer: '', area: 'ALL', ...data };
+                            params.produccion_hora_config = { linea1_packer: '', linea2_packer: '', area: 'ALL', packers: [], ...data };
                             applyProduccionHoraConfig();
                         }
                     }
@@ -566,7 +694,24 @@
                 doc('prod_linea1_packer').value = config.linea1_packer || '';
                 doc('prod_linea2_packer').value = config.linea2_packer || '';
                 doc('prod_area').value = config.area || 'ALL';
+                populatePackerDatalists();
             }
+
+            // NUEVA FUNCIÓN: Llenar datalists de empacadores
+            function populatePackerDatalists() {
+                const turno = doc('prod_turno').value;
+                const packers = params.produccion_hora_config.packers || [];
+                const datalist1 = doc('packerList1');
+                const datalist2 = doc('packerList2');
+                datalist1.innerHTML = packers
+                    .filter(p => p.linea === '1' && p.turno === turno)
+                    .map(p => `<option value="${p.id}"></option>`).join('');
+                datalist2.innerHTML = packers
+                    .filter(p => p.linea === '2' && p.turno === turno)
+                    .map(p => `<option value="${p.id}"></option>`).join('');
+            }
+            doc('prod_turno').addEventListener('change', populatePackerDatalists);
+
 
             function setupFileHandler(dropAreaId, inputId, configKey) {
                 const dropArea = doc(dropAreaId); const input = doc(inputId);
@@ -669,6 +814,19 @@
 
             doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
             doc('exportChartBtn').addEventListener('click', exportChartAsJPG);
+            doc('showProduccionHoraBtn').addEventListener('click', () => {
+                doc('chartContainer').style.display = 'flex';
+                doc('fibraReportContainer').style.display = 'none';
+            });
+            doc('showProduccionFibraBtn').addEventListener('click', () => {
+                if (!productionReportData) {
+                    showModal('Datos no disponibles', '<p>Primero debe generar un reporte de producción.</p>');
+                    return;
+                }
+                renderFiberReport(productionReportData);
+                doc('chartContainer').style.display = 'none';
+                doc('fibraReportContainer').style.display = 'flex';
+            });
             
             async function loadAreasForProductionReport() {
                 try {
@@ -684,7 +842,7 @@
 
                     let areas = [];
                     areasSnapshot.forEach(doc => {
-                       if (doc.id !== 'CONFIG') areas.push(doc.id);
+                        if (doc.id !== 'CONFIG') areas.push(doc.id);
                     });
                     areas.sort();
                     
@@ -748,6 +906,7 @@
                         showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
                         renderProductionTable([]);
                         renderProductionChart([], startTime, selectedTurno);
+                        productionReportData = [];
                         return;
                     }
 
@@ -795,6 +954,8 @@
                         };
                     });
 
+                    productionReportData = detailedData; // Guardar datos para reporte de fibra
+
                     const groupedByBox = new Map();
                     detailedData.forEach(item => {
                         const key = `${item.orden}-${item.boxId}`;
@@ -822,11 +983,17 @@
 
                     renderProductionTable(aggregatedData);
                     renderProductionChart(detailedData, startTime, selectedTurno);
+                    
+                    // Asegurar que la vista correcta esté visible
+                    doc('chartContainer').style.display = 'flex';
+                    doc('fibraReportContainer').style.display = 'none';
+
 
                 } catch (e) {
                     console.error("Error generando reporte:", e);
                     showModal('Error', `<p>Ocurrió un error al generar el reporte: ${e.message}</p>`);
                     doc('exportChartBtn').style.display = 'none';
+                    productionReportData = null;
                 } finally {
                     btn.disabled = false;
                     btn.textContent = 'Generar Reporte';
@@ -882,8 +1049,9 @@
                     startHour.setHours(startHour.getHours() + i);
                     const endHour = new Date(startHour);
                     endHour.setHours(endHour.getHours() + 1);
-                    const format = { hour: 'numeric', minute: 'numeric', hour12: false };
-                    const label = `${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`;
+                    endHour.setMinutes(endHour.getMinutes() - 1);
+                    const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+                    const label = `${startHour.toLocaleTimeString('es-ES', format)}-${endHour.toLocaleTimeString('es-ES', format)}`;
                     labels.push(label);
                     hourlyData[i] = { 'Línea 1': 0, 'Línea 2': 0 };
                 }
@@ -927,16 +1095,14 @@
                                 data: line1Data,
                                 backgroundColor: 'rgba(54, 162, 235, 0.6)',
                                 borderColor: 'rgba(54, 162, 235, 1)',
-                                borderWidth: 1,
-                                order: 1 // Asegura que las barras se dibujen sobre las líneas de la cuadrícula
+                                borderWidth: 1
                             },
                             {
                                 label: 'Línea 2',
                                 data: line2Data,
                                 backgroundColor: 'rgba(255, 99, 132, 0.6)',
                                 borderColor: 'rgba(255, 99, 132, 1)',
-                                borderWidth: 1,
-                                order: 1 // Asegura que las barras se dibujen sobre las líneas de la cuadrícula
+                                borderWidth: 1
                             }
                         ]
                     },
@@ -951,28 +1117,38 @@
                                 color: 'var(--text-primary)',
                                 font: { size: 16 }
                             },
-                             datalabels: {
+                             // AJUSTE: Datalabels con colores y brillo condicional
+                            datalabels: {
                                 anchor: 'end',
                                 align: 'top',
-                                color: 'var(--text-primary)',
-                                font: {
-                                    weight: 'bold'
+                                font: { weight: 'bold' },
+                                formatter: (value) => value > 0 ? value : '',
+                                color: (context) => {
+                                    const value = context.dataset.data[context.dataIndex];
+                                    const isDark = document.body.classList.contains('dark-theme');
+                                    if (value >= 480) return isDark ? '#4ade80' : '#166534';
+                                    if (value > 0) return isDark ? '#fb7185' : '#be123c';
+                                    return 'transparent';
                                 },
-                                formatter: function(value) {
-                                    return value > 0 ? value : '';
-                                }
+                                textShadowColor: (context) => {
+                                    const value = context.dataset.data[context.dataIndex];
+                                    if (value >= 480) return 'var(--glow-green)';
+                                    if (value > 0) return 'var(--glow-red)';
+                                    return 'transparent';
+                                },
+                                textShadowBlur: 12
                             }
                         },
                         scales: {
                             x: { 
                                 grid: { color: 'var(--chart-grid-color)', drawOnChartArea: true }, 
+                                // AJUSTE: Etiquetas de hora en horizontal
                                 ticks: { 
                                     color: 'var(--chart-tick-color)',
-                                    maxRotation: 90,
-                                    minRotation: 90,
-                                    font: {
-                                        weight: 'bold'
-                                    }
+                                    maxRotation: 0,
+                                    minRotation: 0,
+                                    autoSkip: true,
+                                    font: { size: 10 }
                                 } 
                             },
                             y: {
@@ -988,22 +1164,125 @@
                 doc('exportChartBtn').style.display = 'block';
                 updateChartTheme();
             }
+
+            // NUEVA FUNCIÓN: Generar y mostrar el reporte por fibra
+            function renderFiberReport(data) {
+                const container = doc('fibraReportContent');
+                if (fiberPieChart) fiberPieChart.destroy();
+                
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<p>No hay datos de producción para analizar.</p>';
+                    return;
+                }
+
+                const fibraData = { 'Línea 1': {}, 'Línea 2': {} };
+                const pieData = {};
+
+                data.forEach(item => {
+                    const linea = item.linea;
+                    const fibraKey = `${item.fibras} Fibras`;
+                    const catalogo = item.catalogo;
+                    
+                    // Agrupar para tablas
+                    if (!fibraData[linea][fibraKey]) {
+                        fibraData[linea][fibraKey] = {};
+                    }
+                    if (!fibraData[linea][fibraKey][catalogo]) {
+                        fibraData[linea][fibraKey][catalogo] = 0;
+                    }
+                    fibraData[linea][fibraKey][catalogo]++;
+
+                    // Agrupar para gráfica de pastel
+                    if (!pieData[fibraKey]) {
+                        pieData[fibraKey] = 0;
+                    }
+                    pieData[fibraKey]++;
+                });
+
+                let tableHTML = '<h4>Desglose por Línea</h4>';
+                for (const linea in fibraData) {
+                    tableHTML += `<h5>${linea}</h5><div class="table-wrapper" style="max-height: 200px; margin-bottom: 16px;"><table><thead><tr><th>Fibra</th><th>Catálogo</th><th>Piezas</th></tr></thead><tbody>`;
+                    Object.entries(fibraData[linea]).forEach(([fibra, catalogos]) => {
+                        Object.entries(catalogos).forEach(([catalogo, piezas]) => {
+                            tableHTML += `<tr><td>${fibra}</td><td>${catalogo}</td><td>${piezas}</td></tr>`;
+                        });
+                    });
+                    tableHTML += '</tbody></table></div>';
+                }
+
+                const pieLabels = Object.keys(pieData);
+                const pieValues = Object.values(pieData);
+                const colors = ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+                
+                container.innerHTML = `
+                    <div class="fibra-grid">
+                        <div>${tableHTML}</div>
+                        <div>
+                            <h4>Porcentaje por Fibra</h4>
+                            <canvas id="fibraPieChart"></canvas>
+                        </div>
+                    </div>
+                `;
+
+                const pieCtx = doc('fibraPieChart').getContext('2d');
+                fiberPieChart = new Chart(pieCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: pieLabels,
+                        datasets: [{
+                            data: pieValues,
+                            backgroundColor: pieLabels.map((_, i) => colors[i % colors.length]),
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    color: 'var(--text-primary)',
+                                    boxWidth: 20
+                                }
+                            }
+                        }
+                    }
+                });
+            }
             
             function updateChartTheme() {
-                if (!productionChart) return;
+                const charts = [productionChart, fiberPieChart].filter(Boolean);
+                if (charts.length === 0) return;
+
                 const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
                 const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
                 const gridColor = getComputedStyle(document.body).getPropertyValue('--chart-grid-color').trim();
 
-                productionChart.options.plugins.legend.labels.color = textColor;
-                productionChart.options.plugins.title.color = textColor;
-                productionChart.options.plugins.datalabels.color = textColor;
-                productionChart.options.scales.x.ticks.color = tickColor;
-                productionChart.options.scales.y.ticks.color = tickColor;
-                productionChart.options.scales.y.title.color = tickColor;
-                productionChart.options.scales.x.grid.color = gridColor;
-                productionChart.options.scales.y.grid.color = gridColor;
-                productionChart.update();
+                charts.forEach(chart => {
+                    if (chart.options.plugins.legend) {
+                        chart.options.plugins.legend.labels.color = textColor;
+                    }
+                    if (chart.options.plugins.title) {
+                        chart.options.plugins.title.color = textColor;
+                    }
+                    if(chart.config.type === 'bar') { // Bar chart specific updates
+                        if (chart.options.plugins.datalabels) {
+                             chart.options.plugins.datalabels.color = (context) => {
+                                const value = context.dataset.data[context.dataIndex];
+                                const isDark = document.body.classList.contains('dark-theme');
+                                if (value >= 480) return isDark ? '#4ade80' : '#166534';
+                                if (value > 0) return isDark ? '#fb7185' : '#be123c';
+                                return 'transparent';
+                            };
+                        }
+                        if (chart.options.scales.x) chart.options.scales.x.ticks.color = tickColor;
+                        if (chart.options.scales.y) chart.options.scales.y.ticks.color = tickColor;
+                        if (chart.options.scales.y.title) chart.options.scales.y.title.color = tickColor;
+                        if (chart.options.scales.x) chart.options.scales.x.grid.color = gridColor;
+                        if (chart.options.scales.y) chart.options.scales.y.grid.color = gridColor;
+                    }
+                    chart.update();
+                });
             }
 
             function exportChartAsJPG() {
@@ -1141,17 +1420,17 @@
                     
                     const functionMatches = finalFormula.match(/([A-Z_]+)\(([^)]+)\)/g) || [];
                     functionMatches.forEach(match => {
-                       const [_, funcName, argsStr] = match.match(/([A-Z_]+)\((.*)\)/);
-                       if(formulaHelpers[funcName]) {
-                           const args = argsStr.split(',').map(arg => {
-                               arg = arg.trim();
-                               if (arg.startsWith('"') && arg.endsWith('"')) return arg.slice(1, -1);
-                               if (!isNaN(arg)) return parseFloat(arg);
-                               return arg;
-                           });
-                           const result = formulaHelpers[funcName](...args);
-                           finalFormula = finalFormula.replace(match, JSON.stringify(result));
-                       }
+                        const [_, funcName, argsStr] = match.match(/([A-Z_]+)\((.*)\)/);
+                        if(formulaHelpers[funcName]) {
+                            const args = argsStr.split(',').map(arg => {
+                                arg = arg.trim();
+                                if (arg.startsWith('"') && arg.endsWith('"')) return arg.slice(1, -1);
+                                if (!isNaN(arg)) return parseFloat(arg);
+                                return arg;
+                            });
+                            const result = formulaHelpers[funcName](...args);
+                            finalFormula = finalFormula.replace(match, JSON.stringify(result));
+                        }
                     });
                     
                     return new Function(`return ${finalFormula}`)();
@@ -1163,41 +1442,41 @@
             
             function evaluateAuto(type, row) {
                  switch(type) {
-                     case 'familia_auto':
-                         return formulaHelpers.EXTRAER(row['Catalogo'], 1, 3);
-                     case 'terminaciones_auto':
-                         const fibras = parseFloat(row['Fibras']) || 0;
-                         const cantidad = parseFloat(row['Cantidad']) || 0;
-                         return fibras * cantidad;
-                     case 'fibras_auto': {
-                         const area = (row['Area'] || '').trim();
-                         const catalogo = row['Catalogo'] || '';
-                         let fibrasCalc = 0;
-                         if (area === 'UNAP LEGACY') {
-                            if (catalogo.startsWith('DSH') || catalogo.startsWith('DSF')) {
-                                fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                            } else {
-                                fibrasCalc = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                            }
-                         } else if (area === 'MPORT FLEX') { 
-                            fibrasCalc = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : parseFloat(formulaHelpers.EXTRAER(catalogo, 5, 2)) || 0;
-                         } else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') {
-                            fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                         } else if (area === 'NON STD') {
-                            fibrasCalc = 2; 
-                         } else if (area === 'SPECIALTY') {
-                            fibrasCalc = 12;
-                         } else if (area === 'MULTIPORT') {
-                             const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                             fibrasCalc = catalogo.startsWith('DFB') ? extractedFibers * 2 : extractedFibers;
-                         }
-                         else if (area === 'EVOLV MTB DEMARC') {
-                            fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                         } else if (area === 'MOB LEGACY' || area === 'MTB DEMARC') {
-                            fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
-                         }
-                         return fibrasCalc;
-                     }
+                      case 'familia_auto':
+                           return formulaHelpers.EXTRAER(row['Catalogo'], 1, 3);
+                      case 'terminaciones_auto':
+                          const fibras = parseFloat(row['Fibras']) || 0;
+                          const cantidad = parseFloat(row['Cantidad']) || 0;
+                          return fibras * cantidad;
+                      case 'fibras_auto': {
+                          const area = (row['Area'] || '').trim();
+                          const catalogo = row['Catalogo'] || '';
+                          let fibrasCalc = 0;
+                          if (area === 'UNAP LEGACY') {
+                              if (catalogo.startsWith('DSH') || catalogo.startsWith('DSF')) {
+                                  fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                              } else {
+                                  fibrasCalc = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                              }
+                          } else if (area === 'MPORT FLEX') { 
+                              fibrasCalc = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : parseFloat(formulaHelpers.EXTRAER(catalogo, 5, 2)) || 0;
+                          } else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') {
+                              fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                          } else if (area === 'NON STD') {
+                              fibrasCalc = 2; 
+                          } else if (area === 'SPECIALTY') {
+                              fibrasCalc = 12;
+                          } else if (area === 'MULTIPORT') {
+                               const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                               fibrasCalc = catalogo.startsWith('DFB') ? extractedFibers * 2 : extractedFibers;
+                          }
+                          else if (area === 'EVOLV MTB DEMARC') {
+                              fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                          } else if (area === 'MOB LEGACY' || area === 'MTB DEMARC') {
+                              fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                          }
+                          return fibrasCalc;
+                      }
                  }
                 return 'N/A';
             }
@@ -1243,7 +1522,7 @@
                 });
             }
 
-window.copyToClipboard = (text, element) => {
+            window.copyToClipboard = (text, element) => {
                 if (!text) return;
                 const originalText = element.textContent;
                 const originalColor = element.style.color;
