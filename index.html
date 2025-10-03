@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Fuentes de Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,6 +40,8 @@
             --row-today-bg: rgba(74, 222, 128, 0.1);
             --row-yesterday-bg: rgba(251, 191, 36, 0.1);
             --row-past-bg: rgba(244, 63, 94, 0.1);
+            --chart-grid-color: rgba(255, 255, 255, 0.1);
+            --chart-tick-color: #94A3B8;
         }
 
         body.light-theme {
@@ -60,6 +63,8 @@
             --row-today-bg: rgba(34, 197, 94, 0.1);
             --row-yesterday-bg: rgba(245, 158, 11, 0.1);
             --row-past-bg: rgba(239, 68, 68, 0.1);
+            --chart-grid-color: rgba(0, 0, 0, 0.1);
+            --chart-tick-color: #4B5563;
         }
 
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -70,7 +75,7 @@
             background-attachment: fixed; padding: 16px; box-sizing: border-box; overflow-x: hidden;
         }
         .app-container { width: 100%; max-width: 1600px; }
-        #menuView, #view901, #viewTerminaciones { transition: opacity 0.3s ease-in-out, display 0.3s; }
+        #menuView, #view901, #viewTerminaciones, #viewProduccionHora { transition: opacity 0.3s ease-in-out, display 0.3s; }
         #menuView { display: flex; align-items: center; justify-content: center; height: 100%; }
         .menu-wrapper { width: 100%; max-width: 600px; text-align: center; }
         .animated-startup { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
@@ -92,10 +97,11 @@
         .menu-container { display: flex; flex-direction: column; gap: 16px; }
         .btn { padding: 16px 24px; border-radius: 12px; cursor: pointer; background-color: var(--primary-color); border: none; color: var(--primary-text-color); font-weight: 700; font-size: 1.1rem; text-align: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .theme-switcher-container { position: absolute; top: 16px; right: 16px; }
         #themeToggleBtn { padding: 8px 12px; font-size: 1.5rem; line-height: 1; background-color: var(--surface-color); color: var(--text-secondary); border: 1px solid var(--border-color); }
         #themeToggleBtn:hover { background-color: var(--surface-hover-color); color: var(--text-primary); }
-        #view901, #viewTerminaciones { display: none; width: 100%; }
+        #view901, #viewTerminaciones, #viewProduccionHora { display: none; width: 100%; }
         .main-container { display: grid; grid-template-columns: 320px 1fr; gap: 16px; width: 100%; height: calc(100vh - 120px); }
         .sidebar { display: flex; flex-direction: column; gap: 16px; }
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
@@ -115,18 +121,16 @@
         #dataTable901 th { text-align: center; }
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
-        .filter-input { 
-            display: block;
-            width: 100%; 
-            box-sizing: border-box;
-            background-color: var(--surface-color); 
-            border: 1px solid var(--border-color); 
-            color: var(--text-primary); 
-            border-radius: 4px; 
-            padding: 4px 6px; 
-            margin-top: 4px; 
-            font-size: 0.8rem; 
+        .filter-input, .control-group input, .control-group select { 
+            display: block; width: 100%; box-sizing: border-box; background-color: var(--surface-color); 
+            border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px; 
+            padding: 8px 12px; font-size: 0.9rem; 
         }
+        .filter-input { border-radius: 4px; padding: 4px 6px; margin-top: 4px; font-size: 0.8rem; }
+
+        .control-group { margin-bottom: 16px; }
+        .control-group label { display: block; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; font-size: 0.9rem; }
+
         .file-drop-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-top: 16px; }
         .file-drop-area p { margin: 0; color: var(--text-dark); }
         .file-drop-area h4 { margin: 0 0 8px 0; color: var(--text-secondary); }
@@ -140,6 +144,9 @@
         .row-today { background-color: var(--row-today-bg) !important; }
         .row-yesterday { background-color: var(--row-yesterday-bg) !important; }
         .row-past { background-color: var(--row-past-bg) !important; }
+        
+        /* New Styles for Production Report */
+        #chartContainer { position: relative; height: 250px; margin-bottom: 16px; padding: 16px; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
@@ -205,8 +212,67 @@
                 <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Centro de Reportes</h2></header>
                 <main class="card animated-startup" style="animation-delay: 0.1s;">
                     <div class="menu-container">
+                        <button id="reporteProduccionBtn" class="btn">Reporte de Producción por Hora</button>
                         <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
                         <button id="view901Btn" class="btn">901</button>
+                    </div>
+                </main>
+            </div>
+        </div>
+        
+        <div id="viewProduccionHora">
+            <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Producción por Hora</h2></header>
+            <div class="main-container">
+                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+                    <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+                        <div class="sidebar-header">
+                            <h3>Panel de Control</h3>
+                            <div>
+                                <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                                <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+                            </div>
+                        </div>
+                        <div style="flex-grow: 1; overflow-y: auto; padding-right: 8px;">
+                            <div class="control-group">
+                                <label for="prod_fecha">Fecha</label>
+                                <input type="date" id="prod_fecha">
+                            </div>
+                            <div class="control-group">
+                                <label for="prod_turno">Turno</label>
+                                <select id="prod_turno">
+                                    <option value="1">Turno 1 (6:30 AM - 6:30 PM)</option>
+                                    <option value="2">Turno 2 (6:30 PM - 6:30 AM)</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label for="prod_area">Área</label>
+                                <select id="prod_area">
+                                    <option value="ALL">Todas las Áreas</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label for="prod_linea1_packer">Empacador Línea 1</label>
+                                <input type="text" id="prod_linea1_packer" placeholder="ID de empacador...">
+                            </div>
+                            <div class="control-group">
+                                <label for="prod_linea2_packer">Empacador Línea 2</label>
+                                <input type="text" id="prod_linea2_packer" placeholder="ID de empacador...">
+                            </div>
+                        </div>
+                         <button id="generarReporteProduccionBtn" class="btn" style="margin-top: 16px; width: 100%;">Generar Reporte</button>
+                    </div>
+                </aside>
+                <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <div id="chartContainer" class="card">
+                        <canvas id="produccionChart"></canvas>
+                    </div>
+                    <div class="card table-container">
+                        <div class="table-wrapper">
+                            <table id="dataTableProduccion">
+                                <thead><tr><th>Configure los parámetros y genere el reporte.</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 </main>
             </div>
@@ -246,7 +312,7 @@
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
                     <div class="card" id="summaryContainer">
                         <div class="summary-header">
-                           <h3>Resumen de Terminaciones</h3>
+                            <h3>Resumen de Terminaciones</h3>
                         </div>
                         <p>Cargue los archivos para ver el resumen.</p>
                     </div>
@@ -263,14 +329,21 @@
     <div id="modalOverlay" class="modal-overlay"><div id="modalContent" class="modal-content"><span id="modalClose" class="modal-close">&times;</span><h2 id="modalTitle" class="modal-title"></h2><div id="modalBody" style="margin-top:16px; color: var(--text-secondary);"></div></div></div>
 
     <script>
+        // --- INICIO: CONFIGURACIÓN Y VARIABLES GLOBALES ---
         const firebaseConfig = { apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDX0", authDomain: "rastreador-de-ordenes.firebaseapp.com", projectId: "rastreador-de-ordenes", storageBucket: "rastreador-de-ordenes.appspot.com", messagingSenderId: "956052823395", appId: "1:956052823395:web:2ba74d9591d2b24c3cc756" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         document.addEventListener('DOMContentLoaded', () => {
             const doc = (id) => document.getElementById(id);
-            const views = { menu: doc('menuView'), '901': doc('view901'), terminaciones: doc('viewTerminaciones') };
-            let session = { isMaster: false }; let activeView = 'menu';
+            const views = { 
+                menu: doc('menuView'), 
+                '901': doc('view901'), 
+                terminaciones: doc('viewTerminaciones'),
+                produccionHora: doc('viewProduccionHora')
+            };
+            let session = { isMaster: false }; 
+            let activeView = 'menu';
             let params = { 
                 '901_config': { columns: [], userFilter: [] },
                 terminaciones_config: {
@@ -278,23 +351,42 @@
                     coois_cols: [],
                     final_cols: [],
                     area_config: { source_col: '', mappings: [] }
+                },
+                produccion_hora_config: {
+                    linea1_packer: '',
+                    linea2_packer: '',
+                    area: 'ALL'
                 }
             };
             let reportData = { zpptwc: null, coois: null };
-            
+            let productionChart = null;
+
+            // --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
             function switchView(viewKey) {
                 const currentViewEl = views[activeView]; const nextViewEl = views[viewKey]; if (!nextViewEl) return;
                 activeView = viewKey; currentViewEl.style.opacity = '0';
                 setTimeout(() => {
                     currentViewEl.style.display = 'none'; nextViewEl.style.display = viewKey === 'menu' ? 'flex' : 'block';
                     requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
+                    if(viewKey === 'produccionHora') {
+                        loadAreasForProductionReport();
+                    }
                 }, 300);
             }
+            
+            doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
             doc('view901Btn').addEventListener('click', () => switchView('901'));
             doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
             document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => switchView('menu')));
+            
             let currentTheme = localStorage.getItem('theme') || 'dark';
-            function applyTheme(theme) { document.body.className = `${theme}-theme`; doc('themeToggleBtn').textContent = theme === 'light' ? '🌙' : '☀️'; }
+            function applyTheme(theme) { 
+                document.body.className = `${theme}-theme`; 
+                doc('themeToggleBtn').textContent = theme === 'light' ? '🌙' : '☀️';
+                if(productionChart) {
+                    updateChartTheme();
+                }
+            }
             doc('themeToggleBtn').addEventListener('click', () => { currentTheme = currentTheme === 'light' ? 'dark' : 'light'; localStorage.setItem('theme', currentTheme); applyTheme(currentTheme); });
 
             const modalOverlay = doc('modalOverlay');
@@ -307,6 +399,7 @@
             function showLoginModal() { const content = `<p style="text-align: center;">Introduce las credenciales de maestro.</p><input type="text" id="userInput" placeholder="Usuario"><input type="password" id="passInput" placeholder="Contraseña"><button id="loginBtn" class="btn" style="margin-top: 16px; width: 100%;">Autenticar</button><div id="login-error-msg"></div>`; showModal('Autenticación Maestra', content); doc('loginBtn').addEventListener('click', checkMasterCredentials); }
             function checkMasterCredentials() { const errorMsgEl = doc('login-error-msg'); if (doc('userInput').value === 'LUNAU' && doc('passInput').value === 'Resoner96') { session.isMaster = true; sessionStorage.setItem('reportesMasterSession', 'true'); hideModal(); showParamsModal(); } else { errorMsgEl.textContent = 'Credenciales incorrectas.'; } }
 
+            // --- INICIO: LÓGICA DE MODALES DE CONFIGURACIÓN ---
             function showParamsModal() {
                 if (activeView === '901') {
                     const config = params['901_config'];
@@ -318,9 +411,50 @@
                     doc('saveParams901Btn').addEventListener('click', saveParams901);
                 } else if (activeView === 'terminaciones') {
                     showTerminacionesConfigModal();
+                } else if (activeView === 'produccionHora') {
+                    showProduccionHoraConfigModal();
                 }
             }
 
+            function showProduccionHoraConfigModal() {
+                const config = params.produccion_hora_config;
+                const content = `
+                    <p>Guarda los IDs de empacador que usas con más frecuencia.</p>
+                    <div class="control-group">
+                        <label for="modal_linea1_packer">Empacador Línea 1 (por defecto)</label>
+                        <input type="text" id="modal_linea1_packer" value="${config.linea1_packer || ''}">
+                    </div>
+                    <div class="control-group">
+                        <label for="modal_linea2_packer">Empacador Línea 2 (por defecto)</label>
+                        <input type="text" id="modal_linea2_packer" value="${config.linea2_packer || ''}">
+                    </div>
+                     <div class="control-group">
+                        <label for="modal_prod_area">Área por defecto</label>
+                        <select id="modal_prod_area">${doc('prod_area').innerHTML}</select>
+                    </div>
+                    <button id="saveProduccionHoraConfigBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Configuración</button>
+                `;
+                showModal('Configurar Reporte de Producción', content);
+                doc('modal_prod_area').value = config.area || 'ALL';
+                doc('saveProduccionHoraConfigBtn').addEventListener('click', saveProduccionHoraConfig);
+            }
+
+            async function saveProduccionHoraConfig() {
+                const newConfig = {
+                    linea1_packer: doc('modal_linea1_packer').value.trim(),
+                    linea2_packer: doc('modal_linea2_packer').value.trim(),
+                    area: doc('modal_prod_area').value
+                };
+                try {
+                    await db.collection('report_configs').doc('produccion_hora_params').set(newConfig);
+                    params.produccion_hora_config = newConfig;
+                    applyProduccionHoraConfig();
+                    showModal('Éxito', '<p>Configuración de producción guardada.</p>');
+                } catch (e) {
+                    showModal('Error', '<p>No se pudo guardar la configuración.</p>');
+                }
+            }
+            
             function createParamItem901(key, startCell) { return `<li class="param-item" style="grid-template-columns: 1fr 1fr auto;"><input type="text" class="param-key" placeholder="Nombre de Columna" value="${key || ''}"><input type="text" class="param-cell" placeholder="Celda de Inicio (ej. A2)" value="${startCell || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             
             async function saveParams901() { 
@@ -393,21 +527,39 @@
                 }
             }
             
+            // --- INICIO: CARGA DE DATOS (PARAMS Y ARCHIVOS) ---
             async function loadParams(configKey) {
-                const docId = (configKey === '901_config') ? '901_params' : 'terminaciones_params_v2';
+                const docIdMap = {
+                    '901_config': '901_params',
+                    'terminaciones_config': 'terminaciones_params_v2',
+                    'produccion_hora_config': 'produccion_hora_params'
+                };
+                const docId = docIdMap[configKey];
+                if (!docId) return;
+
                 try {
                     const docRef = await db.collection('report_configs').doc(docId).get();
                     if (docRef.exists) {
                         const data = docRef.data();
                         if (configKey === '901_config') {
                             params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
-                        } else {
+                        } else if (configKey === 'terminaciones_config') {
                             params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
+                        } else if (configKey === 'produccion_hora_config') {
+                            params.produccion_hora_config = { linea1_packer: '', linea2_packer: '', area: 'ALL', ...data };
+                            applyProduccionHoraConfig();
                         }
                     }
                 } catch(e) { console.error(`Error al cargar ${configKey}:`, e); }
             }
             
+            function applyProduccionHoraConfig() {
+                const config = params.produccion_hora_config;
+                doc('prod_linea1_packer').value = config.linea1_packer || '';
+                doc('prod_linea2_packer').value = config.linea2_packer || '';
+                doc('prod_area').value = config.area || 'ALL';
+            }
+
             function setupFileHandler(dropAreaId, inputId, configKey) {
                 const dropArea = doc(dropAreaId); const input = doc(inputId);
                 dropArea.addEventListener('click', () => input.click());
@@ -468,6 +620,280 @@
                 IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse,
             };
 
+            // --- INICIO: LÓGICA REPORTE DE PRODUCCIÓN POR HORA ---
+
+            doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
+            
+            async function loadAreasForProductionReport() {
+                try {
+                    const areasSnapshot = await db.collection('areas').get();
+                    const areaSelect = doc('prod_area');
+                    const modalAreaSelect = doc('modal_prod_area');
+
+                    // Guardar valor actual para restaurarlo después
+                    const currentVal = areaSelect.value;
+                    
+                    // Limpiar opciones existentes (excepto "Todas las Áreas")
+                    Array.from(areaSelect.options).forEach(option => {
+                        if (option.value !== 'ALL') {
+                            option.remove();
+                        }
+                    });
+
+                    let areas = [];
+                    areasSnapshot.forEach(doc => {
+                       if (doc.id !== 'CONFIG') areas.push(doc.id);
+                    });
+                    areas.sort();
+                    
+                    areas.forEach(areaId => {
+                        const option = document.createElement('option');
+                        option.value = areaId;
+                        option.textContent = areaId;
+                        areaSelect.appendChild(option);
+                    });
+
+                    // Clonar para el modal
+                    if(modalAreaSelect) modalAreaSelect.innerHTML = areaSelect.innerHTML;
+                    
+                    // Restaurar valor
+                    areaSelect.value = currentVal;
+
+                } catch (e) {
+                    console.error("Error cargando áreas:", e);
+                }
+            }
+            
+            async function generateProductionReport() {
+                const btn = doc('generarReporteProduccionBtn');
+                btn.disabled = true;
+                btn.textContent = 'Cargando datos...';
+
+                try {
+                    const selectedDateStr = doc('prod_fecha').value;
+                    const selectedTurno = doc('prod_turno').value;
+                    const packerL1 = doc('prod_linea1_packer').value.trim().toUpperCase();
+                    const packerL2 = doc('prod_linea2_packer').value.trim().toUpperCase();
+                    const selectedArea = doc('prod_area').value;
+
+                    if (!selectedDateStr) {
+                        showModal('Error', '<p>Por favor, selecciona una fecha.</p>');
+                        return;
+                    }
+                    if (!packerL1 && !packerL2) {
+                        showModal('Error', '<p>Por favor, ingrese al menos un ID de empacador.</p>');
+                        return;
+                    }
+
+                    const selectedDate = new Date(`${selectedDateStr}T00:00:00`);
+                    let startTime, endTime;
+
+                    if (selectedTurno === '1') { // Turno 1: 6:30 AM a 6:30 PM del mismo día
+                        startTime = new Date(selectedDate.getTime());
+                        startTime.setHours(6, 30, 0, 0);
+                        endTime = new Date(selectedDate.getTime());
+                        endTime.setHours(18, 29, 59, 999);
+                    } else { // Turno 2: 6:30 PM a 6:30 AM del día siguiente
+                        startTime = new Date(selectedDate.getTime());
+                        startTime.setHours(18, 30, 0, 0);
+                        endTime = new Date(selectedDate.getTime());
+                        endTime.setDate(endTime.getDate() + 1);
+                        endTime.setHours(6, 29, 59, 999);
+                    }
+
+                    const query = selectedArea === 'ALL'
+                        ? db.collectionGroup('orders')
+                        : db.collection('areas').doc(selectedArea).collection('orders');
+
+                    const snapshot = await query.get();
+                    if (snapshot.empty) {
+                        showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
+                        return;
+                    }
+
+                    let allPackedItems = [];
+                    snapshot.forEach(orderDoc => {
+                        const orderData = orderDoc.data();
+                        const orderId = orderDoc.id;
+                        const catalogNumber = orderData.catalogNumber || 'N/A';
+                        const empaqueData = orderData.empaqueData || [];
+
+                        if (Array.isArray(empaqueData)) {
+                            empaqueData.forEach(box => {
+                                if (Array.isArray(box.serials)) {
+                                    box.serials.forEach(item => {
+                                        const packedDateSerial = item['Finish Packed Date'];
+                                        if (packedDateSerial) {
+                                            const packedDate = excelSerialToDateObject(packedDateSerial);
+                                            if (packedDate >= startTime && packedDate <= endTime) {
+                                                const empacador = (item['Employee ID'] || '').toString().toUpperCase();
+                                                if(empacador === packerL1 || empacador === packerL2){
+                                                    allPackedItems.push({
+                                                        orden: orderId,
+                                                        catalogo: catalogNumber,
+                                                        empacador: empacador,
+                                                        timestamp: packedDate,
+                                                        linea: empacador === packerL1 ? 'Línea 1' : 'Línea 2'
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+
+                    const processedData = allPackedItems.map(item => {
+                        const char = item.catalogo.substring(3, 4).toUpperCase();
+                        const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+                        return {
+                            ...item,
+                            fibras: fibras,
+                            piezas: 1,
+                            terminaciones: fibras * 1
+                        };
+                    });
+
+                    renderProductionTable(processedData);
+                    renderProductionChart(processedData, startTime, selectedTurno);
+
+                } catch (e) {
+                    console.error("Error generando reporte:", e);
+                    showModal('Error', `<p>Ocurrió un error al generar el reporte: ${e.message}</p>`);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Generar Reporte';
+                }
+            }
+
+            function renderProductionTable(data) {
+                const table = doc('dataTableProduccion');
+                if (!data || data.length === 0) {
+                    table.innerHTML = '<thead><tr><th>No se encontraron registros para los filtros seleccionados.</th></tr></thead><tbody></tbody>';
+                    return;
+                }
+
+                const headers = ['Orden', 'Catálogo', 'Fibras', 'Piezas Empacadas', 'Terminaciones', 'Línea', 'Empacador'];
+                let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+
+                data.sort((a, b) => a.timestamp - b.timestamp);
+
+                data.forEach(row => {
+                    html += `<tr>
+                        <td>${row.orden}</td>
+                        <td>${row.catalogo}</td>
+                        <td>${row.fibras}</td>
+                        <td>${row.piezas}</td>
+                        <td>${row.terminaciones}</td>
+                        <td>${row.linea}</td>
+                        <td>${row.empacador}</td>
+                    </tr>`;
+                });
+                table.innerHTML = html + `</tbody>`;
+            }
+
+            function renderProductionChart(data, shiftStartTime, turno) {
+                const ctx = doc('produccionChart').getContext('2d');
+                if (productionChart) {
+                    productionChart.destroy();
+                }
+
+                const hourlyData = {};
+                const labels = [];
+                for (let i = 0; i < 12; i++) {
+                    const hour = new Date(shiftStartTime);
+                    hour.setHours(hour.getHours() + i);
+                    const label = hour.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    labels.push(label);
+                    hourlyData[i] = { 'Línea 1': 0, 'Línea 2': 0 };
+                }
+
+                data.forEach(item => {
+                    const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
+                    if(diffHours >= 0 && diffHours < 12){
+                         if(item.linea === 'Línea 1'){
+                            hourlyData[diffHours]['Línea 1'] += item.terminaciones;
+                         } else {
+                            hourlyData[diffHours]['Línea 2'] += item.terminaciones;
+                         }
+                    }
+                });
+
+                const line1Data = Object.values(hourlyData).map(d => d['Línea 1']);
+                const line2Data = Object.values(hourlyData).map(d => d['Línea 2']);
+
+                const chartConfig = {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Línea 1',
+                                data: line1Data,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Línea 2',
+                                data: line2Data,
+                                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { color: document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827' }
+                            },
+                            title: {
+                                display: true,
+                                text: `Producción de Terminaciones - Turno ${turno}`,
+                                color: document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827',
+                                font: { size: 16 }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: 'var(--chart-grid-color)' },
+                                ticks: { color: 'var(--chart-tick-color)' }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'var(--chart-grid-color)' },
+                                ticks: { color: 'var(--chart-tick-color)' },
+                                title: {
+                                    display: true,
+                                    text: 'Total de Terminaciones',
+                                    color: 'var(--chart-tick-color)'
+                                }
+                            }
+                        }
+                    }
+                };
+                productionChart = new Chart(ctx, chartConfig);
+            }
+            
+            function updateChartTheme() {
+                if (!productionChart) return;
+                const isDark = document.body.classList.contains('dark-theme');
+                productionChart.options.plugins.legend.labels.color = isDark ? '#F1F5F9' : '#111827';
+                productionChart.options.plugins.title.color = isDark ? '#F1F5F9' : '#111827';
+                productionChart.options.scales.x.ticks.color = 'var(--chart-tick-color)';
+                productionChart.options.scales.y.ticks.color = 'var(--chart-tick-color)';
+                 productionChart.options.scales.y.title.color = 'var(--chart-tick-color)';
+                productionChart.options.scales.x.grid.color = 'var(--chart-grid-color)';
+                productionChart.options.scales.y.grid.color = 'var(--chart-grid-color)';
+                productionChart.update();
+            }
+
+            // --- INICIO: LÓGICA REPORTE 901 ---
             function processTerminacionesReport() {
                 if (!reportData.zpptwc || !reportData.coois) return;
                 const config = params.terminaciones_config;
@@ -664,8 +1090,14 @@
 
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
+                 // Excel's epoch starts on 1899-12-30. JS's is 1970-01-01.
+                // The number of days between them is 25569. Excel also wrongly treats 1900 as a leap year.
+                // For dates after Feb 1900, it's (serial - 25569) * 86400000. For dates before, it's (serial - 25568).
+                // A simpler way provided by libraries is often more reliable, as done in the tracking app.
+                // Re-using the logic from the tracking app: (serial - 25569) * 86400 * 1000
                 const excelEpoch = new Date(1899, 11, 30);
                 const date = new Date(excelEpoch.getTime() + serial * 86400000);
+                // Adjust for timezone offset
                 return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
 
@@ -839,9 +1271,21 @@
                 }); 
             }
             
+            // --- INICIO: INICIALIZACIÓN DE LA APP ---
             async function initializeApp() {
                 if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
-                await Promise.all([ loadParams('901_config'), loadParams('terminaciones_config') ]);
+                await Promise.all([ 
+                    loadParams('901_config'), 
+                    loadParams('terminaciones_config'),
+                    loadParams('produccion_hora_config')
+                ]);
+                
+                // Set default date for production report
+                const today = new Date();
+                const timezoneOffset = today.getTimezoneOffset() * 60000;
+                const localISOTime = (new Date(today - timezoneOffset)).toISOString().split('T')[0];
+                doc('prod_fecha').value = localISOTime;
+
                 applyTheme(currentTheme);
                 Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
                 views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
