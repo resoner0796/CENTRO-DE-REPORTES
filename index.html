@@ -1013,7 +1013,7 @@
 
                 const config = params.terminaciones_config;
                 const joinKey = 'Orden';
-                if (!config.zpptwc_cols.some(c=>c.key === joinKey) || !config.coois_cols.some(c=>c.key === joinKey)) {
+                if (!config.zpptwc_cols.some(c => c.key === joinKey) || !config.coois_cols.some(c => c.key === joinKey)) {
                     showModal('Error de Configuración', '<p>Asegúrese de mapear una columna con el nombre clave "Orden" en ambos reportes.</p>');
                     return;
                 }
@@ -1045,7 +1045,6 @@
                     return;
                 }
 
-
                 let finalData = reportData.zpptwc.map(zpptwcRow => {
                     const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
                     const cooisRow = cooisMap.get(cleanOrder) || {};
@@ -1059,8 +1058,8 @@
                         if (key === 'Orden' || key === 'Material' || key === 'Operacion') {
                             finalRow[key] = String(value || '').replace(/^0+/, '');
                         } else if (key === 'Fecha' && value instanceof Date) {
-                            const d = value;
-                            finalRow[key] = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                            finalRow.FechaDate = value;
+                            finalRow[key] = `${String(value.getDate()).padStart(2, '0')}/${String(value.getMonth() + 1).padStart(2, '0')}/${value.getFullYear()}`;
                         } else {
                             finalRow[key] = value;
                         }
@@ -1092,11 +1091,7 @@
                     return finalRow;
                 });
                 
-                finalData.sort((a,b) => {
-                     const dateA = a.Fecha ? new Date(a.Fecha.split('/').reverse().join('-')) : new Date(0);
-                     const dateB = b.Fecha ? new Date(b.Fecha.split('/').reverse().join('-')) : new Date(0);
-                     return dateB - dateA;
-                });
+                finalData.sort((a,b) => (b.FechaDate || 0) - (a.FechaDate || 0));
 
                 renderTerminacionesTable(finalData);
                 renderTerminacionesSummary(finalData);
@@ -1133,7 +1128,7 @@
                     return "Error";
                 }
             }
-
+            
             function evaluateAuto(type, row) {
                  switch(type) {
                      case 'familia_auto':
@@ -1142,15 +1137,23 @@
                          const fibras = parseFloat(row['Fibras']) || 0;
                          const cantidad = parseFloat(row['Cantidad']) || 0;
                          return fibras * cantidad;
-                     case 'fibras_auto': // Esta lógica ahora es un ejemplo, se debe definir en la fórmula
+                     case 'fibras_auto': {
                          const area = (row['Area'] || '').trim();
                          const catalogo = row['Catalogo'] || '';
-                         if (area === 'MULTIPORT') {
-                             const extracted = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                             return catalogo.startsWith('DFB') ? extracted * 2 : extracted;
+                         let fibrasCalc = 0;
+                         if (area === 'UNAP LEGACY') { fibrasCalc = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); }
+                         else if (area === 'MPORT FLEX') { fibrasCalc = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2); }
+                         else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                         else if (area === 'NON STD') fibrasCalc = 2; else if (area === 'SPECIALTY') fibrasCalc = 12;
+                         else if (area === 'MULTIPORT') {
+                             const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                             fibrasCalc = catalogo.startsWith('DFB') ? extractedFibers * 2 : extractedFibers;
                          }
-                         // Añadir más lógica auto aquí si es necesario, aunque se recomienda usar fórmulas
-                         return 0; 
+                         else if (area === 'EVOLV MTB DEMARC') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                         else if (area === 'MOB LEGACY') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                         else if (area === 'MTB DEMARC') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                         return fibrasCalc;
+                     }
                  }
                 return 'N/A';
             }
