@@ -145,7 +145,6 @@
         .row-yesterday { background-color: var(--row-yesterday-bg) !important; }
         .row-past { background-color: var(--row-past-bg) !important; }
         
-        /* New Styles for Production Report */
         #chartContainer { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
         #produccionChart { max-height: 250px; }
         #chartSummary { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
@@ -851,6 +850,7 @@
                 }
 
                 if(data.length === 0){
+                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
                     doc('chartSummary').innerHTML = '';
                     doc('exportChartBtn').style.display = 'none';
                     return;
@@ -1189,6 +1189,7 @@
                 });
             };
 
+            
             async function handle901File(file) { 
                 const config = params['901_config'];
                 if (!config.columns || config.columns.length === 0) {
