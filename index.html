@@ -118,7 +118,6 @@
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
         th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertical-align: top; }
-        #dataTable901 th { text-align: center; }
         .copyable { cursor: pointer; transition: color 0.2s; }
         .copyable:hover { color: var(--success-color); }
         .filter-input, .control-group input, .control-group select { 
@@ -603,7 +602,6 @@
                             reportData[configKey] = data;
                             doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
 
-                            // Guardar datos de COOIS en Firestore
                             if (configKey === 'coois') {
                                 const batch = db.batch();
                                 data.forEach(row => {
@@ -1011,11 +1009,11 @@
 
             // --- INICIO: LÓGICA REPORTE TERMINACIONES ---
             async function processTerminacionesReport() {
-                if (!reportData.zpptwc || !reportData.coois) return;
+                if (!reportData.zpptwc) return;
 
                 const config = params.terminaciones_config;
                 const joinKey = 'Orden';
-                if (!config.zpptwc_cols.some(c => c.key === joinKey) || !config.coois_cols.some(c => c.key === joinKey)) {
+                if (!config.zpptwc_cols.some(c=>c.key === joinKey) || !config.coois_cols.some(c=>c.key === joinKey)) {
                     showModal('Error de Configuración', '<p>Asegúrese de mapear una columna con el nombre clave "Orden" en ambos reportes.</p>');
                     return;
                 }
@@ -1032,7 +1030,7 @@
                     showModal('Advertencia', '<p>No se pudo cargar el histórico de datos COOIS. El reporte podría estar incompleto.</p>');
                 }
 
-                // 2. Sobrescribir con el archivo recién cargado
+                // 2. Sobrescribir con el archivo recién cargado si existe
                 if (reportData.coois) {
                     reportData.coois.forEach(row => {
                         const cleanOrder = String(row[joinKey] || '').replace(/^0+/, '');
@@ -1041,12 +1039,20 @@
                         }
                     });
                 }
+                
+                if (cooisMap.size === 0) {
+                    showModal('Datos Insuficientes', '<p>Por favor, cargue un reporte SAP (Coois) para poder generar el informe.</p>');
+                    return;
+                }
 
-                const finalData = reportData.zpptwc.map(zpptwcRow => {
+
+                let finalData = reportData.zpptwc.map(zpptwcRow => {
                     const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
                     const cooisRow = cooisMap.get(cleanOrder) || {};
                     let merged = {...zpptwcRow, ...cooisRow};
                     let finalRow = {};
+
+                    // Mapeo inicial
                     for (const key in merged) {
                         let value = merged[key];
                         if (typeof value === 'string') value = value.trim();
@@ -1059,48 +1065,94 @@
                             finalRow[key] = value;
                         }
                     }
+
+                    // Mapeo de Área
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
-                    config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
-                    const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
-                    if (autoFibrasCol) {
-                        const area = (finalRow['Area'] || '').trim();
-                        const catalogo = finalRow['Catalogo'] || '';
-                        let fibras = 0;
-                        if (area === 'UNAP LEGACY') { fibras = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); }
-                        else if (area === 'MPORT FLEX') { fibras = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2); }
-                        else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                        else if (area === 'NON STD') fibras = 2; else if (area === 'SPECIALTY') fibras = 12;
-                        else if (area === 'MULTIPORT') {
-                             const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                             if (catalogo.startsWith('DFB')) {
-                                 fibras = extractedFibers * 2;
-                             } else {
-                                 fibras = extractedFibers;
-                             }
+
+                    // Procesamiento de columnas finales
+                    for (const col of config.final_cols) {
+                        let result;
+                        switch (col.type) {
+                            case 'source':
+                                result = finalRow[col.value];
+                                break;
+                            case 'formula':
+                                result = evaluateFormula(col.value, finalRow);
+                                break;
+                            case 'fibras_auto':
+                            case 'terminaciones_auto':
+                            case 'familia_auto':
+                                result = evaluateAuto(col.type, finalRow);
+                                break;
                         }
-                        else if (area === 'EVOLV MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                        else if (area === 'MOB LEGACY') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
-                        else if (area === 'MTB DEMARC') fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
-                        finalRow[autoFibrasCol.key] = fibras;
-                    }
-                    const autoFamiliaCol = config.final_cols.find(c => c.type === 'familia_auto');
-                    if(autoFamiliaCol) { finalRow[autoFamiliaCol.key] = formulaHelpers.EXTRAER(finalRow['Catalogo'], 1, 3); }
-                    const autoTermCol = config.final_cols.find(c => c.type === 'terminaciones_auto');
-                    if(autoTermCol) {
-                        const fibras = finalRow['Fibras'] || 0;
-                        const cantidad = parseFloat(finalRow['Cantidad']) || 0;
-                        finalRow[autoTermCol.key] = fibras * cantidad;
-                    }
-                    if (finalRow['Terminaciones'] !== undefined) {
-                        let value = parseFloat(finalRow['Terminaciones']);
-                        finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
+                        finalRow[col.key] = result;
                     }
                     return finalRow;
                 });
+                
+                finalData.sort((a,b) => {
+                     const dateA = a.Fecha ? new Date(a.Fecha.split('/').reverse().join('-')) : new Date(0);
+                     const dateB = b.Fecha ? new Date(b.Fecha.split('/').reverse().join('-')) : new Date(0);
+                     return dateB - dateA;
+                });
+
                 renderTerminacionesTable(finalData);
                 renderTerminacionesSummary(finalData);
+            }
+
+            function evaluateFormula(formula, row) {
+                try {
+                    let finalFormula = formula;
+                    const matches = formula.match(/{[^{}]+}/g) || [];
+                    matches.forEach(match => {
+                        const key = match.substring(1, match.length - 1);
+                        const value = typeof row[key] === 'number' ? row[key] : `"${String(row[key] || '').replace(/"/g, '\\"')}"`;
+                        finalFormula = finalFormula.replace(new RegExp(match, 'g'), value);
+                    });
+                    
+                    const functionMatches = finalFormula.match(/([A-Z_]+)\(([^)]+)\)/g) || [];
+                    functionMatches.forEach(match => {
+                       const [_, funcName, argsStr] = match.match(/([A-Z_]+)\((.*)\)/);
+                       if(formulaHelpers[funcName]) {
+                           const args = argsStr.split(',').map(arg => {
+                               arg = arg.trim();
+                               if (arg.startsWith('"') && arg.endsWith('"')) return arg.slice(1, -1);
+                               if (!isNaN(arg)) return parseFloat(arg);
+                               return arg;
+                           });
+                           const result = formulaHelpers[funcName](...args);
+                           finalFormula = finalFormula.replace(match, JSON.stringify(result));
+                       }
+                    });
+                    
+                    return new Function(`return ${finalFormula}`)();
+                } catch (e) {
+                    console.warn(`Error al evaluar fórmula "${formula}":`, e);
+                    return "Error";
+                }
+            }
+
+            function evaluateAuto(type, row) {
+                 switch(type) {
+                     case 'familia_auto':
+                         return formulaHelpers.EXTRAER(row['Catalogo'], 1, 3);
+                     case 'terminaciones_auto':
+                         const fibras = parseFloat(row['Fibras']) || 0;
+                         const cantidad = parseFloat(row['Cantidad']) || 0;
+                         return fibras * cantidad;
+                     case 'fibras_auto': // Esta lógica ahora es un ejemplo, se debe definir en la fórmula
+                         const area = (row['Area'] || '').trim();
+                         const catalogo = row['Catalogo'] || '';
+                         if (area === 'MULTIPORT') {
+                             const extracted = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                             return catalogo.startsWith('DFB') ? extracted * 2 : extracted;
+                         }
+                         // Añadir más lógica auto aquí si es necesario, aunque se recomienda usar fórmulas
+                         return 0; 
+                 }
+                return 'N/A';
             }
             
             function renderTerminacionesTable(data) {
@@ -1109,7 +1161,7 @@
                 const allHeaders = config.map(c => c.key);
                 const tableElement = doc('dataTableTerminaciones');
                 let html = '<thead><tr>';
-                allHeaders.forEach(header => { html += `<th>${header}</th>`; });
+                allHeaders.forEach(header => { html += `<th><span>${header}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${header}"></th>`; });
                 html += '</tr></thead><tbody>';
                 data.forEach(row => {
                     html += '<tr>';
@@ -1117,7 +1169,33 @@
                     html += '</tr>';
                 });
                 tableElement.innerHTML = html + '</tbody>';
+
+                tableElement.querySelectorAll('.filter-input').forEach(input => {
+                    input.addEventListener('keyup', () => filterTerminacionesTable());
+                });
             }
+
+            function filterTerminacionesTable() {
+                const table = doc('dataTableTerminaciones');
+                const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({
+                    columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')),
+                    value: i.value.toLowerCase()
+                }));
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    let shouldShow = true;
+                    filters.forEach(filter => {
+                        if (filter.value) {
+                            const cell = row.children[filter.columnIndex];
+                            if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) {
+                                shouldShow = false;
+                            }
+                        }
+                    });
+                    row.style.display = shouldShow ? '' : 'none';
+                });
+            }
+
 
             function renderTerminacionesSummary(data) {
                 const container = doc('summaryContainer');
@@ -1130,7 +1208,7 @@
                 data.forEach(row => {
                     const area = row['Area'] || 'Sin Área';
                     const fecha = row['Fecha'] || 'Sin Fecha';
-                    const terminaciones = row['Terminaciones'] || 0;
+                    const terminaciones = parseFloat(row['Terminaciones']) || 0;
                     if (typeof terminaciones === 'number' && terminaciones > 0) {
                         dates.add(fecha);
                         if (!pivot[area]) pivot[area] = {};
@@ -1151,16 +1229,16 @@
                     summaryHTML += `<tr><td>${area}</td>`;
                     sortedDates.forEach(date => {
                         const value = pivot[area][date] || 0;
-                        summaryHTML += `<td>${value}</td>`;
+                        summaryHTML += `<td>${value.toLocaleString()}</td>`;
                         rowTotal += value;
                         colTotals[date] += value;
                     });
-                    summaryHTML += `<td class="grand-total">${rowTotal}</td></tr>`;
+                    summaryHTML += `<td class="grand-total">${rowTotal.toLocaleString()}</td></tr>`;
                     grandTotal += rowTotal;
                 }
                 summaryHTML += `<tr class="grand-total"><td >Total General</td>`;
-                sortedDates.forEach(date => { summaryHTML += `<td>${colTotals[date]}</td>`; });
-                summaryHTML += `<td>${grandTotal}</td></tr></tbody></table></div>`;
+                sortedDates.forEach(date => { summaryHTML += `<td>${colTotals[date].toLocaleString()}</td>`; });
+                summaryHTML += `<td>${grandTotal.toLocaleString()}</td></tr></tbody></table></div>`;
                 container.innerHTML = summaryHTML;
                 doc('exportSummaryBtn').addEventListener('click', exportSummaryAsJPG);
             }
