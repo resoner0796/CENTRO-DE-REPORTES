@@ -720,7 +720,7 @@
                                         const packedDateSerial = item['Finish Packed Date'];
                                         if (packedDateSerial) {
                                             const packedDate = excelSerialToDateObject(packedDateSerial);
-                                            if (packedDate >= startTime && packedDate <= endTime) {
+                                            if (packedDate && packedDate >= startTime && packedDate <= endTime) {
                                                 const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                                                 if(empacador === packerL1 || empacador === packerL2){
                                                     allPackedItems.push({
@@ -1085,7 +1085,7 @@
                 });
             }
 
-            // --- INICIO: LÓGICA REPORTE 901 ---
+            // --- INICIO: LÓGICA REPORTE 901 Y FUNCIONES DE UTILIDAD ---
             
             window.copyToClipboard = (text, element) => {
                 if (!text) return;
@@ -1114,6 +1114,28 @@
                     }, 1500);
                 });
             };
+
+            function excelSerialToDateObject(serial) {
+                if (typeof serial !== 'number' || isNaN(serial)) return null;
+                try {
+                    // Se utiliza la función de la librería XLSX para una conversión robusta de fechas de Excel.
+                    // Maneja correctamente el sistema de fechas de Excel, incluido el error del año bisiesto de 1900.
+                    const decoded = XLSX.SSF.parse_date_code(serial);
+                    if (decoded) {
+                        // Se reconstruye la fecha usando los componentes de la zona horaria local a partir de los datos analizados.
+                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
+                    }
+                } catch (e) {
+                    console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
+                }
+                
+                // Fallback para números de fecha simples, aunque es menos preciso para las horas.
+                console.warn("Usando conversión de fecha de respaldo para el serial:", serial);
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + serial * 86400000);
+                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+            }
+
 
             async function handle901File(file) { 
                 const config = params['901_config'];
