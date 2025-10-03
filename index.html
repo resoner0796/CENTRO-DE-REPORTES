@@ -146,7 +146,7 @@
         .row-past { background-color: var(--row-past-bg) !important; }
         
         /* New Styles for Production Report */
-        #chartContainer { position: relative; height: 280px; padding: 16px; display: flex; flex-direction: column; }
+        #chartContainer { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
         #chartSummary { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
         #chartSummary strong { color: var(--text-primary); }
 
@@ -267,7 +267,7 @@
                 </aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
                     <div id="chartContainer" class="card">
-                        <canvas id="produccionChart" style="flex-grow: 1;"></canvas>
+                        <canvas id="produccionChart" style="flex-grow: 1; height: 200px;"></canvas>
                         <div id="chartSummary"></div>
                     </div>
                     <div class="card table-container">
@@ -761,17 +761,21 @@
                                 piezas: 0,
                                 terminaciones: 0,
                                 linea: item.linea,
-                                empacador: item.empacador,
-                                timestamp: item.timestamp
+                                timestamp: item.timestamp // Initialize with first item's timestamp
                             });
                         }
                         const group = groupedByBox.get(key);
                         group.piezas += 1;
                         group.terminaciones += item.terminaciones;
+                        // Always update to the latest timestamp in the group
+                        if (item.timestamp > group.timestamp) {
+                            group.timestamp = item.timestamp;
+                        }
                     });
 
                     const aggregatedData = Array.from(groupedByBox.values());
-                    aggregatedData.sort((a, b) => a.timestamp - b.timestamp);
+                    // Sort by most recent timestamp first
+                    aggregatedData.sort((a, b) => b.timestamp - a.timestamp);
 
                     renderProductionTable(aggregatedData);
                     renderProductionChart(detailedData, startTime, selectedTurno);
@@ -792,7 +796,7 @@
                     return;
                 }
 
-                const headers = ['Orden', 'Box ID', 'Catálogo', 'Piezas Empacadas', 'Terminaciones', 'Línea'];
+                const headers = ['Orden', 'Box ID', 'Catálogo', 'Piezas Empacadas', 'Fecha y Hora', 'Terminaciones', 'Línea'];
                 let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
 
                 data.forEach(row => {
@@ -801,6 +805,7 @@
                         <td>${row.boxId}</td>
                         <td>${row.catalogo}</td>
                         <td>${row.piezas}</td>
+                        <td>${formatFullDateTime(row.timestamp)}</td>
                         <td>${row.terminaciones}</td>
                         <td>${row.linea}</td>
                     </tr>`;
@@ -1118,24 +1123,25 @@
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
                 try {
-                    // Se utiliza la función de la librería XLSX para una conversión robusta de fechas de Excel.
-                    // Maneja correctamente el sistema de fechas de Excel, incluido el error del año bisiesto de 1900.
                     const decoded = XLSX.SSF.parse_date_code(serial);
                     if (decoded) {
-                        // Se reconstruye la fecha usando los componentes de la zona horaria local a partir de los datos analizados.
                         return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
                     }
                 } catch (e) {
                     console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
                 }
-                
-                // Fallback para números de fecha simples, aunque es menos preciso para las horas.
-                console.warn("Usando conversión de fecha de respaldo para el serial:", serial);
                 const excelEpoch = new Date(1899, 11, 30);
                 const date = new Date(excelEpoch.getTime() + serial * 86400000);
                 return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
 
+            function formatFullDateTime(date) {
+                if (!(date instanceof Date) || isNaN(date)) return '';
+                return date.toLocaleString('es-ES', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                }).replace(',', '');
+            }
 
             async function handle901File(file) { 
                 const config = params['901_config'];
