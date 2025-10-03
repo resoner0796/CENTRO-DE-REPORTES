@@ -147,6 +147,7 @@
         
         /* New Styles for Production Report */
         #chartContainer { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
+        #produccionChart { max-height: 250px; }
         #chartSummary { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
         #chartSummary strong { color: var(--text-primary); }
 
@@ -267,7 +268,7 @@
                 </aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
                     <div id="chartContainer" class="card">
-                        <canvas id="produccionChart" style="flex-grow: 1; height: 200px;"></canvas>
+                        <canvas id="produccionChart"></canvas>
                         <div id="chartSummary"></div>
                     </div>
                     <div class="card table-container">
@@ -703,6 +704,8 @@
                     const snapshot = await query.get();
                     if (snapshot.empty) {
                         showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
+                        renderProductionTable([]);
+                        renderProductionChart([], startTime, selectedTurno);
                         return;
                     }
 
@@ -1120,29 +1123,7 @@
                 });
             };
 
-            function excelSerialToDateObject(serial) {
-                if (typeof serial !== 'number' || isNaN(serial)) return null;
-                try {
-                    const decoded = XLSX.SSF.parse_date_code(serial);
-                    if (decoded) {
-                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
-                    }
-                } catch (e) {
-                    console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
-                }
-                const excelEpoch = new Date(1899, 11, 30);
-                const date = new Date(excelEpoch.getTime() + serial * 86400000);
-                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
-            }
-
-            function formatFullDateTime(date) {
-                if (!(date instanceof Date) || isNaN(date)) return '';
-                return date.toLocaleString('es-ES', {
-                    year: 'numeric', month: '2-digit', day: '2-digit',
-                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-                }).replace(',', '');
-            }
-
+            
             async function handle901File(file) { 
                 const config = params['901_config'];
                 if (!config.columns || config.columns.length === 0) {
