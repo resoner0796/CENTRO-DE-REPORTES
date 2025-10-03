@@ -1019,7 +1019,6 @@
                 }
 
                 const cooisMap = new Map();
-                // 1. Cargar el histórico de Firebase
                 try {
                     const snapshot = await db.collection('coois_historico').get();
                     snapshot.forEach(doc => {
@@ -1030,7 +1029,6 @@
                     showModal('Advertencia', '<p>No se pudo cargar el histórico de datos COOIS. El reporte podría estar incompleto.</p>');
                 }
 
-                // 2. Sobrescribir con el archivo recién cargado si existe
                 if (reportData.coois) {
                     reportData.coois.forEach(row => {
                         const cleanOrder = String(row[joinKey] || '').replace(/^0+/, '');
@@ -1045,13 +1043,13 @@
                     return;
                 }
 
+
                 let finalData = reportData.zpptwc.map(zpptwcRow => {
                     const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
                     const cooisRow = cooisMap.get(cleanOrder) || {};
                     let merged = {...zpptwcRow, ...cooisRow};
                     let finalRow = {};
 
-                    // Mapeo inicial
                     for (const key in merged) {
                         let value = merged[key];
                         if (typeof value === 'string') value = value.trim();
@@ -1065,12 +1063,10 @@
                         }
                     }
 
-                    // Mapeo de Área
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
 
-                    // Procesamiento de columnas finales
                     for (const col of config.final_cols) {
                         let result;
                         switch (col.type) {
@@ -1087,6 +1083,10 @@
                                 break;
                         }
                         finalRow[col.key] = result;
+                    }
+                     if (finalRow['Terminaciones'] !== undefined) {
+                        let value = parseFloat(finalRow['Terminaciones']);
+                        finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
                     }
                     return finalRow;
                 });
@@ -1141,17 +1141,29 @@
                          const area = (row['Area'] || '').trim();
                          const catalogo = row['Catalogo'] || '';
                          let fibrasCalc = 0;
-                         if (area === 'UNAP LEGACY') { fibrasCalc = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); }
-                         else if (area === 'MPORT FLEX') { fibrasCalc = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2); }
-                         else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                         else if (area === 'NON STD') fibrasCalc = 2; else if (area === 'SPECIALTY') fibrasCalc = 12;
-                         else if (area === 'MULTIPORT') {
+                         if (area === 'UNAP LEGACY') {
+                            if (catalogo.startsWith('DSH') || catalogo.startsWith('DSF')) {
+                                fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                            } else {
+                                fibrasCalc = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                            }
+                         } else if (area === 'MPORT FLEX') { 
+                            fibrasCalc = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : parseFloat(formulaHelpers.EXTRAER(catalogo, 5, 2)) || 0;
+                         } else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') {
+                            fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                         } else if (area === 'NON STD') {
+                            fibrasCalc = 2; 
+                         } else if (area === 'SPECIALTY') {
+                            fibrasCalc = 12;
+                         } else if (area === 'MULTIPORT') {
                              const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
                              fibrasCalc = catalogo.startsWith('DFB') ? extractedFibers * 2 : extractedFibers;
                          }
-                         else if (area === 'EVOLV MTB DEMARC') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                         else if (area === 'MOB LEGACY') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
-                         else if (area === 'MTB DEMARC') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                         else if (area === 'EVOLV MTB DEMARC') {
+                            fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                         } else if (area === 'MOB LEGACY' || area === 'MTB DEMARC') {
+                            fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                         }
                          return fibrasCalc;
                      }
                  }
@@ -1279,35 +1291,6 @@
             }
 
             // --- INICIO: LÓGICA REPORTE 901 ---
-            
-            window.copyToClipboard = (text, element) => {
-                if (!text) return;
-                const originalText = element.textContent;
-                const originalColor = element.style.color;
-                navigator.clipboard.writeText(text).then(() => {
-                    element.textContent = '¡Copiado!';
-                    element.style.color = 'var(--success-color)';
-                    setTimeout(() => {
-                        element.textContent = originalText;
-                        element.style.color = originalColor;
-                    }, 1500);
-                }).catch(err => {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    
-                    element.textContent = '¡Copiado!';
-                    element.style.color = 'var(--success-color)';
-                    setTimeout(() => {
-                        element.textContent = originalText;
-                        element.style.color = originalColor;
-                    }, 1500);
-                });
-            };
-
             
             async function handle901File(file) { 
                 const config = params['901_config'];
