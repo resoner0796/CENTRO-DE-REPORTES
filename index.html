@@ -1019,6 +1019,7 @@
                 }
 
                 const cooisMap = new Map();
+                // 1. Cargar el histórico de Firebase
                 try {
                     const snapshot = await db.collection('coois_historico').get();
                     snapshot.forEach(doc => {
@@ -1029,6 +1030,7 @@
                     showModal('Advertencia', '<p>No se pudo cargar el histórico de datos COOIS. El reporte podría estar incompleto.</p>');
                 }
 
+                // 2. Sobrescribir con el archivo recién cargado si existe
                 if (reportData.coois) {
                     reportData.coois.forEach(row => {
                         const cleanOrder = String(row[joinKey] || '').replace(/^0+/, '');
@@ -1050,6 +1052,7 @@
                     let merged = {...zpptwcRow, ...cooisRow};
                     let finalRow = {};
 
+                    // Mapeo inicial
                     for (const key in merged) {
                         let value = merged[key];
                         if (typeof value === 'string') value = value.trim();
@@ -1063,10 +1066,12 @@
                         }
                     }
 
+                    // Mapeo de Área
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
 
+                    // Procesamiento de columnas finales
                     for (const col of config.final_cols) {
                         let result;
                         switch (col.type) {
@@ -1471,7 +1476,6 @@
                     loadParams('produccion_hora_config')
                 ]);
                 
-                // Set default date for production report
                 const today = new Date();
                 const timezoneOffset = today.getTimezoneOffset() * 60000;
                 const localISOTime = (new Date(today - timezoneOffset)).toISOString().split('T')[0];
