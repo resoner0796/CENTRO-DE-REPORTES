@@ -1243,7 +1243,35 @@
                 });
             }
 
+window.copyToClipboard = (text, element) => {
+                if (!text) return;
+                const originalText = element.textContent;
+                const originalColor = element.style.color;
+                navigator.clipboard.writeText(text).then(() => {
+                    element.textContent = '¡Copiado!';
+                    element.style.color = 'var(--success-color)';
+                    setTimeout(() => {
+                        element.textContent = originalText;
+                        element.style.color = originalColor;
+                    }, 1500);
+                }).catch(err => {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    
+                    element.textContent = '¡Copiado!';
+                    element.style.color = 'var(--success-color)';
+                    setTimeout(() => {
+                        element.textContent = originalText;
+                        element.style.color = originalColor;
+                    }, 1500);
+                });
+            };
 
+            
             function renderTerminacionesSummary(data) {
                 const container = doc('summaryContainer');
                 if (!data || data.length === 0) {
