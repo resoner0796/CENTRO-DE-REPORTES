@@ -268,6 +268,10 @@
                 </aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
                     <div id="chartContainer" class="card">
+                        <div class="summary-header">
+                            <h3>Producción por Hora</h3>
+                            <button id="exportChartBtn" class="icon-btn" title="Exportar Gráfica como JPG" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                        </div>
                         <canvas id="produccionChart"></canvas>
                         <div id="chartSummary"></div>
                     </div>
@@ -651,6 +655,7 @@
             // --- INICIO: LÓGICA REPORTE DE PRODUCCIÓN POR HORA ---
 
             doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
+            doc('exportChartBtn').addEventListener('click', exportChartAsJPG);
             
             async function loadAreasForProductionReport() {
                 try {
@@ -687,6 +692,7 @@
                 const btn = doc('generarReporteProduccionBtn');
                 btn.disabled = true;
                 btn.textContent = 'Cargando datos...';
+                doc('exportChartBtn').style.display = 'none';
 
                 try {
                     const selectedDateStr = doc('prod_fecha').value;
@@ -787,20 +793,18 @@
                                 piezas: 0,
                                 terminaciones: 0,
                                 linea: item.linea,
-                                timestamp: item.timestamp // Initialize with first item's timestamp
+                                timestamp: item.timestamp
                             });
                         }
                         const group = groupedByBox.get(key);
                         group.piezas += 1;
                         group.terminaciones += item.terminaciones;
-                        // Always update to the latest timestamp in the group
                         if (item.timestamp > group.timestamp) {
                             group.timestamp = item.timestamp;
                         }
                     });
 
                     const aggregatedData = Array.from(groupedByBox.values());
-                    // Sort by most recent timestamp first
                     aggregatedData.sort((a, b) => b.timestamp - a.timestamp);
 
                     renderProductionTable(aggregatedData);
@@ -809,6 +813,7 @@
                 } catch (e) {
                     console.error("Error generando reporte:", e);
                     showModal('Error', `<p>Ocurrió un error al generar el reporte: ${e.message}</p>`);
+                    doc('exportChartBtn').style.display = 'none';
                 } finally {
                     btn.disabled = false;
                     btn.textContent = 'Generar Reporte';
@@ -843,6 +848,12 @@
                 const ctx = doc('produccionChart').getContext('2d');
                 if (productionChart) {
                     productionChart.destroy();
+                }
+
+                if(data.length === 0){
+                    doc('chartSummary').innerHTML = '';
+                    doc('exportChartBtn').style.display = 'none';
+                    return;
                 }
 
                 const hourlyData = {};
@@ -936,6 +947,7 @@
                         }
                     }
                 });
+                doc('exportChartBtn').style.display = 'block';
                 updateChartTheme();
             }
             
@@ -949,6 +961,37 @@
                 productionChart.options.scales.x.grid.color = 'var(--chart-grid-color)';
                 productionChart.options.scales.y.grid.color = 'var(--chart-grid-color)';
                 productionChart.update();
+            }
+
+            function exportChartAsJPG() {
+                const canvas = doc('produccionChart');
+                if (!productionChart || !canvas || canvas.height < 100) {
+                    showModal('Error', '<p>No hay una gráfica para exportar. Por favor, genere un reporte primero.</p>');
+                    return;
+                }
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+                const bgColor = theme === 'dark' ? '#2a2d32' : '#f9fafb';
+
+                tempCtx.fillStyle = bgColor;
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                tempCtx.drawImage(canvas, 0, 0);
+
+                const link = document.createElement('a');
+                link.href = tempCanvas.toDataURL('image/jpeg', 0.95);
+                
+                const fecha = doc('prod_fecha').value || 'fecha';
+                const turno = doc('prod_turno').value;
+                link.download = `Grafica_Produccion_Turno${turno}_${fecha}.jpg`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
 
             // --- INICIO: LÓGICA REPORTE TERMINACIONES ---
@@ -1116,7 +1159,7 @@
                 });
             }
 
-            // --- INICIO: LÓGICA REPORTE 901 Y FUNCIONES DE UTILIDAD ---
+            // --- INICIO: LÓGICA REPORTE 901 ---
             
             window.copyToClipboard = (text, element) => {
                 if (!text) return;
@@ -1146,7 +1189,6 @@
                 });
             };
 
-            
             async function handle901File(file) { 
                 const config = params['901_config'];
                 if (!config.columns || config.columns.length === 0) {
