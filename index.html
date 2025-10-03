@@ -625,6 +625,29 @@
                 IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse,
             };
 
+            function excelSerialToDateObject(serial) {
+                if (typeof serial !== 'number' || isNaN(serial)) return null;
+                try {
+                    const decoded = XLSX.SSF.parse_date_code(serial);
+                    if (decoded) {
+                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
+                    }
+                } catch (e) {
+                    console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
+                }
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + serial * 86400000);
+                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+            }
+            
+            function formatFullDateTime(date) {
+                if (!(date instanceof Date) || isNaN(date)) return '';
+                return date.toLocaleString('es-ES', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                }).replace(',', '');
+            }
+
             // --- INICIO: LÓGICA REPORTE DE PRODUCCIÓN POR HORA ---
 
             doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
