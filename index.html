@@ -927,14 +927,16 @@
                                 data: line1Data,
                                 backgroundColor: 'rgba(54, 162, 235, 0.6)',
                                 borderColor: 'rgba(54, 162, 235, 1)',
-                                borderWidth: 1
+                                borderWidth: 1,
+                                order: 1 // Asegura que las barras se dibujen sobre las líneas de la cuadrícula
                             },
                             {
                                 label: 'Línea 2',
                                 data: line2Data,
                                 backgroundColor: 'rgba(255, 99, 132, 0.6)',
                                 borderColor: 'rgba(255, 99, 132, 1)',
-                                borderWidth: 1
+                                borderWidth: 1,
+                                order: 1 // Asegura que las barras se dibujen sobre las líneas de la cuadrícula
                             }
                         ]
                     },
@@ -956,16 +958,26 @@
                                 font: {
                                     weight: 'bold'
                                 },
-                                formatter: function(value, context) {
+                                formatter: function(value) {
                                     return value > 0 ? value : '';
                                 }
                             }
                         },
                         scales: {
-                            x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
+                            x: { 
+                                grid: { color: 'var(--chart-grid-color)', drawOnChartArea: true }, 
+                                ticks: { 
+                                    color: 'var(--chart-tick-color)',
+                                    maxRotation: 90,
+                                    minRotation: 90,
+                                    font: {
+                                        weight: 'bold'
+                                    }
+                                } 
+                            },
                             y: {
                                 beginAtZero: true,
-                                grid: { color: 'var(--chart-grid-color)' },
+                                grid: { color: 'var(--chart-grid-color)', drawOnChartArea: true },
                                 ticks: { color: 'var(--chart-tick-color)' },
                                 title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' }
                             }
@@ -979,13 +991,18 @@
             
             function updateChartTheme() {
                 if (!productionChart) return;
-                productionChart.options.plugins.legend.labels.color = document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827';
-                productionChart.options.plugins.title.color = document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827';
-                productionChart.options.scales.x.ticks.color = 'var(--chart-tick-color)';
-                productionChart.options.scales.y.ticks.color = 'var(--chart-tick-color)';
-                productionChart.options.scales.y.title.color = 'var(--chart-tick-color)';
-                productionChart.options.scales.x.grid.color = 'var(--chart-grid-color)';
-                productionChart.options.scales.y.grid.color = 'var(--chart-grid-color)';
+                const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
+                const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
+                const gridColor = getComputedStyle(document.body).getPropertyValue('--chart-grid-color').trim();
+
+                productionChart.options.plugins.legend.labels.color = textColor;
+                productionChart.options.plugins.title.color = textColor;
+                productionChart.options.plugins.datalabels.color = textColor;
+                productionChart.options.scales.x.ticks.color = tickColor;
+                productionChart.options.scales.y.ticks.color = tickColor;
+                productionChart.options.scales.y.title.color = tickColor;
+                productionChart.options.scales.x.grid.color = gridColor;
+                productionChart.options.scales.y.grid.color = gridColor;
                 productionChart.update();
             }
 
@@ -995,23 +1012,17 @@
                     showModal('Error', '<p>No hay una gráfica para exportar. Por favor, genere un reporte primero.</p>');
                     return;
                 }
-
                 const exportBtn = doc('exportChartBtn');
                 const originalVisibility = exportBtn.style.visibility;
                 exportBtn.style.visibility = 'hidden';
 
                 const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
-                const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-color');
-
+                const bgColor = theme === 'dark' ? '#2a2d32' : '#f9fafb';
 
                 html2canvas(chartContainer, { 
                     backgroundColor: bgColor,
                     scale: 2.5,
                     useCORS: true,
-                    onclone: (clonedDoc) => {
-                        const clonedBtn = clonedDoc.getElementById('exportChartBtn');
-                        if(clonedBtn) clonedBtn.style.visibility = 'hidden';
-                    }
                 }).then(canvas => {
                     const link = document.createElement('a');
                     link.href = canvas.toDataURL('image/jpeg', 0.95);
