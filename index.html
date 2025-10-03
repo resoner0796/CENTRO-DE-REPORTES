@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     
     <!-- Fuentes de Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -947,6 +948,17 @@
                                 text: `Producción de Terminaciones - Turno ${turno}`,
                                 color: 'var(--text-primary)',
                                 font: { size: 16 }
+                            },
+                             datalabels: {
+                                anchor: 'end',
+                                align: 'top',
+                                color: 'var(--text-primary)',
+                                font: {
+                                    weight: 'bold'
+                                },
+                                formatter: function(value, context) {
+                                    return value > 0 ? value : '';
+                                }
                             }
                         },
                         scales: {
@@ -958,7 +970,8 @@
                                 title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' }
                             }
                         }
-                    }
+                    },
+                    plugins: [ChartDataLabels]
                 });
                 doc('exportChartBtn').style.display = 'block';
                 updateChartTheme();
@@ -977,34 +990,42 @@
             }
 
             function exportChartAsJPG() {
-                const canvas = doc('produccionChart');
-                if (!productionChart || !canvas || canvas.height < 100) {
+                const chartContainer = doc('chartContainer');
+                if (!productionChart || !chartContainer) {
                     showModal('Error', '<p>No hay una gráfica para exportar. Por favor, genere un reporte primero.</p>');
                     return;
                 }
 
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = canvas.width;
-                tempCanvas.height = canvas.height;
-                const tempCtx = tempCanvas.getContext('2d');
+                const exportBtn = doc('exportChartBtn');
+                const originalVisibility = exportBtn.style.visibility;
+                exportBtn.style.visibility = 'hidden';
 
                 const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
-                const bgColor = theme === 'dark' ? '#2a2d32' : '#f9fafb';
+                const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-color');
 
-                tempCtx.fillStyle = bgColor;
-                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                tempCtx.drawImage(canvas, 0, 0);
 
-                const link = document.createElement('a');
-                link.href = tempCanvas.toDataURL('image/jpeg', 0.95);
-                
-                const fecha = doc('prod_fecha').value || 'fecha';
-                const turno = doc('prod_turno').value;
-                link.download = `Grafica_Produccion_Turno${turno}_${fecha}.jpg`;
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                html2canvas(chartContainer, { 
+                    backgroundColor: bgColor,
+                    scale: 2.5,
+                    useCORS: true,
+                    onclone: (clonedDoc) => {
+                        const clonedBtn = clonedDoc.getElementById('exportChartBtn');
+                        if(clonedBtn) clonedBtn.style.visibility = 'hidden';
+                    }
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/jpeg', 0.95);
+                    
+                    const fecha = doc('prod_fecha').value || 'fecha';
+                    const turno = doc('prod_turno').value;
+                    link.download = `Reporte_Produccion_Turno${turno}_${fecha}.jpg`;
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }).finally(() => {
+                    exportBtn.style.visibility = originalVisibility;
+                });
             }
 
             // --- INICIO: LÓGICA REPORTE TERMINACIONES ---
@@ -1019,7 +1040,6 @@
                 }
 
                 const cooisMap = new Map();
-                // 1. Cargar el histórico de Firebase
                 try {
                     const snapshot = await db.collection('coois_historico').get();
                     snapshot.forEach(doc => {
@@ -1030,7 +1050,6 @@
                     showModal('Advertencia', '<p>No se pudo cargar el histórico de datos COOIS. El reporte podría estar incompleto.</p>');
                 }
 
-                // 2. Sobrescribir con el archivo recién cargado si existe
                 if (reportData.coois) {
                     reportData.coois.forEach(row => {
                         const cleanOrder = String(row[joinKey] || '').replace(/^0+/, '');
@@ -1052,7 +1071,6 @@
                     let merged = {...zpptwcRow, ...cooisRow};
                     let finalRow = {};
 
-                    // Mapeo inicial
                     for (const key in merged) {
                         let value = merged[key];
                         if (typeof value === 'string') value = value.trim();
@@ -1066,12 +1084,10 @@
                         }
                     }
 
-                    // Mapeo de Área
                     const areaCode = finalRow[config.area_config.source_col];
                     const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
                     finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
 
-                    // Procesamiento de columnas finales
                     for (const col of config.final_cols) {
                         let result;
                         switch (col.type) {
@@ -1216,37 +1232,6 @@
                 });
             }
 
-
-window.copyToClipboard = (text, element) => {
-                if (!text) return;
-                const originalText = element.textContent;
-                const originalColor = element.style.color;
-                navigator.clipboard.writeText(text).then(() => {
-                    element.textContent = '¡Copiado!';
-                    element.style.color = 'var(--success-color)';
-                    setTimeout(() => {
-                        element.textContent = originalText;
-                        element.style.color = originalColor;
-                    }, 1500);
-                }).catch(err => {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    
-                    element.textContent = '¡Copiado!';
-                    element.style.color = 'var(--success-color)';
-                    setTimeout(() => {
-                        element.textContent = originalText;
-                        element.style.color = originalColor;
-                    }, 1500);
-                });
-            };
-
-
-            
 
             function renderTerminacionesSummary(data) {
                 const container = doc('summaryContainer');
