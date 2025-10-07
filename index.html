@@ -228,7 +228,7 @@
         .area-source-container label, .user-filter-container label { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;}
         .btn-danger { background-color: var(--danger-color); color: white; width: auto; padding: 8px 12px; transition: background-color 0.2s; }
         .btn-danger:hover { background-color: var(--danger-hover-color); }
-        .drag-handle { cursor: grab; color: var(--text-dark); padding: 4px; display: flex; align-items: center; }
+        .drag-handle { cursor: grab; color: var(--text-dark); padding: 4px; display: flex; align-items: center; justify-content: center; }
         .drag-handle:active { cursor: grabbing; }
         .param-item.dragging { opacity: 0.5; background-color: var(--primary-color); }
         .modal-tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 16px;}
@@ -514,7 +514,7 @@
                 '901': doc('view901'), 
                 terminaciones: doc('viewTerminaciones'),
                 produccionHora: doc('viewProduccionHora'),
-                produccion20: doc('viewProduccion20') // <-- NUEVA VISTA
+                produccion20: doc('viewProduccion20')
             };
             let session = { isMaster: false }; 
             let activeView = 'menu';
@@ -528,11 +528,23 @@
                 },
                 produccion_hora_config: {
                     packers: []
+                },
+                produccion_20_config: { // <-- NUEVA CONFIGURACIÓN
+                    startRow: 15,
+                    columns: [
+                        { key: 'Estación', excel_col: 'F' },
+                        { key: 'Serial Number', excel_col: 'I' },
+                        { key: 'Cantidad', excel_col: 'L' },
+                        { key: 'Catalogo', excel_col: 'Q' },
+                        { key: 'Orden', excel_col: 'R' },
+                        { key: 'Empleado', excel_col: 'S' },
+                        { key: 'Fecha y hora', excel_col: 'W' }
+                    ]
                 }
             };
             let reportData = { zpptwc: null, coois: null };
             let productionChart = null;
-            let production20Chart = null; // <-- NUEVA VARIABLE PARA GRÁFICA
+            let production20Chart = null;
             let fiberPieChart1 = null;
             let fiberPieChart2 = null;
             let productionReportData = null;
@@ -555,7 +567,7 @@
             }
             
             doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
-            doc('reporteProduccion20Btn').addEventListener('click', () => switchView('produccion20')); // <-- NUEVO EVENTO
+            doc('reporteProduccion20Btn').addEventListener('click', () => switchView('produccion20'));
             doc('view901Btn').addEventListener('click', () => switchView('901'));
             doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
             document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => switchView('menu')));
@@ -601,8 +613,8 @@
                     showTerminacionesConfigModal();
                 } else if (activeView === 'produccionHora') {
                     showProduccionHoraConfigModal();
-                } else if (activeView === 'produccion20') { // <-- NUEVO CASO PARA LA VISTA 20%
-                     showModal('Configuración', '<p>El reporte de Producción 20% tiene una configuración fija y no requiere ajustes manuales.</p>');
+                } else if (activeView === 'produccion20') {
+                     showProduccion20ConfigModal();
                 }
             }
 
@@ -734,7 +746,6 @@
                 modalBody.querySelectorAll('.tab-btn').forEach(button => button.addEventListener('click', () => { modalBody.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active')); button.classList.add('active'); doc(`tab-${button.dataset.tab}`).classList.add('active'); }));
                 modalBody.querySelector('.addBtn').addEventListener('click', () => { const activeTab = modalBody.querySelector('.tab-content.active'); if(activeTab.id === 'tab-areas') { activeTab.querySelector('.area-list').insertAdjacentHTML('beforeend', createAreaItemHTML('', '')); } else if(activeTab.id === 'tab-final') { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createFinalColHTML('', 'source', '')); } else { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createSourceColHTML('', '')); } });
                 
-                // AJUSTE: Lógica de arrastrar y soltar
                 const lists = modalBody.querySelectorAll('.param-list');
                 lists.forEach(list => {
                     list.addEventListener('dragstart', e => { if (e.target.classList.contains('param-item')) e.target.classList.add('dragging'); });
@@ -750,11 +761,66 @@
                 });
                 doc('saveTerminacionesSettingsBtn').addEventListener('click', saveTerminacionesSettings);
             }
-            function createSourceColHTML(key, excel_col) { return `<li class="param-item" draggable="true" style="grid-template-columns: auto 1fr 1fr auto;"><span class="drag-handle" title="Arrastrar para reordenar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg></span><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Letra de Columna (ej. A, B)" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
-            function createAreaItemHTML(code, name) { return `<li class="area-item" style="grid-template-columns: 1fr 2fr auto;"><input type="text" class="area-code" placeholder="Código MRP" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
-            function createFinalColHTML(key, type, value) { const options = `<option value="source">Dato Directo</option><option value="formula">Fórmula (Avanzado)</option><option value="fibras_auto">Fibras (Automático)</option><option value="terminaciones_auto">Terminaciones (Automático)</option><option value="familia_auto">Familia (Automático)</option>`; let selectedOptions = options.replace(`value="${type}"`,`value="${type}" selected`); const isFormula = type === 'formula'; const isSource = type === 'source'; const isAuto = !isFormula && !isSource; return `<li class="param-item" draggable="true" style="grid-template-columns:auto 1fr 1fr 2fr auto"><span class="drag-handle" title="Arrastrar para reordenar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg></span><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${selectedOptions}</select><div class="${isAuto ? 'hidden' : ''}"><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+
+            // --- INICIO: LÓGICA DE CONFIGURACIÓN PRODUCCION 20% ---
+            function showProduccion20ConfigModal() {
+                const config = params.produccion_20_config;
+                const columnsHTML = config.columns.map(p => createSourceColHTML(p.key, p.excel_col)).join('');
+                const content = `
+                    <div class="control-group">
+                         <label for="prod20StartRow">Fila de inicio de datos</label>
+                         <input type="number" id="prod20StartRow" value="${config.startRow || 15}">
+                    </div>
+                    <hr style="border-color: var(--border-color); margin: 16px 0;">
+                    <p style="text-align:center;">Arrastra para reordenar. Define el nombre de cada columna y la letra de la columna en Excel.</p>
+                    <ul class="param-list" id="prod20ParamList">${columnsHTML}</ul>
+                    <button id="addProd20ColBtn" class="btn" style="width: auto; padding: 8px 16px;">Añadir Columna</button>
+                    <button id="saveProd20ConfigBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Configuración</button>
+                `;
+                showModal('Configurar Reporte Producción 20%', content);
+
+                const paramList = doc('prod20ParamList');
+                paramList.addEventListener('dragstart', e => { if (e.target.classList.contains('param-item')) e.target.classList.add('dragging'); });
+                paramList.addEventListener('dragend', e => { if (e.target.classList.contains('param-item')) e.target.classList.remove('dragging'); });
+                paramList.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    const draggingItem = paramList.querySelector('.dragging');
+                    if (!draggingItem) return;
+                    const afterElement = getDragAfterElement(paramList, e.clientY);
+                    if (afterElement == null) { paramList.appendChild(draggingItem); } 
+                    else { paramList.insertBefore(draggingItem, afterElement); }
+                });
+
+                doc('addProd20ColBtn').addEventListener('click', () => {
+                    paramList.insertAdjacentHTML('beforeend', createSourceColHTML('', ''));
+                });
+                doc('saveProd20ConfigBtn').addEventListener('click', saveProduccion20Config);
+            }
+
+            async function saveProduccion20Config() {
+                const newColumns = Array.from(doc('prod20ParamList').querySelectorAll('.param-item')).map(item => ({ 
+                    key: item.querySelector('.param-key').value.trim(), 
+                    excel_col: item.querySelector('.param-excel-col').value.trim().toUpperCase() 
+                })).filter(p => p.key && p.excel_col);
+
+                const newConfig = {
+                    startRow: parseInt(doc('prod20StartRow').value, 10) || 15,
+                    columns: newColumns
+                };
+
+                try {
+                    await db.collection('report_configs').doc('produccion_20_params').set(newConfig);
+                    params.produccion_20_config = newConfig;
+                    showModal('Éxito', '<p>Configuración del Reporte Producción 20% guardada.</p>');
+                } catch (e) {
+                    showModal('Error', '<p>No se pudo guardar la configuración.</p>');
+                }
+            }
             
-            // AJUSTE: Función para calcular la posición al arrastrar
+            function createSourceColHTML(key, excel_col) { return `<li class="param-item" draggable="true" style="grid-template-columns: auto 1fr 1fr auto;"><span class="drag-handle" title="Arrastrar para reordenar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg></span><input type="text" class="param-key" placeholder="Nombre de Columna" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Letra de Columna (ej. A)" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            function createAreaItemHTML(code, name) { return `<li class="area-item" style="grid-template-columns: 1fr 2fr auto;"><input type="text" class="area-code" placeholder="Código MRP" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            function createFinalColHTML(key, type, value) { const options = `<option value="source">Dato Directo</option><option value="formula">Fórmula (Avanzado)</option><option value="fibras_auto">Fibras (Automático)</option><option value="terminaciones_auto">Terminaciones (Automático)</option><option value="familia_auto">Familia (Automático)</option>`; let selectedOptions = options.replace(`value="${type}"`,`value="${type}" selected`); const isFormula = type === 'formula'; const isSource = type === 'source'; const isAuto = !isFormula && !isSource; return `<li class="param-item" draggable="true" style="grid-template-columns:auto 1fr 1.2fr 2fr auto"><span class="drag-handle" title="Arrastrar para reordenar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg></span><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${selectedOptions}</select><div class="${isAuto ? 'hidden' : ''}"><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            
             function getDragAfterElement(container, y) {
                 const draggableElements = [...container.querySelectorAll('.param-item:not(.dragging)')];
                 return draggableElements.reduce((closest, child) => {
@@ -796,7 +862,8 @@
                 const docIdMap = {
                     '901_config': '901_params',
                     'terminaciones_config': 'terminaciones_params_v2',
-                    'produccion_hora_config': 'produccion_hora_params'
+                    'produccion_hora_config': 'produccion_hora_params',
+                    'produccion_20_config': 'produccion_20_params' // <-- NUEVO DOCUMENTO
                 };
                 const docId = docIdMap[configKey];
                 if (!docId) return;
@@ -805,7 +872,10 @@
                     const docRef = await db.collection('report_configs').doc(docId).get();
                     if (docRef.exists) {
                         const data = docRef.data();
-                        if (configKey === '901_config') {
+                        // Asignación segura para evitar sobreescribir con datos incompletos
+                        if (configKey === 'produccion_20_config') {
+                            params[configKey] = { ...params[configKey], ...data };
+                        } else if (configKey === '901_config') {
                             params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
                         } else if (configKey === 'terminaciones_config') {
                             params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
@@ -848,7 +918,7 @@
 
             function setupFileHandler(dropAreaId, inputId, configKey) {
                 const dropArea = doc(dropAreaId); const input = doc(inputId);
-                if (!dropArea || !input) return; // <-- Guarda para prevenir errores
+                if (!dropArea || !input) return;
                 dropArea.addEventListener('click', () => input.click());
                 input.addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0], configKey); e.target.value = ''; });
                 dropArea.addEventListener('dragover', (e) => e.preventDefault());
@@ -858,7 +928,7 @@
             setupFileHandler('fileDropArea901', 'fileInput901', '901');
             setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
             setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
-            setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20'); // <-- NUEVO HANDLER
+            setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20');
             
             function handleFile(file, configKey) {
                 if(configKey === '901') { 
@@ -951,55 +1021,55 @@
             // --- INICIO: LÓGICA REPORTE PRODUCCIÓN 20% ---
 
             function handleProduccion20File(file) {
+                const config = params.produccion_20_config;
+                if (!config || !config.columns || config.columns.length === 0) {
+                    showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
                         const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                         const ws = wb.Sheets[wb.SheetNames[0]];
-                        const range = XLSX.utils.decode_range(ws['!ref']);
-                        const data = [];
+                        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1 });
+
+                        // Crear un mapa de letra de columna a índice (A=0, B=1, ...)
+                        const colMap = {};
+                        config.columns.forEach(col => {
+                           colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
+                        });
                         
-                        // Empezamos a leer desde la fila 15 (índice 14)
-                        for (let R = 14; R <= range.e.r; ++R) {
-                            const getVal = (col) => ws[col + (R + 1)] ? ws[col + (R + 1)].v : undefined;
-                            
-                            const serialNumber = getVal('I');
-                            // Si no hay número de serie, asumimos que es el final de los datos
-                            if (serialNumber === undefined || String(serialNumber).trim() === '') {
-                                continue;
-                            }
-                            
-                            const catalogo = getVal('Q');
+                        const data = jsonData.map(row => {
+                            const rowData = {};
+                            config.columns.forEach(col => {
+                                rowData[col.key] = row[colMap[col.key]];
+                            });
+                            return rowData;
+                        }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
+
+                        const processedData = data.map(row => {
+                            const catalogo = row['Catalogo'];
                             const digit = (catalogo || '').substring(3, 4).toUpperCase();
                             const terminaciones = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
+                            const fechaSerial = row['Fecha y hora'];
+                            const fechaHora = typeof fechaSerial === 'number' ? excelSerialToDateObject(fechaSerial) : null;
                             
-                            const fechaSerial = getVal('W');
-                            const fechaHora = fechaSerial ? excelSerialToDateObject(fechaSerial) : null;
-                            
-                            data.push({
-                                estacion: getVal('F'),
-                                serialNumber: serialNumber,
-                                cantidad: getVal('L'),
-                                catalogo: catalogo,
-                                orden: getVal('R'),
-                                empleado: getVal('S'),
-                                fechaHora: fechaHora,
-                                terminaciones: terminaciones
-                            });
-                        }
+                            return { ...row, fechaHora, terminaciones };
+                        });
 
-                        if (data.length > 0) {
+
+                        if (processedData.length > 0) {
                             doc('fileDropAreaProd20').style.borderColor = 'var(--success-color)';
-                            renderProduccion20Table(data);
-                            renderProduccion20Chart(data);
+                            renderProduccion20Table(processedData);
+                            renderProduccion20Chart(processedData);
                         } else {
                             doc('fileDropAreaProd20').style.borderColor = 'var(--danger-color)';
-                            showModal('Sin Datos', '<p>No se encontraron datos válidos a partir de la fila 15 en el archivo Excel.</p>');
+                            showModal('Sin Datos', `<p>No se encontraron datos válidos a partir de la fila ${config.startRow} en el archivo Excel.</p>`);
                         }
                     } catch (err) {
                         console.error("Error al procesar archivo de Producción 20%:", err);
                         doc('fileDropAreaProd20').style.borderColor = 'var(--danger-color)';
-                        showModal('Error de Archivo', `<p>No se pudo procesar el archivo. Verifique que el formato es correcto.</p>`);
+                        showModal('Error de Archivo', `<p>No se pudo procesar el archivo. Verifique el formato y la configuración de mapeo.</p>`);
                     }
                 };
                 reader.readAsArrayBuffer(file);
@@ -1007,22 +1077,26 @@
 
             function renderProduccion20Table(data) {
                 const table = doc('dataTableProduccion20');
-                const headers = ['Estación', 'Serial Number', 'Cantidad', 'Catálogo', 'Orden', 'Empleado', 'Fecha y Hora', 'Terminaciones'];
+                const headers = params.produccion_20_config.columns.map(c => c.key);
+                // Asegurarse de que la columna 'Terminaciones' esté al final si no fue añadida por el usuario
+                if (!headers.includes('Terminaciones')) {
+                    headers.push('Terminaciones');
+                }
+
                 let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
                 
                 data.sort((a, b) => (b.fechaHora || 0) - (a.fechaHora || 0));
 
                 data.forEach(row => {
-                    html += `<tr>
-                        <td>${row.estacion || ''}</td>
-                        <td>${row.serialNumber || ''}</td>
-                        <td>${row.cantidad || ''}</td>
-                        <td>${row.catalogo || ''}</td>
-                        <td>${row.orden || ''}</td>
-                        <td>${row.empleado || ''}</td>
-                        <td>${row.fechaHora ? formatShortDateTime(row.fechaHora) : 'N/A'}</td>
-                        <td>${row.terminaciones}</td>
-                    </tr>`;
+                    html += `<tr>`;
+                    headers.forEach(header => {
+                        let value = row[header];
+                        if (header === 'Fecha y hora' && value instanceof Date) {
+                             value = formatShortDateTime(value);
+                        }
+                        html += `<td>${value ?? ''}</td>`;
+                    });
+                    html += `</tr>`;
                 });
                 table.innerHTML = html + '</tbody>';
             }
@@ -1746,7 +1820,12 @@
             // --- INICIO: INICIALIZACIÓN DE LA APP ---
             async function initializeApp() {
                 if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
-                await Promise.all([ loadParams('901_config'), loadParams('terminaciones_config'), loadParams('produccion_hora_config') ]);
+                await Promise.all([
+                    loadParams('901_config'),
+                    loadParams('terminaciones_config'),
+                    loadParams('produccion_hora_config'),
+                    loadParams('produccion_20_config') // <-- Cargar la nueva configuración
+                ]);
                 const today = new Date();
                 const timezoneOffset = today.getTimezoneOffset() * 60000;
                 doc('prod_fecha').value = (new Date(today - timezoneOffset)).toISOString().split('T')[0];
