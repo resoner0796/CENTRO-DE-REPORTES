@@ -572,7 +572,8 @@
                         populatePackerSelects();
                     } else if (viewKey === 'produccion20') {
                         doc('prod20_fecha').value = new Date().toISOString().split('T')[0];
-                        consultarReporteProduccion20();
+                        renderProduccion20Table([]);
+                        renderProduccion20Chart([]);
                     }
                 }, 300);
             }
@@ -1011,11 +1012,12 @@
                     if (decoded) {
                         return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
                     }
-                    return null;
-                } catch(e) {
-                    console.error("Error parsing Excel date serial:", e, "Serial:", serial);
-                    return null;
+                } catch (e) {
+                    console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
                 }
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + serial * 86400000);
+                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
             
             function formatShortDateTime(date) {
@@ -1032,7 +1034,7 @@
 
             async function handleProduccion20File(file) {
                 const config = params.produccion_20_config;
-                if (!config || !config.columns || !config.columns.length === 0) {
+                if (!config || !config.columns || config.columns.length === 0) {
                     showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
                     return;
                 }
@@ -1066,8 +1068,10 @@
                             const serial = String(row['Serial Number']).trim();
                             if(serial){
                                 const docRef = db.collection('produccion_20_historico').doc(serial);
-                                const fechaHora = (row['Fecha y hora'] instanceof Date) ? row['Fecha y hora'] : null;
-                                batch.set(docRef, { ...row, 'Fecha y hora': fechaHora });
+                                const fechaHora = (row['Fecha y hora'] instanceof Date) ? row['Fecha y hora'] : excelSerialToDateObject(row['Fecha y hora']);
+                                if(fechaHora){
+                                    batch.set(docRef, { ...row, 'Fecha y hora': fechaHora });
+                                }
                             }
                         });
                         await batch.commit();
@@ -1109,7 +1113,6 @@
                         const docData = doc.data();
                         data.push({
                             ...docData,
-                            // Convertir Timestamp de Firebase a objeto Date de JS
                             'Fecha y hora': docData['Fecha y hora'] ? docData['Fecha y hora'].toDate() : null
                         });
                     });
@@ -1143,6 +1146,11 @@
 
             function renderProduccion20Table(data) {
                 const table = doc('dataTableProduccion20');
+                if (!data || data.length === 0) {
+                    table.innerHTML = `<thead><tr><th>Sin datos para mostrar.</th></tr></thead><tbody></tbody>`;
+                    return;
+                }
+
                 let headers = params.produccion_20_config.columns.map(c => c.key);
                 
                 if (!headers.map(h => h.toLowerCase()).includes('terminaciones')) {
