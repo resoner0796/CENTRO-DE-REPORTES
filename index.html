@@ -572,6 +572,7 @@
                         populatePackerSelects();
                     } else if (viewKey === 'produccion20') {
                         doc('prod20_fecha').value = new Date().toISOString().split('T')[0];
+                        // No longer automatically querying on view switch
                         renderProduccion20Table([]);
                         renderProduccion20Chart([]);
                     }
@@ -1007,14 +1008,6 @@
 
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
-                try {
-                    const decoded = XLSX.SSF.parse_date_code(serial);
-                    if (decoded) {
-                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
-                    }
-                } catch (e) {
-                    console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
-                }
                 const excelEpoch = new Date(1899, 11, 30);
                 const date = new Date(excelEpoch.getTime() + serial * 86400000);
                 return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
@@ -1064,21 +1057,29 @@
                         }
 
                         const batch = db.batch();
+                        let processedCount = 0;
                         data.forEach(row => {
                             const serial = String(row['Serial Number']).trim();
                             if(serial){
                                 const docRef = db.collection('produccion_20_historico').doc(serial);
-                                const fechaHora = (row['Fecha y hora'] instanceof Date) ? row['Fecha y hora'] : excelSerialToDateObject(row['Fecha y hora']);
-                                if(fechaHora){
-                                    batch.set(docRef, { ...row, 'Fecha y hora': fechaHora });
+                                let fechaHora = null;
+                                if (row['Fecha y hora'] instanceof Date) {
+                                    fechaHora = row['Fecha y hora'];
+                                } else if (typeof row['Fecha y hora'] === 'number') {
+                                    fechaHora = excelSerialToDateObject(row['Fecha y hora']);
+                                }
+                                
+                                if (fechaHora) {
+                                    batch.set(docRef, { ...row, 'Fecha y hora': firebase.firestore.Timestamp.fromDate(fechaHora) });
+                                    processedCount++;
                                 }
                             }
                         });
                         await batch.commit();
 
                         doc('fileDropAreaProd20').style.borderColor = 'var(--success-color)';
-                        showModal('Éxito', `<p>${data.length} registros han sido guardados en la base de datos. Vuelva a consultar la fecha para ver los datos actualizados.</p>`);
-                        consultarReporteProduccion20(); // Recargar datos de la fecha actual
+                        showModal('Éxito', `<p>${processedCount} registros han sido guardados en la base de datos. Vuelva a consultar la fecha para ver los datos actualizados.</p>`);
+                        consultarReporteProduccion20(); 
                     
                     } catch (err) {
                         console.error("Error al procesar y guardar archivo de Producción 20%:", err);
@@ -1146,8 +1147,8 @@
 
             function renderProduccion20Table(data) {
                 const table = doc('dataTableProduccion20');
-                if (!data || data.length === 0) {
-                    table.innerHTML = `<thead><tr><th>Sin datos para mostrar.</th></tr></thead><tbody></tbody>`;
+                 if (!data || data.length === 0) {
+                    table.innerHTML = `<thead><tr><th>Sin datos para mostrar. Consulte una fecha o cargue un archivo.</th></tr></thead><tbody></tbody>`;
                     return;
                 }
 
@@ -1247,7 +1248,53 @@
                     shiftStartTime.setHours(18, 30, 0, 0);
                 }
 
-                const hourlyBins = Array.from({ length: 12 }, () => ({ piezas: 0, terminaciones: 0 }));
+                const hourlyBins = Array.from({ length: 12 }, () => ({}));
+                const allStations = new Set();
+                const totalTerminacionesPorEstacion = {};
+
+                data.forEach(item => {
+                    const estacion = item['Estación'] || 'N/A';
+                    allStations.add(estacion);
+                    const cantidad = Number(item['Cantidad']) || 1;
+                    const totalTerm = item.terminaciones * cantidad;
+                    totalTerminacionesPorEstacion[estacion] = (totalTerminacionesPorEstacion[estacion] || 0) + totalTerm;
+
+                    if (item.fechaHora instanceof Date) {
+                        const diffMillis = item.fechaHora - shiftStartTime;
+                        if (diffMillis >= 0) {
+                            const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                            if (hourIndex >= 0 && hourIndex < 12) {
+                                if (!hourlyBins[hourIndex][estacion]) {
+                                    hourlyBins[hourIndex][estacion] = { piezas: 0, terminaciones: 0 };
+                                }
+                                hourlyBins[hourIndex][estacion].piezas += cantidad;
+                                hourlyBins[hourIndex][estacion].terminaciones += totalTerm;
+                            }
+                        }
+                    }
+                });
+                
+                const totalPiezas = data.reduce((sum, item) => sum + (Number(item['Cantidad']) || 1), 0);
+                const totalTerminaciones = Object.values(totalTerminacionesPorEstacion).reduce((sum, count) => sum + count, 0);
+                
+                let summaryHTML = `<div style="margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Total Piezas: <strong>${totalPiezas.toLocaleString()}</strong> / Total Terminaciones: <strong>${totalTerminaciones.toLocaleString()}</strong></div>`;
+                
+                let stationSummaryHtml = '<div style="font-size: 0.85rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px;">';
+                for (const [station, count] of Object.entries(totalTerminacionesPorEstacion).sort()) {
+                    stationSummaryHtml += `<span><strong>${station}:</strong> ${count} term</span>`;
+                }
+                stationSummaryHtml += '</div>';
+
+                doc('chartSummary20').innerHTML = summaryHTML + stationSummaryHtml;
+
+                const sortedStations = [...allStations].sort();
+                const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)'];
+                const datasets = sortedStations.map((station, index) => ({
+                    label: station,
+                    data: hourlyBins.map(hourData => hourData[station]?.terminaciones || 0),
+                    backgroundColor: colors[index % colors.length],
+                }));
+
                 const labels = [];
                 for (let i = 0; i < 12; i++) {
                     const start = new Date(shiftStartTime);
@@ -1257,74 +1304,35 @@
                     const format = { hour: '2-digit', minute: '2-digit', hour12: false };
                     labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
                 }
-
-                const totalEstaciones = {};
-                data.forEach(item => {
-                    const cantidad = Number(item['Cantidad']) || 1;
-                    const estacion = item['Estación'] || 'N/A';
-                    totalEstaciones[estacion] = (totalEstaciones[estacion] || 0) + cantidad;
-
-                    if (item.fechaHora instanceof Date) {
-                        const diffMillis = item.fechaHora - shiftStartTime;
-                        if (diffMillis >= 0) {
-                            const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
-                            if (hourIndex >= 0 && hourIndex < 12) {
-                                hourlyBins[hourIndex].piezas += cantidad;
-                                hourlyBins[hourIndex].terminaciones += item.terminaciones * cantidad;
-                            }
-                        }
-                    }
-                });
-                
-                const totalPiezas = Object.values(totalEstaciones).reduce((sum, count) => sum + count, 0);
-                const totalTerminaciones = hourlyBins.reduce((sum, bin) => sum + bin.terminaciones, 0);
-
-                let summaryHTML = `<div style="margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Total Piezas: <strong>${totalPiezas.toLocaleString()}</strong> / Total Terminaciones: <strong>${totalTerminaciones.toLocaleString()}</strong></div>`;
-                
-                let stationSummaryHtml = '<div style="font-size: 0.85rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px;">';
-                for (const [station, count] of Object.entries(totalEstaciones).sort()) {
-                    stationSummaryHtml += `<span><strong>${station}:</strong> ${count} pz</span>`;
-                }
-                stationSummaryHtml += '</div>';
-
-                doc('chartSummary20').innerHTML = summaryHTML + stationSummaryHtml;
                 
                 production20Chart = new Chart(ctx, {
                     type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Terminaciones por Hora',
-                            data: hourlyBins.map(b => b.terminaciones),
-                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1
-                        }]
-                    },
+                    data: { labels, datasets },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: false },
+                            legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
                             title: { display: false },
                             datalabels: {
                                 anchor: 'end',
                                 align: 'top',
                                 formatter: (value, ctx) => {
-                                    const piezas = hourlyBins[ctx.dataIndex].piezas;
-                                    if (value > 0 || piezas > 0) {
+                                    const stationName = sortedStations[ctx.datasetIndex];
+                                    const hourData = hourlyBins[ctx.dataIndex];
+                                    if (value > 0 && hourData && hourData[stationName]) {
+                                        const piezas = hourData[stationName].piezas;
                                         return `Pzs: ${piezas} / Term: ${value}`;
                                     }
                                     return '';
                                 },
                                 color: 'var(--text-primary)',
-                                font: { weight: 'bold', size: 10 },
+                                font: { weight: 'bold', size: 9 },
                                 textAlign: 'center'
                             }
                         },
                         scales: {
-                            x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 }, maxRotation: 45, minRotation: 45 } },
-                            y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+                            x: { stacked: false, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 }, maxRotation: 45, minRotation: 45 } },
+                            y: { stacked: false, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
                         }
                     },
                     plugins: [ChartDataLabels]
