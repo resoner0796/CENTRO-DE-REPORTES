@@ -408,9 +408,18 @@
                             </div>
                         </div>
                         <div style="padding: 0 10px; flex-grow: 1; display: flex; flex-direction: column;">
-                            <div class="control-group">
+                           <div class="control-group">
                                 <label for="prod20_fecha">Fecha del Reporte</label>
                                 <input type="date" id="prod20_fecha">
+                            </div>
+                            <div class="control-group">
+                                <label for="prod20_turno">Turno</label>
+                                <select id="prod20_turno">
+                                    <option value="T45">T45 (L-M, Día)</option>
+                                    <option value="T46">T46 (L-M, Noche)</option>
+                                    <option value="T47">T47 (J-D, Día)</option>
+                                    <option value="T48">T48 (J-D, Noche)</option>
+                                </select>
                             </div>
                             <button id="consultarProduccion20Btn" class="btn" style="width: 100%;">Consultar Reporte</button>
                             <hr style="border-color: var(--border-color); margin: 24px 0;">
@@ -572,6 +581,7 @@
                         populatePackerSelects();
                     } else if (viewKey === 'produccion20') {
                         doc('prod20_fecha').value = new Date().toISOString().split('T')[0];
+                        doc('prod20_turno').value = getAutoCurrentShift();
                         renderProduccion20Table([]);
                         renderProduccion20Chart([]);
                     }
@@ -1007,17 +1017,9 @@
 
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
-                try {
-                    const decoded = XLSX.SSF.parse_date_code(serial);
-                    if (decoded) {
-                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
-                    }
-                } catch (e) {
-                     console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
-                }
-                const excelEpoch = new Date(1899, 11, 30);
-                const date = new Date(excelEpoch.getTime() + serial * 86400000);
-                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                const milliseconds_since_epoch = excelEpoch.getTime() + (serial * 24 * 60 * 60 * 1000);
+                return new Date(milliseconds_since_epoch);
             }
             
             function formatShortDateTime(date) {
@@ -1099,6 +1101,8 @@
 
             async function consultarReporteProduccion20() {
                 const fechaInput = doc('prod20_fecha').value;
+                const turnoInput = doc('prod20_turno').value;
+
                 if (!fechaInput) {
                     showModal('Fecha Requerida', '<p>Por favor, seleccione una fecha para consultar el reporte.</p>');
                     return;
@@ -1107,13 +1111,12 @@
                 btn.disabled = true;
                 btn.textContent = 'Consultando...';
 
-                const startDate = new Date(`${fechaInput}T00:00:00`);
-                const endDate = new Date(`${fechaInput}T23:59:59`);
+                const { startTime, endTime } = getShiftDateRange(fechaInput, turnoInput);
 
                 try {
                     const snapshot = await db.collection('produccion_20_historico')
-                        .where('Fecha y hora', '>=', startDate)
-                        .where('Fecha y hora', '<=', endDate)
+                        .where('Fecha y hora', '>=', startTime)
+                        .where('Fecha y hora', '<=', endTime)
                         .get();
                     
                     const data = [];
@@ -1126,9 +1129,9 @@
                     });
                     
                     if (data.length === 0) {
-                        showModal('Sin Datos', `<p>No se encontraron registros para la fecha seleccionada.</p>`);
+                        showModal('Sin Datos', `<p>No se encontraron registros para la fecha y turno seleccionados.</p>`);
                         renderProduccion20Table([]);
-                        renderProduccion20Chart([]);
+                        renderProduccion20Chart([], startTime);
                         return;
                     }
 
@@ -1140,7 +1143,7 @@
                     });
                     
                     renderProduccion20Table(processedData);
-                    renderProduccion20Chart(processedData);
+                    renderProduccion20Chart(processedData, startTime);
 
                 } catch (e) {
                     console.error("Error al consultar datos de Firestore:", e);
@@ -1223,7 +1226,7 @@
                 });
             }
 
-            function renderProduccion20Chart(data) {
+            function renderProduccion20Chart(data, shiftStartTime) {
                 const ctx = doc('produccion20Chart').getContext('2d');
                 if (production20Chart) {
                     production20Chart.destroy();
@@ -1234,27 +1237,7 @@
                     doc('chartSummary20').innerHTML = '';
                     return;
                 }
-
-                const firstItemWithDate = data.find(item => item.fechaHora instanceof Date);
-                if (!firstItemWithDate) {
-                     doc('chartSummary20').innerHTML = '<p>No se encontraron datos con fecha para generar la gráfica.</p>';
-                     return;
-                }
-
-                const referenceDate = firstItemWithDate.fechaHora;
-                const shiftStartTime = new Date(referenceDate);
-                const hour = referenceDate.getHours();
-                const minutes = referenceDate.getMinutes();
-
-                if (hour >= 6 && (hour < 18 || (hour === 18 && minutes < 30))) { // Turno de Día
-                    shiftStartTime.setHours(6, 30, 0, 0);
-                } else { // Turno de Noche
-                    if (hour < 6 || (hour === 6 && minutes < 30)) {
-                        shiftStartTime.setDate(shiftStartTime.getDate() - 1);
-                    }
-                    shiftStartTime.setHours(18, 30, 0, 0);
-                }
-
+                
                 const hourlyBins = Array.from({ length: 12 }, () => ({}));
                 const allStations = new Set();
                 const totalTerminacionesPorEstacion = {};
@@ -1300,7 +1283,6 @@
                     label: station,
                     data: hourlyBins.map(hourData => hourData[station]?.terminaciones || 0),
                     backgroundColor: colors[index % colors.length],
-                    datalabels: { display: false }
                 }));
 
                 const hourlyTotals = hourlyBins.map(hourData => {
@@ -1315,12 +1297,11 @@
 
                 datasets.push({
                     label: 'Total',
-                    data: hourlyBins.map(hourData => {
-                         const values = Object.values(hourData).map(s => s.terminaciones);
-                         return values.length > 0 ? Math.max(...values) : 0;
-                    }),
-                    type: 'bar',
+                    data: hourlyTotals.map(h => h.terminaciones),
+                    type: 'line',
+                    borderColor: 'transparent',
                     backgroundColor: 'transparent',
+                    pointRadius: 0,
                     datalabels: {
                         anchor: 'end',
                         align: 'top',
@@ -1355,6 +1336,9 @@
                         plugins: {
                             legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.label !== 'Total' }},
                             title: { display: false },
+                            datalabels: {
+                                display: context => context.dataset.label === 'Total' // Only show for the total dataset
+                            },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
@@ -2051,8 +2035,14 @@
                 ]);
                 const today = new Date();
                 const timezoneOffset = today.getTimezoneOffset() * 60000;
-                doc('prod_fecha').value = (new Date(today - timezoneOffset)).toISOString().split('T')[0];
-                doc('prod_turno').value = getAutoCurrentShift();
+                const localToday = new Date(today - timezoneOffset);
+                doc('prod_fecha').value = localToday.toISOString().split('T')[0];
+                doc('prod20_fecha').value = localToday.toISOString().split('T')[0];
+                
+                const currentShift = getAutoCurrentShift();
+                doc('prod_turno').value = currentShift;
+                doc('prod20_turno').value = currentShift;
+
                 applyTheme(currentTheme);
                 Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
                 views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
