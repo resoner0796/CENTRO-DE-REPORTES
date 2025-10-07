@@ -995,27 +995,21 @@
 
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
+                 // Using XLSX's built-in parser is the most reliable method.
                 try {
-                    // This creates a date assuming the serial is based on UTC, which is common.
-                    const utc_days = Math.floor(serial - 25569);
-                    const utc_value = utc_days * 86400;
-                    const date_info = new Date(utc_value * 1000);
-
-                    const fractional_day = serial - Math.floor(serial) + 0.0000001;
-
-                    let total_seconds = Math.floor(86400 * fractional_day);
-
-                    const seconds = total_seconds % 60;
-                    total_seconds -= seconds;
-
-                    const hours = Math.floor(total_seconds / (60 * 60));
-                    const minutes = Math.floor(total_seconds / 60) % 60;
-                    
-                    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds);
-                } catch(e) {
-                    console.error("Error parsing Excel date serial:", e, "Serial:", serial);
-                    return null;
+                    const decoded = XLSX.SSF.parse_date_code(serial);
+                    if (decoded) {
+                         // The decoded object gives components based on UTC. We create a local date from them.
+                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
+                    }
+                } catch (e) {
+                    console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
                 }
+                 // Fallback method (less reliable for complex date formats/timezones)
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + serial * 86400000);
+                // Adjust for timezone offset
+                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
             
             function formatShortDateTime(date) {
@@ -1038,7 +1032,7 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
-                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                         const ws = wb.Sheets[wb.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1, blankrows: false });
 
@@ -1059,8 +1053,7 @@
                             const catalogo = row['Catalogo'];
                             const digit = (catalogo || '').substring(3, 4).toUpperCase();
                             const terminaciones = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
-                            const fechaSerial = row['Fecha y hora'];
-                            const fechaHora = typeof fechaSerial === 'number' ? excelSerialToDateObject(fechaSerial) : null;
+                            const fechaHora = (row['Fecha y hora'] instanceof Date) ? row['Fecha y hora'] : null;
                             
                             return { ...row, fechaHora, terminaciones };
                         });
@@ -1105,7 +1098,7 @@
                         if (headerLower === 'fecha y hora') {
                             value = row.fechaHora ? formatShortDateTime(row.fechaHora) : row[header];
                         } else if (headerLower === 'terminaciones') {
-                            value = row.terminaciones;
+                            value = row.terminaciones * (Number(row['Cantidad']) || 1);
                         } else {
                             value = row[header];
                         }
@@ -1243,9 +1236,15 @@
                             datalabels: {
                                 anchor: 'end',
                                 align: 'top',
-                                formatter: (value) => value > 0 ? value.toLocaleString() : '',
+                                formatter: (value, ctx) => {
+                                    const piezas = hourlyBins[ctx.dataIndex].piezas;
+                                    if (value > 0 || piezas > 0) {
+                                        return `Pzs: ${piezas} / Term: ${value}`;
+                                    }
+                                    return '';
+                                },
                                 color: 'var(--text-primary)',
-                                font: { weight: 'bold', size: 12 },
+                                font: { weight: 'bold', size: 10 },
                                 textAlign: 'center'
                             }
                         },
