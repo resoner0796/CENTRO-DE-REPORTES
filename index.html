@@ -165,7 +165,7 @@
         #chartContainer, #fibraReportContainer, #chartContainer20 { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
         #produccionChart, #produccion20Chart { max-height: 250px; }
         .pie-chart-container { max-height: 180px; margin-bottom: 16px; }
-        #chartSummary, #chartSummary20 { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
+        #chartSummary, #chartSummary20 { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); }
         #chartSummary strong, #chartSummary20 strong { color: var(--text-primary); }
         #fibraReportContainer .fibra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
         #fibraReportContainer h4, #fibraReportContainer h5 { margin-top: 0; text-align: center; }
@@ -996,11 +996,22 @@
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
                 try {
-                    const decoded = XLSX.SSF.parse_date_code(serial);
-                    if (decoded) {
-                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
-                    }
-                    return null;
+                    // This creates a date assuming the serial is based on UTC, which is common.
+                    const utc_days = Math.floor(serial - 25569);
+                    const utc_value = utc_days * 86400;
+                    const date_info = new Date(utc_value * 1000);
+
+                    const fractional_day = serial - Math.floor(serial) + 0.0000001;
+
+                    let total_seconds = Math.floor(86400 * fractional_day);
+
+                    const seconds = total_seconds % 60;
+                    total_seconds -= seconds;
+
+                    const hours = Math.floor(total_seconds / (60 * 60));
+                    const minutes = Math.floor(total_seconds / 60) % 60;
+                    
+                    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds);
                 } catch(e) {
                     console.error("Error parsing Excel date serial:", e, "Serial:", serial);
                     return null;
@@ -1027,7 +1038,7 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
-                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                         const ws = wb.Sheets[wb.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1, blankrows: false });
 
@@ -1048,8 +1059,8 @@
                             const catalogo = row['Catalogo'];
                             const digit = (catalogo || '').substring(3, 4).toUpperCase();
                             const terminaciones = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
-                            
-                            const fechaHora = (row['Fecha y hora'] instanceof Date) ? row['Fecha y hora'] : null;
+                            const fechaSerial = row['Fecha y hora'];
+                            const fechaHora = typeof fechaSerial === 'number' ? excelSerialToDateObject(fechaSerial) : null;
                             
                             return { ...row, fechaHora, terminaciones };
                         });
@@ -1151,7 +1162,7 @@
 
                 const firstItemWithDate = data.find(item => item.fechaHora instanceof Date);
                 if (!firstItemWithDate) {
-                     doc('chartSummary20').innerHTML = 'No se encontraron datos con fecha para generar la gráfica.';
+                     doc('chartSummary20').innerHTML = '<p>No se encontraron datos con fecha para generar la gráfica.</p>';
                      return;
                 }
 
@@ -1169,7 +1180,7 @@
                     shiftStartTime.setHours(18, 30, 0, 0);
                 }
 
-                const hourlyBins = Array.from({ length: 12 }, () => ({ piezas: 0, terminaciones: 0, estaciones: {} }));
+                const hourlyBins = Array.from({ length: 12 }, () => ({ piezas: 0, terminaciones: 0 }));
                 const labels = [];
                 for (let i = 0; i < 12; i++) {
                     const start = new Date(shiftStartTime);
@@ -1180,26 +1191,36 @@
                     labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
                 }
 
+                const totalEstaciones = {};
                 data.forEach(item => {
+                    const cantidad = Number(item['Cantidad']) || 1;
+                    const estacion = item['Estación'] || 'N/A';
+                    totalEstaciones[estacion] = (totalEstaciones[estacion] || 0) + cantidad;
+
                     if (item.fechaHora instanceof Date) {
                         const diffMillis = item.fechaHora - shiftStartTime;
                         if (diffMillis >= 0) {
                             const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
                             if (hourIndex >= 0 && hourIndex < 12) {
-                                const cantidad = Number(item['Cantidad']) || 1;
                                 hourlyBins[hourIndex].piezas += cantidad;
                                 hourlyBins[hourIndex].terminaciones += item.terminaciones * cantidad;
-                                const estacion = item['Estación'] || 'N/A';
-                                hourlyBins[hourIndex].estaciones[estacion] = (hourlyBins[hourIndex].estaciones[estacion] || 0) + cantidad;
                             }
                         }
                     }
                 });
                 
-                const totalPiezas = hourlyBins.reduce((sum, bin) => sum + bin.piezas, 0);
+                const totalPiezas = Object.values(totalEstaciones).reduce((sum, count) => sum + count, 0);
                 const totalTerminaciones = hourlyBins.reduce((sum, bin) => sum + bin.terminaciones, 0);
 
-                doc('chartSummary20').innerHTML = `Total Piezas: <strong>${totalPiezas.toLocaleString()}</strong> / Total Terminaciones: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
+                let summaryHTML = `<div style="margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Total Piezas: <strong>${totalPiezas.toLocaleString()}</strong> / Total Terminaciones: <strong>${totalTerminaciones.toLocaleString()}</strong></div>`;
+                
+                let stationSummaryHtml = '<div style="font-size: 0.85rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px;">';
+                for (const [station, count] of Object.entries(totalEstaciones).sort()) {
+                    stationSummaryHtml += `<span><strong>${station}:</strong> ${count} pz</span>`;
+                }
+                stationSummaryHtml += '</div>';
+
+                doc('chartSummary20').innerHTML = summaryHTML + stationSummaryHtml;
                 
                 production20Chart = new Chart(ctx, {
                     type: 'bar',
@@ -1222,17 +1243,9 @@
                             datalabels: {
                                 anchor: 'end',
                                 align: 'top',
-                                formatter: (value, ctx) => {
-                                    if (value <= 0) return '';
-                                    const bin = hourlyBins[ctx.dataIndex];
-                                    const mainLabel = `Pzs: ${bin.piezas} / Term: ${value}`;
-                                    const stationLabels = Object.entries(bin.estaciones)
-                                        .sort((a, b) => b[1] - a[1])
-                                        .map(([name, count]) => `${name}: ${count} pz`);
-                                    return [mainLabel, ...stationLabels].join('\n');
-                                },
+                                formatter: (value) => value > 0 ? value.toLocaleString() : '',
                                 color: 'var(--text-primary)',
-                                font: { weight: 'bold', size: 9 },
+                                font: { weight: 'bold', size: 12 },
                                 textAlign: 'center'
                             }
                         },
