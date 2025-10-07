@@ -178,34 +178,34 @@
             min-height: 0;
         }
 
-        /* AJUSTE: Estilos específicos para las tablas de producción para que no desborden */
         .table-grid-container table th,
         .table-grid-container table td {
-            white-space: normal; /* Permitir ajuste de línea */
-            overflow-wrap: break-word; /* Romper palabras para ajustar */
-            font-size: 0.8rem; /* Reducir fuente para mejor ajuste */
-            padding: 8px 5px; /* Reducir espaciado */
+            white-space: normal;
+            overflow-wrap: break-word;
+            font-size: 0.8rem;
+            padding: 8px 5px;
             text-align: center;
         }
-        /* Alinear columnas de texto a la izquierda para legibilidad */
         .table-grid-container table th:nth-child(1), .table-grid-container table td:nth-child(1),
         .table-grid-container table th:nth-child(2), .table-grid-container table td:nth-child(2),
         .table-grid-container table th:nth-child(3), .table-grid-container table td:nth-child(3) {
             text-align: left;
         }
         
-        /* AJUSTE: Estilos para la tabla de terminaciones */
-        #dataTableTerminaciones, #dataTableProduccion20 {
-            table-layout: auto; /* Permitir que el navegador ajuste el ancho de las columnas */
+        #dataTableTerminaciones, #dataTableProduccion20, #dataTable901 {
+            table-layout: auto;
             width: 100%;
         }
         #dataTableTerminaciones th,
         #dataTableTerminaciones td,
         #dataTableProduccion20 th,
-        #dataTableProduccion20 td {
-            white-space: nowrap; /* Prevenir el ajuste de línea para mostrar contenido completo */
-            text-align: center; /* Centrar el contenido horizontalmente */
-            vertical-align: middle; /* Centrar el contenido verticalmente */
+        #dataTableProduccion20 td,
+        #dataTable901 th,
+        #dataTable901 td {
+            white-space: normal;
+            word-wrap: break-word;
+            text-align: center;
+            vertical-align: middle;
         }
 
 
@@ -1018,10 +1018,9 @@
             function excelSerialToDateObject(serial) {
                 if (serial instanceof Date) return serial;
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
-                // This formula is a reliable way to convert Excel serial numbers to JS dates, accounting for the 1900 leap year bug.
-                const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
-                // The above calculation results in UTC time, we adjust it to local timezone.
-                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+                const excelEpoch = new Date(1899, 11, 30);
+                const date_info = new Date(excelEpoch.getTime() + (serial - (excelEpoch.getTimezoneOffset() > 0 ? 1 : 0)) * 24 * 60 * 60 * 1000);
+                return new Date(date_info.getTime() + (date_info.getTimezoneOffset() * 60000));
             }
             
             function formatShortDateTime(date) {
@@ -1038,7 +1037,7 @@
 
             async function handleProduccion20File(file) {
                 const config = params.produccion_20_config;
-                if (!config || !config.columns || !config.columns.length === 0) {
+                if (!config || !config.columns || config.columns.length === 0) {
                     showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
                     return;
                 }
@@ -1330,15 +1329,15 @@
                             }
                         },
                         scales: {
-                            x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 }, maxRotation: 45, minRotation: 45 } },
-                            y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, afterDataLimits: (scale) => { scale.max *= 1.25; } }
+                            x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 }, maxRotation: 45, minRotation: 45 } },
+                            y: { stacked: true, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, afterDataLimits: (scale) => { scale.max *= 1.25; } }
                         }
                     },
                     plugins: [
                         {
                             id: 'totalLabels',
                             afterDatasetsDraw: (chart) => {
-                                const { ctx, data, scales: { x, y } } = chart;
+                                const { ctx, scales: { x, y } } = chart;
                                 ctx.save();
                                 ctx.font = 'bold 10px Inter';
                                 ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
@@ -1347,18 +1346,7 @@
                                 hourlyTotals.forEach((total, index) => {
                                     if (total.piezas > 0 || total.terminaciones > 0) {
                                         const text = `Pzs: ${total.piezas} / Term: ${total.terminaciones}`;
-                                        
-                                        let maxVal = 0;
-                                        chart.data.datasets.forEach((dataset, i) => {
-                                            if (chart.isDatasetVisible(i)) {
-                                                const value = dataset.data[index] || 0;
-                                                if (value > maxVal) {
-                                                    maxVal = value;
-                                                }
-                                            }
-                                        });
-
-                                        const yPos = y.getPixelForValue(maxVal);
+                                        const yPos = y.getPixelForValue(total.terminaciones);
                                         ctx.fillText(text, x.getPixelForTick(index), yPos - 8);
                                     }
                                 });
@@ -1970,18 +1958,14 @@
                             if (isPast || (isToday && userIsOnFilterList)) {
                                 let rowData = {};
                                 config.columns.forEach(p => {
-                                    const cellConfig = p.startCell.trim().toUpperCase(); let value;
-                                    if (cellConfig.includes(',')) {
-                                        const cols = cellConfig.split(',').map(c => c.trim().match(/[A-Z]+/)[0]); const values = [];
-                                        cols.forEach(col => {
-                                            const cell = ws[col + (R + 1)]; const cellValue = cell ? (cell.w || cell.v) : undefined;
-                                            if (cellValue !== undefined && cellValue !== null && cellValue !== 0 && String(cellValue).trim() !== '') values.push(cellValue);
-                                        }); value = values.join(' / ');
-                                    } else {
-                                        const col = cellConfig.match(/[A-Z]+/)[0]; const cell = ws[col + (R + 1)];
-                                        value = cell ? (cell.w || cell.v) : undefined;
+                                    const cellConfig = p.startCell.trim().toUpperCase(); 
+                                    const col = cellConfig.match(/[A-Z]+/)[0];
+                                    const cell = ws[col + (R + 1)];
+                                    let value = cell ? (cell.w || cell.v) : undefined;
+                                    
+                                    if (p.key.toLowerCase() === 'qty' && cell && typeof cell.v === 'number') {
+                                        value = parseInt(cell.v, 10);
                                     }
-                                    if (p.key.toLowerCase() === 'qty' && typeof value === 'number' && value === parseInt(value, 10)) value = parseInt(value, 10);
                                     rowData[p.key] = value;
                                 });
                                 if (userIsOnFilterList) {
