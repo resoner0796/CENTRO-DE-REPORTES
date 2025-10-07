@@ -80,7 +80,7 @@
             background-attachment: fixed; padding: 16px; box-sizing: border-box; overflow-x: hidden;
         }
         .app-container { width: 100%; }
-        #menuView, #view901, #viewTerminaciones, #viewProduccionHora { transition: opacity 0.3s ease-in-out, display 0.3s; }
+        #menuView, #view901, #viewTerminaciones, #viewProduccionHora, #viewProduccion20 { transition: opacity 0.3s ease-in-out, display 0.3s; }
         #menuView { display: flex; align-items: center; justify-content: center; height: 100%; }
         .menu-wrapper { width: 100%; max-width: 600px; text-align: center; }
         .animated-startup { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
@@ -110,7 +110,7 @@
         }
         .btn-glass:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
         
-        #view901, #viewTerminaciones, #viewProduccionHora { display: none; width: 100%; }
+        #view901, #viewTerminaciones, #viewProduccionHora, #viewProduccion20 { display: none; width: 100%; }
         .main-container { display: grid; grid-template-columns: 320px 1fr; gap: 16px; width: 100%; height: calc(100vh - 32px); }
         .sidebar { display: flex; flex-direction: column; gap: 16px; }
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
@@ -162,10 +162,10 @@
         .row-yesterday { background-color: var(--row-yesterday-bg) !important; }
         .row-past { background-color: var(--row-past-bg) !important; }
         
-        #chartContainer, #fibraReportContainer { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
-        #produccionChart { max-height: 250px; }
+        #chartContainer, #fibraReportContainer, #chartContainer20 { position: relative; padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
+        #produccionChart, #produccion20Chart { max-height: 250px; }
         .pie-chart-container { max-height: 180px; margin-bottom: 16px; }
-        #chartSummary { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
+        #chartSummary, #chartSummary20 { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
         #chartSummary strong { color: var(--text-primary); }
         #fibraReportContainer .fibra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
         #fibraReportContainer h4, #fibraReportContainer h5 { margin-top: 0; text-align: center; }
@@ -195,12 +195,14 @@
         }
         
         /* AJUSTE: Estilos para la tabla de terminaciones */
-        #dataTableTerminaciones {
+        #dataTableTerminaciones, #dataTableProduccion20 {
             table-layout: auto; /* Permitir que el navegador ajuste el ancho de las columnas */
             width: 100%;
         }
         #dataTableTerminaciones th,
-        #dataTableTerminaciones td {
+        #dataTableTerminaciones td,
+        #dataTableProduccion20 th,
+        #dataTableProduccion20 td {
             white-space: nowrap; /* Prevenir el ajuste de línea para mostrar contenido completo */
             text-align: center; /* Centrar el contenido horizontalmente */
             vertical-align: middle; /* Centrar el contenido verticalmente */
@@ -286,6 +288,7 @@
                 <main class="card animated-startup" style="animation-delay: 0.1s;">
                     <div class="menu-container">
                         <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
+                        <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
                         <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
                         <button id="view901Btn" class="btn">Reporte 901</button>
                     </div>
@@ -342,7 +345,7 @@
                                 <button id="showProduccionFibraBtn" class="btn btn-glass">Producción por Fibra</button>
                             </div>
                         </div>
-                         <button id="generarReporteProduccionBtn" class="btn" style="margin-top: 16px; width: 100%;">Generar Reporte</button>
+                       <button id="generarReporteProduccionBtn" class="btn" style="margin-top: 16px; width: 100%;">Generar Reporte</button>
                     </div>
                 </aside>
                 <main class="main-content animated-startup" style="animation-delay: 0.2s;">
@@ -378,7 +381,7 @@
                              <h5>Producción Línea 2</h5>
                             <div class="table-wrapper">
                                 <table id="dataTableProduccionL2">
-                                     <thead><tr><th>Configure los parámetros y genere el reporte.</th></tr></thead>
+                                    <thead><tr><th>Configure los parámetros y genere el reporte.</th></tr></thead>
                                     <tbody></tbody>
                                 </table>
                             </div>
@@ -387,6 +390,53 @@
                 </main>
             </div>
         </div>
+
+        <!-- INICIO: VISTA REPORTE PRODUCCION 20% -->
+        <div id="viewProduccion20">
+            <div class="main-container">
+                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+                    <div class="card" style="height: 100%; display:flex; flex-direction: column;">
+                        <div class="sidebar-header">
+                            <h3>Panel de Control</h3>
+                            <div>
+                                <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                                <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                                    <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                                </button>
+                                <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+                            </div>
+                        </div>
+                        <div id="fileDropAreaProd20" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;">
+                            <h4>Cargar Reporte</h4>
+                            <p>Arrastra un archivo Excel para generar el reporte</p>
+                        </div>
+                        <input type="file" id="fileInputProd20" accept=".xlsx, .xls" style="display: none;">
+                    </div>
+                </aside>
+                <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Producción 20%</h2></header>
+                    
+                    <div id="chartContainer20" class="card">
+                        <div class="summary-header">
+                            <div class="title-wrapper"><h3>Producción de Terminaciones por Hora</h3></div>
+                        </div>
+                        <canvas id="produccion20Chart"></canvas>
+                        <div id="chartSummary20"></div>
+                    </div>
+
+                    <div class="card table-container">
+                        <div class="table-wrapper">
+                            <table id="dataTableProduccion20">
+                                <thead><tr><th>Carga un archivo para ver los datos...</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+        <!-- FIN: VISTA REPORTE PRODUCCION 20% -->
 
         <div id="view901">
             <div class="main-container">
@@ -463,7 +513,8 @@
                 menu: doc('menuView'), 
                 '901': doc('view901'), 
                 terminaciones: doc('viewTerminaciones'),
-                produccionHora: doc('viewProduccionHora')
+                produccionHora: doc('viewProduccionHora'),
+                produccion20: doc('viewProduccion20') // <-- NUEVA VISTA
             };
             let session = { isMaster: false }; 
             let activeView = 'menu';
@@ -481,6 +532,7 @@
             };
             let reportData = { zpptwc: null, coois: null };
             let productionChart = null;
+            let production20Chart = null; // <-- NUEVA VARIABLE PARA GRÁFICA
             let fiberPieChart1 = null;
             let fiberPieChart2 = null;
             let productionReportData = null;
@@ -503,6 +555,7 @@
             }
             
             doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
+            doc('reporteProduccion20Btn').addEventListener('click', () => switchView('produccion20')); // <-- NUEVO EVENTO
             doc('view901Btn').addEventListener('click', () => switchView('901'));
             doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
             document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => switchView('menu')));
@@ -518,7 +571,7 @@
                         moonIcon.style.display = theme === 'light' ? 'block' : 'none';
                     }
                 });
-                if(productionChart || fiberPieChart1 || fiberPieChart2) {
+                if(productionChart || fiberPieChart1 || fiberPieChart2 || production20Chart) {
                     updateChartTheme();
                 }
             }
@@ -548,6 +601,8 @@
                     showTerminacionesConfigModal();
                 } else if (activeView === 'produccionHora') {
                     showProduccionHoraConfigModal();
+                } else if (activeView === 'produccion20') { // <-- NUEVO CASO PARA LA VISTA 20%
+                     showModal('Configuración', '<p>El reporte de Producción 20% tiene una configuración fija y no requiere ajustes manuales.</p>');
                 }
             }
 
@@ -695,7 +750,7 @@
                 });
                 doc('saveTerminacionesSettingsBtn').addEventListener('click', saveTerminacionesSettings);
             }
-            function createSourceColHTML(key, excel_col) { return `<li class="param-item" draggable="true" style="grid-template-columns: auto 1fr 1fr auto;"><span class="drag-handle" title="Arrastrar para reordenar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg></span><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Letra de Columna (ej. A, B)" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
+            function createSourceColHTML(key, excel_col) { return `<li class="param-item" draggable="true" style="grid-template-columns: auto 1fr 1fr auto;"><span class="drag-handle" title="Arrastrar para reordenar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg></span><input type="text" class="param-key" placeholder="Nombre Clave (sin espacios)" value="${key||''}"><input type="text" class="param-excel-col" placeholder="Letra de Columna (ej. A, B)" value="${excel_col||''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             function createAreaItemHTML(code, name) { return `<li class="area-item" style="grid-template-columns: 1fr 2fr auto;"><input type="text" class="area-code" placeholder="Código MRP" value="${code || ''}"><input type="text" class="area-name" placeholder="Nombre de Área" value="${name || ''}"><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             function createFinalColHTML(key, type, value) { const options = `<option value="source">Dato Directo</option><option value="formula">Fórmula (Avanzado)</option><option value="fibras_auto">Fibras (Automático)</option><option value="terminaciones_auto">Terminaciones (Automático)</option><option value="familia_auto">Familia (Automático)</option>`; let selectedOptions = options.replace(`value="${type}"`,`value="${type}" selected`); const isFormula = type === 'formula'; const isSource = type === 'source'; const isAuto = !isFormula && !isSource; return `<li class="param-item" draggable="true" style="grid-template-columns:auto 1fr 1fr 2fr auto"><span class="drag-handle" title="Arrastrar para reordenar"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg></span><input type="text" class="param-key" placeholder="Nombre Columna Final" value="${key||''}"><select class="param-type">${selectedOptions}</select><div class="${isAuto ? 'hidden' : ''}"><input type="text" class="param-value-input" placeholder="${isFormula ? 'Escribe fórmula...' : 'Nombre Clave de la fuente'}" value="${value||''}" onfocus="populateFormulaHelpers(this, ${isFormula})"><div class="formula-helpers"></div></div><button class="btn btn-danger" onclick="this.parentElement.remove()">X</button></li>`; }
             
@@ -793,6 +848,7 @@
 
             function setupFileHandler(dropAreaId, inputId, configKey) {
                 const dropArea = doc(dropAreaId); const input = doc(inputId);
+                if (!dropArea || !input) return; // <-- Guarda para prevenir errores
                 dropArea.addEventListener('click', () => input.click());
                 input.addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0], configKey); e.target.value = ''; });
                 dropArea.addEventListener('dragover', (e) => e.preventDefault());
@@ -802,10 +858,13 @@
             setupFileHandler('fileDropArea901', 'fileInput901', '901');
             setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
             setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
+            setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20'); // <-- NUEVO HANDLER
             
             function handleFile(file, configKey) {
                 if(configKey === '901') { 
                     handle901File(file); 
+                } else if (configKey === 'produccion20') {
+                    handleProduccion20File(file);
                 } else {
                     const reader = new FileReader();
                     reader.onload = async (e) => {
@@ -887,6 +946,142 @@
                 const hour = String(date.getHours()).padStart(2, '0');
                 const minute = String(date.getMinutes()).padStart(2, '0');
                 return `${month}/${day} ${hour}:${minute}`;
+            }
+
+            // --- INICIO: LÓGICA REPORTE PRODUCCIÓN 20% ---
+
+            function handleProduccion20File(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const range = XLSX.utils.decode_range(ws['!ref']);
+                        const data = [];
+                        
+                        // Empezamos a leer desde la fila 15 (índice 14)
+                        for (let R = 14; R <= range.e.r; ++R) {
+                            const getVal = (col) => ws[col + (R + 1)] ? ws[col + (R + 1)].v : undefined;
+                            
+                            const serialNumber = getVal('I');
+                            // Si no hay número de serie, asumimos que es el final de los datos
+                            if (serialNumber === undefined || String(serialNumber).trim() === '') {
+                                continue;
+                            }
+                            
+                            const catalogo = getVal('Q');
+                            const digit = (catalogo || '').substring(3, 4).toUpperCase();
+                            const terminaciones = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
+                            
+                            const fechaSerial = getVal('W');
+                            const fechaHora = fechaSerial ? excelSerialToDateObject(fechaSerial) : null;
+                            
+                            data.push({
+                                estacion: getVal('F'),
+                                serialNumber: serialNumber,
+                                cantidad: getVal('L'),
+                                catalogo: catalogo,
+                                orden: getVal('R'),
+                                empleado: getVal('S'),
+                                fechaHora: fechaHora,
+                                terminaciones: terminaciones
+                            });
+                        }
+
+                        if (data.length > 0) {
+                            doc('fileDropAreaProd20').style.borderColor = 'var(--success-color)';
+                            renderProduccion20Table(data);
+                            renderProduccion20Chart(data);
+                        } else {
+                            doc('fileDropAreaProd20').style.borderColor = 'var(--danger-color)';
+                            showModal('Sin Datos', '<p>No se encontraron datos válidos a partir de la fila 15 en el archivo Excel.</p>');
+                        }
+                    } catch (err) {
+                        console.error("Error al procesar archivo de Producción 20%:", err);
+                        doc('fileDropAreaProd20').style.borderColor = 'var(--danger-color)';
+                        showModal('Error de Archivo', `<p>No se pudo procesar el archivo. Verifique que el formato es correcto.</p>`);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            function renderProduccion20Table(data) {
+                const table = doc('dataTableProduccion20');
+                const headers = ['Estación', 'Serial Number', 'Cantidad', 'Catálogo', 'Orden', 'Empleado', 'Fecha y Hora', 'Terminaciones'];
+                let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+                
+                data.sort((a, b) => (b.fechaHora || 0) - (a.fechaHora || 0));
+
+                data.forEach(row => {
+                    html += `<tr>
+                        <td>${row.estacion || ''}</td>
+                        <td>${row.serialNumber || ''}</td>
+                        <td>${row.cantidad || ''}</td>
+                        <td>${row.catalogo || ''}</td>
+                        <td>${row.orden || ''}</td>
+                        <td>${row.empleado || ''}</td>
+                        <td>${row.fechaHora ? formatShortDateTime(row.fechaHora) : 'N/A'}</td>
+                        <td>${row.terminaciones}</td>
+                    </tr>`;
+                });
+                table.innerHTML = html + '</tbody>';
+            }
+
+            function renderProduccion20Chart(data) {
+                const ctx = doc('produccion20Chart').getContext('2d');
+                if (production20Chart) {
+                    production20Chart.destroy();
+                }
+
+                const hourlyBins = Array(24).fill(0);
+                let totalTerminaciones = 0;
+                
+                data.forEach(item => {
+                    if (item.fechaHora instanceof Date) {
+                        const hour = item.fechaHora.getHours();
+                        hourlyBins[hour] += item.terminaciones;
+                    }
+                    totalTerminaciones += item.terminaciones;
+                });
+                
+                doc('chartSummary20').innerHTML = `Total de Terminaciones: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
+                
+                const labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+
+                production20Chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Terminaciones por Hora',
+                            data: hourlyBins,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: false },
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'top',
+                                formatter: (value) => value > 0 ? value.toLocaleString() : '',
+                                color: 'var(--text-primary)',
+                                font: { weight: 'bold' }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 } } },
+                            y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+                        }
+                    },
+                    plugins: [ChartDataLabels]
+                });
+                updateChartTheme();
             }
 
             // --- INICIO: LÓGICA REPORTE DE PRODUCCIÓN POR HORA ---
@@ -1082,8 +1277,8 @@
                 data.forEach(item => {
                     const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
                     if(diffHours >= 0 && diffHours < 12){
-                         if(item.linea === 'Línea 1') hourlyData[diffHours]['Línea 1'] += item.terminaciones;
-                         else hourlyData[diffHours]['Línea 2'] += item.terminaciones;
+                        if(item.linea === 'Línea 1') hourlyData[diffHours]['Línea 1'] += item.terminaciones;
+                        else hourlyData[diffHours]['Línea 2'] += item.terminaciones;
                     }
                     if (item.linea === 'Línea 1') { totalSummary.linea1.piezas++; totalSummary.linea1.terminaciones += item.terminaciones; } 
                     else { totalSummary.linea2.piezas++; totalSummary.linea2.terminaciones += item.terminaciones; }
@@ -1212,7 +1407,7 @@
             }
             
             function updateChartTheme() {
-                const charts = [productionChart, fiberPieChart1, fiberPieChart2].filter(Boolean);
+                const charts = [productionChart, fiberPieChart1, fiberPieChart2, production20Chart].filter(Boolean);
                 if (charts.length === 0) return;
                 const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
                 const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
@@ -1226,12 +1421,15 @@
                     if (chart.options.plugins.legend) chart.options.plugins.legend.labels.color = textColor;
                     if (chart.options.plugins.title) chart.options.plugins.title.color = textColor;
                     if(chart.config.type.includes('bar')) {
-                        if (chart.data.datasets[0].type === 'line') { // Goal line
+                        if (chart.options.plugins.datalabels) {
+                            chart.options.plugins.datalabels.color = textColor;
+                        }
+                        if (chart.data.datasets[0] && chart.data.datasets[0].type === 'line') { // Goal line for original report
                            chart.data.datasets[0].borderColor = successColor;
                         }
-                        if(chart.options.plugins.datalabels){
-                            chart.options.plugins.datalabels.labels.value.color = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? successColor : dangerColor;
-                            chart.options.plugins.datalabels.labels.value.textShadowColor = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? glowGreen : glowRed;
+                        if(chart.options.plugins.datalabels && chart.options.plugins.datalabels.labels && chart.options.plugins.datalabels.labels.value){
+                             chart.options.plugins.datalabels.labels.value.color = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? successColor : dangerColor;
+                             chart.options.plugins.datalabels.labels.value.textShadowColor = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? glowGreen : glowRed;
                         }
                         if (chart.options.scales.x) { chart.options.scales.x.ticks.color = tickColor; chart.options.scales.x.grid.color = gridColor; }
                         if (chart.options.scales.y) { chart.options.scales.y.ticks.color = tickColor; chart.options.scales.y.grid.color = gridColor; }
@@ -1332,23 +1530,23 @@
             
             function evaluateAuto(type, row) {
                  switch(type) {
-                      case 'familia_auto': return formulaHelpers.EXTRAER(row['Catalogo'], 1, 3);
-                      case 'terminaciones_auto': return (parseFloat(row['Fibras']) || 0) * (parseFloat(row['Cantidad']) || 0);
-                      case 'fibras_auto': {
-                          const area = (row['Area'] || '').trim(); const catalogo = row['Catalogo'] || '';
-                          let fibrasCalc = 0;
-                          if (area === 'UNAP LEGACY') {
-                              if (catalogo.startsWith('DSH') || catalogo.startsWith('DSF')) fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                              else fibrasCalc = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                          } else if (area === 'MPORT FLEX') { 
-                              fibrasCalc = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : parseFloat(formulaHelpers.EXTRAER(catalogo, 5, 2)) || 0;
-                          } else if (['EVOLV MTB RPX', 'MTB RPX'].includes(area)) { fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
-                          } else if (area === 'NON STD') fibrasCalc = 2; else if (area === 'SPECIALTY') fibrasCalc = 12;
-                          else if (area === 'MULTIPORT') { const eF = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1); fibrasCalc = catalogo.startsWith('DFB') ? eF * 2 : eF; }
-                          else if (area === 'EVOLV MTB DEMARC') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                          else if (['MOB LEGACY', 'MTB DEMARC'].includes(area)) fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
-                          return fibrasCalc;
-                      }
+                       case 'familia_auto': return formulaHelpers.EXTRAER(row['Catalogo'], 1, 3);
+                       case 'terminaciones_auto': return (parseFloat(row['Fibras']) || 0) * (parseFloat(row['Cantidad']) || 0);
+                       case 'fibras_auto': {
+                           const area = (row['Area'] || '').trim(); const catalogo = row['Catalogo'] || '';
+                           let fibrasCalc = 0;
+                           if (area === 'UNAP LEGACY') {
+                               if (catalogo.startsWith('DSH') || catalogo.startsWith('DSF')) fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                               else fibrasCalc = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                           } else if (area === 'MPORT FLEX') { 
+                               fibrasCalc = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : parseFloat(formulaHelpers.EXTRAER(catalogo, 5, 2)) || 0;
+                           } else if (['EVOLV MTB RPX', 'MTB RPX'].includes(area)) { fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1);
+                           } else if (area === 'NON STD') fibrasCalc = 2; else if (area === 'SPECIALTY') fibrasCalc = 12;
+                           else if (area === 'MULTIPORT') { const eF = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1); fibrasCalc = catalogo.startsWith('DFB') ? eF * 2 : eF; }
+                           else if (area === 'EVOLV MTB DEMARC') fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                           else if (['MOB LEGACY', 'MTB DEMARC'].includes(area)) fibrasCalc = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2);
+                           return fibrasCalc;
+                       }
                  }
                 return 'N/A';
             }
