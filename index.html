@@ -583,7 +583,7 @@
                         doc('prod20_fecha').value = new Date().toISOString().split('T')[0];
                         doc('prod20_turno').value = getAutoCurrentShift();
                         renderProduccion20Table([]);
-                        renderProduccion20Chart([]);
+                        renderProduccion20Chart([], new Date());
                     }
                 }, 300);
             }
@@ -1016,10 +1016,22 @@
             };
 
             function excelSerialToDateObject(serial) {
-                if (typeof serial !== 'number' || isNaN(serial)) return null;
-                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-                const milliseconds_since_epoch = excelEpoch.getTime() + (serial * 24 * 60 * 60 * 1000);
-                return new Date(milliseconds_since_epoch);
+                if (typeof serial !== 'number' || isNaN(serial)) {
+                    if(serial instanceof Date) return serial; // It's already a Date object
+                    return null;
+                };
+
+                try {
+                    const decoded = XLSX.SSF.parse_date_code(serial);
+                    if (decoded) {
+                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
+                    }
+                } catch (e) {
+                     console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
+                }
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + serial * 86400000);
+                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
             
             function formatShortDateTime(date) {
@@ -1274,7 +1286,6 @@
                     stationSummaryHtml += `<span><strong>${station}:</strong> ${count.toLocaleString()} term</span>`;
                 }
                 stationSummaryHtml += '</div>';
-
                 doc('chartSummary20').innerHTML = summaryHTML + stationSummaryHtml;
 
                 const sortedStations = [...allStations].sort();
@@ -1295,7 +1306,7 @@
                     return { piezas: totalPzs, terminaciones: totalTerm };
                 });
 
-                datasets.push({
+                const totalLabelsDataset = {
                     label: 'Total',
                     data: hourlyTotals.map(h => h.terminaciones),
                     type: 'line',
@@ -1316,7 +1327,7 @@
                         color: 'var(--text-primary)',
                         font: { weight: 'bold', size: 10 },
                     }
-                });
+                };
 
                 const labels = [];
                 for (let i = 0; i < 12; i++) {
@@ -1330,14 +1341,14 @@
                 
                 production20Chart = new Chart(ctx, {
                     type: 'bar',
-                    data: { labels, datasets },
+                    data: { labels, datasets: [...datasets, totalLabelsDataset] },
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         plugins: {
                             legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.label !== 'Total' }},
                             title: { display: false },
-                            datalabels: {
-                                display: context => context.dataset.label === 'Total' // Only show for the total dataset
+                             datalabels: {
+                                display: context => context.dataset.label === 'Total' 
                             },
                             tooltip: {
                                 callbacks: {
@@ -1356,7 +1367,7 @@
                         },
                         scales: {
                             x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 }, maxRotation: 45, minRotation: 45 } },
-                            y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+                            y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, afterDataLimits: (scale) => { scale.max *= 1.2; } }
                         }
                     },
                     plugins: [ChartDataLabels]
