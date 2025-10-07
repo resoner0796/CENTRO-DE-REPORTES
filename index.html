@@ -995,19 +995,16 @@
 
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
-                // XLSX.SSF.parse_date_code is more reliable for various Excel date formats
                 try {
                     const decoded = XLSX.SSF.parse_date_code(serial);
                     if (decoded) {
-                        return new Date(Date.UTC(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S));
+                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
                     }
-                } catch (e) {
-                    console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
+                    return null;
+                } catch(e) {
+                    console.error("Error parsing Excel date serial:", e, "Serial:", serial);
+                    return null;
                 }
-                // Fallback for simple date serials (less common)
-                const excelEpoch = new Date(1899, 11, 30);
-                const date = new Date(excelEpoch.getTime() + serial * 86400000);
-                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
             
             function formatShortDateTime(date) {
@@ -1030,9 +1027,9 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
-                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                         const ws = wb.Sheets[wb.SheetNames[0]];
-                        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1 });
+                        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1, blankrows: false });
 
                         const colMap = {};
                         config.columns.forEach(col => {
@@ -1051,12 +1048,11 @@
                             const catalogo = row['Catalogo'];
                             const digit = (catalogo || '').substring(3, 4).toUpperCase();
                             const terminaciones = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
-                            const fechaSerial = row['Fecha y hora'];
-                            const fechaHora = typeof fechaSerial === 'number' ? excelSerialToDateObject(fechaSerial) : null;
+                            
+                            const fechaHora = (row['Fecha y hora'] instanceof Date) ? row['Fecha y hora'] : null;
                             
                             return { ...row, fechaHora, terminaciones };
                         });
-
 
                         if (processedData.length > 0) {
                             doc('fileDropAreaProd20').style.borderColor = 'var(--success-color)';
@@ -1077,32 +1073,68 @@
 
             function renderProduccion20Table(data) {
                 const table = doc('dataTableProduccion20');
-                const headers = params.produccion_20_config.columns.map(c => c.key);
+                let headers = params.produccion_20_config.columns.map(c => c.key);
                 
-                if (!headers.some(h => h.toLowerCase() === 'terminaciones')) {
+                if (!headers.map(h => h.toLowerCase()).includes('terminaciones')) {
                      headers.push('Terminaciones');
                 }
 
-                let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+                let headerHtml = '<thead><tr>';
+                headers.forEach(h => headerHtml += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`);
+                headerHtml += '</tr></thead>';
                 
+                let bodyHtml = '<tbody>';
                 data.sort((a, b) => (b.fechaHora || 0) - (a.fechaHora || 0));
 
                 data.forEach(row => {
-                    html += `<tr>`;
+                    bodyHtml += `<tr>`;
                     headers.forEach(header => {
                         let value;
-                        if (header.toLowerCase() === 'fecha y hora') {
+                        const headerLower = header.toLowerCase();
+                        if (headerLower === 'fecha y hora') {
                             value = row.fechaHora ? formatShortDateTime(row.fechaHora) : row[header];
-                        } else if (header.toLowerCase() === 'terminaciones') {
+                        } else if (headerLower === 'terminaciones') {
                             value = row.terminaciones;
                         } else {
                             value = row[header];
                         }
-                        html += `<td>${value ?? ''}</td>`;
+                        bodyHtml += `<td>${value ?? ''}</td>`;
                     });
-                    html += `</tr>`;
+                    bodyHtml += `</tr>`;
                 });
-                table.innerHTML = html + '</tbody>';
+                bodyHtml += '</tbody>';
+                table.innerHTML = headerHtml + bodyHtml;
+                addProduccion20FilterListeners();
+            }
+
+            function addProduccion20FilterListeners(){
+                doc('dataTableProduccion20').querySelectorAll('.filter-input').forEach(input => {
+                    input.addEventListener('keyup', filterProduccion20Table);
+                });
+            }
+
+            function filterProduccion20Table() {
+                const table = doc('dataTableProduccion20');
+                const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => {
+                    const th = i.closest('th');
+                    return {
+                        columnIndex: Array.from(th.parentNode.children).indexOf(th),
+                        value: i.value.toLowerCase()
+                    };
+                });
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    let shouldShow = true;
+                    filters.forEach(filter => {
+                        if (filter.value) {
+                            const cell = row.children[filter.columnIndex];
+                            if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) {
+                                shouldShow = false;
+                            }
+                        }
+                    });
+                    row.style.display = shouldShow ? '' : 'none';
+                });
             }
 
             function renderProduccion20Chart(data) {
@@ -1117,45 +1149,49 @@
                     return;
                 }
 
-                const firstItemDate = data.find(item => item.fechaHora instanceof Date)?.fechaHora;
-                let shiftStartTime = new Date();
-                if (firstItemDate) {
-                    shiftStartTime = new Date(firstItemDate);
-                    const hour = firstItemDate.getHours();
-                    const minutes = firstItemDate.getMinutes();
-                    
-                    if (hour >= 6 && (hour < 18 || (hour === 18 && minutes < 30))) {
-                        shiftStartTime.setHours(6, 30, 0, 0);
-                    } else {
-                        shiftStartTime.setHours(18, 30, 0, 0);
-                        if (hour < 6 || (hour === 6 && minutes < 30)) {
-                            shiftStartTime.setDate(shiftStartTime.getDate() - 1);
-                        }
-                    }
-                } else {
-                     shiftStartTime.setHours(18, 30, 0, 0);
+                const firstItemWithDate = data.find(item => item.fechaHora instanceof Date);
+                if (!firstItemWithDate) {
+                     doc('chartSummary20').innerHTML = 'No se encontraron datos con fecha para generar la gráfica.';
+                     return;
                 }
 
-                const hourlyBins = Array.from({ length: 12 }, () => ({ piezas: 0, terminaciones: 0 }));
+                const referenceDate = firstItemWithDate.fechaHora;
+                const shiftStartTime = new Date(referenceDate);
+                const hour = referenceDate.getHours();
+                const minutes = referenceDate.getMinutes();
+
+                if (hour >= 6 && (hour < 18 || (hour === 18 && minutes < 30))) { // Turno de Día
+                    shiftStartTime.setHours(6, 30, 0, 0);
+                } else { // Turno de Noche
+                    if (hour < 6 || (hour === 6 && minutes < 30)) {
+                        shiftStartTime.setDate(shiftStartTime.getDate() - 1);
+                    }
+                    shiftStartTime.setHours(18, 30, 0, 0);
+                }
+
+                const hourlyBins = Array.from({ length: 12 }, () => ({ piezas: 0, terminaciones: 0, estaciones: {} }));
                 const labels = [];
-                
                 for (let i = 0; i < 12; i++) {
-                    const startHour = new Date(shiftStartTime);
-                    startHour.setHours(startHour.getHours() + i);
-                    const endHour = new Date(startHour);
-                    endHour.setHours(endHour.getHours() + 1);
+                    const start = new Date(shiftStartTime);
+                    start.setHours(start.getHours() + i);
+                    const end = new Date(start);
+                    end.setHours(end.getHours() + 1);
                     const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-                    labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
+                    labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
                 }
 
                 data.forEach(item => {
                     if (item.fechaHora instanceof Date) {
                         const diffMillis = item.fechaHora - shiftStartTime;
-                        const diffHours = Math.floor(diffMillis / (1000 * 60 * 60));
-
-                        if (diffHours >= 0 && diffHours < 12) {
-                            hourlyBins[diffHours].piezas += (Number(item.Cantidad) || 1);
-                            hourlyBins[diffHours].terminaciones += item.terminaciones;
+                        if (diffMillis >= 0) {
+                            const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                            if (hourIndex >= 0 && hourIndex < 12) {
+                                const cantidad = Number(item['Cantidad']) || 1;
+                                hourlyBins[hourIndex].piezas += cantidad;
+                                hourlyBins[hourIndex].terminaciones += item.terminaciones * cantidad;
+                                const estacion = item['Estación'] || 'N/A';
+                                hourlyBins[hourIndex].estaciones[estacion] = (hourlyBins[hourIndex].estaciones[estacion] || 0) + cantidad;
+                            }
                         }
                     }
                 });
@@ -1187,14 +1223,17 @@
                                 anchor: 'end',
                                 align: 'top',
                                 formatter: (value, ctx) => {
-                                    if (value > 0) {
-                                        const piezas = hourlyBins[ctx.dataIndex].piezas;
-                                        return `Pzs: ${piezas} / Term: ${value}`;
-                                    }
-                                    return '';
+                                    if (value <= 0) return '';
+                                    const bin = hourlyBins[ctx.dataIndex];
+                                    const mainLabel = `Pzs: ${bin.piezas} / Term: ${value}`;
+                                    const stationLabels = Object.entries(bin.estaciones)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([name, count]) => `${name}: ${count} pz`);
+                                    return [mainLabel, ...stationLabels].join('\n');
                                 },
                                 color: 'var(--text-primary)',
-                                font: { weight: 'bold', size: 10 }
+                                font: { weight: 'bold', size: 9 },
+                                textAlign: 'center'
                             }
                         },
                         scales: {
