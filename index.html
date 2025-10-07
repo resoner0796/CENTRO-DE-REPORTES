@@ -1291,6 +1291,7 @@
                     stationSummaryHtml += `<span><strong>${station}:</strong> ${count.toLocaleString()} term</span>`;
                 }
                 stationSummaryHtml += '</div>';
+
                 doc('chartSummary20').innerHTML = summaryHTML + stationSummaryHtml;
 
                 const sortedStations = [...allStations].sort();
@@ -1299,7 +1300,7 @@
                     label: station,
                     data: hourlyBins.map(hourData => hourData[station]?.terminaciones || 0),
                     backgroundColor: colors[index % colors.length],
-                    datalabels: { display: false } // Oculta etiquetas individuales en cada barra
+                    datalabels: { display: false }
                 }));
 
                 const hourlyTotals = hourlyBins.map(hourData => {
@@ -1312,18 +1313,18 @@
                     return { piezas: totalPzs, terminaciones: totalTerm };
                 });
 
-                // Dataset "fantasma" para las etiquetas totales
                 datasets.push({
                     label: 'Total',
-                    data: hourlyTotals.map(h => h.terminaciones),
-                    type: 'line',
-                    borderColor: 'transparent',
+                    data: hourlyBins.map(hourData => {
+                         const values = Object.values(hourData).map(s => s.terminaciones);
+                         return values.length > 0 ? Math.max(...values) : 0;
+                    }),
+                    type: 'bar',
                     backgroundColor: 'transparent',
-                    pointRadius: 0,
                     datalabels: {
                         anchor: 'end',
                         align: 'top',
-                        offset: 5,
+                        offset: 4,
                         formatter: (value, ctx) => {
                             const { piezas, terminaciones } = hourlyTotals[ctx.dataIndex];
                             if (piezas > 0 || terminaciones > 0) {
@@ -1352,12 +1353,13 @@
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         plugins: {
-                            legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
+                            legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.label !== 'Total' }},
                             title: { display: false },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
                                         const stationName = context.dataset.label;
+                                        if(stationName === 'Total') return null;
                                         const hourData = hourlyBins[context.dataIndex];
                                         if (hourData && hourData[stationName]) {
                                             const { piezas, terminaciones } = hourData[stationName];
