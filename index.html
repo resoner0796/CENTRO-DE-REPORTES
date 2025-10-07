@@ -1018,10 +1018,9 @@
             function excelSerialToDateObject(serial) {
                 if (serial instanceof Date) return serial;
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
-
-                // This is the correct conversion for Excel serial numbers (Epoch is 1899-12-30)
-                // It accounts for the leap year bug of 1900 and timezone offsets.
+                // This formula is a reliable way to convert Excel serial numbers to JS dates, accounting for the 1900 leap year bug.
                 const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+                // The above calculation results in UTC time, we adjust it to local timezone.
                 return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
             
@@ -1315,12 +1314,11 @@
                         plugins: {
                             legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
                             title: { display: false },
-                            datalabels: { display: false }, // Oculta todas las etiquetas individuales por defecto
+                            datalabels: { display: false },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
                                         const stationName = context.dataset.label;
-                                        if(stationName === 'Total') return null;
                                         const hourData = hourlyBins[context.dataIndex];
                                         if (hourData && hourData[stationName]) {
                                             const { piezas, terminaciones } = hourData[stationName];
@@ -1351,10 +1349,12 @@
                                         const text = `Pzs: ${total.piezas} / Term: ${total.terminaciones}`;
                                         
                                         let maxVal = 0;
-                                        chart.getVisibleDatasetMetas().forEach(meta => {
-                                            if (meta.data[index]) {
-                                               const barValue = meta.data[index].$context.raw;
-                                               if(barValue > maxVal) maxVal = barValue;
+                                        chart.data.datasets.forEach((dataset, i) => {
+                                            if (chart.isDatasetVisible(i)) {
+                                                const value = dataset.data[index] || 0;
+                                                if (value > maxVal) {
+                                                    maxVal = value;
+                                                }
                                             }
                                         });
 
@@ -1364,8 +1364,7 @@
                                 });
                                 ctx.restore();
                             }
-                        },
-                        ChartDataLabels // Keep the main plugin for potential future use
+                        }
                     ]
                 });
                 updateChartTheme();
