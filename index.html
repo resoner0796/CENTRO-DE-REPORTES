@@ -166,7 +166,7 @@
         #produccionChart, #produccion20Chart { max-height: 250px; }
         .pie-chart-container { max-height: 180px; margin-bottom: 16px; }
         #chartSummary, #chartSummary20 { text-align: center; padding-top: 10px; font-weight: 600; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 10px; }
-        #chartSummary strong { color: var(--text-primary); }
+        #chartSummary strong, #chartSummary20 strong { color: var(--text-primary); }
         #fibraReportContainer .fibra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
         #fibraReportContainer h4, #fibraReportContainer h5 { margin-top: 0; text-align: center; }
         
@@ -529,7 +529,7 @@
                 produccion_hora_config: {
                     packers: []
                 },
-                produccion_20_config: { // <-- NUEVA CONFIGURACIÓN
+                produccion_20_config: {
                     startRow: 15,
                     columns: [
                         { key: 'Estación', excel_col: 'F' },
@@ -863,7 +863,7 @@
                     '901_config': '901_params',
                     'terminaciones_config': 'terminaciones_params_v2',
                     'produccion_hora_config': 'produccion_hora_params',
-                    'produccion_20_config': 'produccion_20_params' // <-- NUEVO DOCUMENTO
+                    'produccion_20_config': 'produccion_20_params'
                 };
                 const docId = docIdMap[configKey];
                 if (!docId) return;
@@ -872,7 +872,6 @@
                     const docRef = await db.collection('report_configs').doc(docId).get();
                     if (docRef.exists) {
                         const data = docRef.data();
-                        // Asignación segura para evitar sobreescribir con datos incompletos
                         if (configKey === 'produccion_20_config') {
                             params[configKey] = { ...params[configKey], ...data };
                         } else if (configKey === '901_config') {
@@ -996,14 +995,16 @@
 
             function excelSerialToDateObject(serial) {
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
+                // XLSX.SSF.parse_date_code is more reliable for various Excel date formats
                 try {
                     const decoded = XLSX.SSF.parse_date_code(serial);
                     if (decoded) {
-                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
+                        return new Date(Date.UTC(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S));
                     }
                 } catch (e) {
                     console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
                 }
+                // Fallback for simple date serials (less common)
                 const excelEpoch = new Date(1899, 11, 30);
                 const date = new Date(excelEpoch.getTime() + serial * 86400000);
                 return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
@@ -1033,7 +1034,6 @@
                         const ws = wb.Sheets[wb.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1 });
 
-                        // Crear un mapa de letra de columna a índice (A=0, B=1, ...)
                         const colMap = {};
                         config.columns.forEach(col => {
                            colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
@@ -1078,9 +1078,9 @@
             function renderProduccion20Table(data) {
                 const table = doc('dataTableProduccion20');
                 const headers = params.produccion_20_config.columns.map(c => c.key);
-                // Asegurarse de que la columna 'Terminaciones' esté al final si no fue añadida por el usuario
-                if (!headers.includes('Terminaciones')) {
-                    headers.push('Terminaciones');
+                
+                if (!headers.some(h => h.toLowerCase() === 'terminaciones')) {
+                     headers.push('Terminaciones');
                 }
 
                 let html = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
@@ -1090,9 +1090,13 @@
                 data.forEach(row => {
                     html += `<tr>`;
                     headers.forEach(header => {
-                        let value = row[header];
-                        if (header === 'Fecha y hora' && value instanceof Date) {
-                             value = formatShortDateTime(value);
+                        let value;
+                        if (header.toLowerCase() === 'fecha y hora') {
+                            value = row.fechaHora ? formatShortDateTime(row.fechaHora) : row[header];
+                        } else if (header.toLowerCase() === 'terminaciones') {
+                            value = row.terminaciones;
+                        } else {
+                            value = row[header];
                         }
                         html += `<td>${value ?? ''}</td>`;
                     });
@@ -1107,28 +1111,67 @@
                     production20Chart.destroy();
                 }
 
-                const hourlyBins = Array(24).fill(0);
-                let totalTerminaciones = 0;
+                if (!data || data.length === 0) {
+                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                    doc('chartSummary20').innerHTML = '';
+                    return;
+                }
+
+                const firstItemDate = data.find(item => item.fechaHora instanceof Date)?.fechaHora;
+                let shiftStartTime = new Date();
+                if (firstItemDate) {
+                    shiftStartTime = new Date(firstItemDate);
+                    const hour = firstItemDate.getHours();
+                    const minutes = firstItemDate.getMinutes();
+                    
+                    if (hour >= 6 && (hour < 18 || (hour === 18 && minutes < 30))) {
+                        shiftStartTime.setHours(6, 30, 0, 0);
+                    } else {
+                        shiftStartTime.setHours(18, 30, 0, 0);
+                        if (hour < 6 || (hour === 6 && minutes < 30)) {
+                            shiftStartTime.setDate(shiftStartTime.getDate() - 1);
+                        }
+                    }
+                } else {
+                     shiftStartTime.setHours(18, 30, 0, 0);
+                }
+
+                const hourlyBins = Array.from({ length: 12 }, () => ({ piezas: 0, terminaciones: 0 }));
+                const labels = [];
                 
+                for (let i = 0; i < 12; i++) {
+                    const startHour = new Date(shiftStartTime);
+                    startHour.setHours(startHour.getHours() + i);
+                    const endHour = new Date(startHour);
+                    endHour.setHours(endHour.getHours() + 1);
+                    const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+                    labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
+                }
+
                 data.forEach(item => {
                     if (item.fechaHora instanceof Date) {
-                        const hour = item.fechaHora.getHours();
-                        hourlyBins[hour] += item.terminaciones;
+                        const diffMillis = item.fechaHora - shiftStartTime;
+                        const diffHours = Math.floor(diffMillis / (1000 * 60 * 60));
+
+                        if (diffHours >= 0 && diffHours < 12) {
+                            hourlyBins[diffHours].piezas += (Number(item.Cantidad) || 1);
+                            hourlyBins[diffHours].terminaciones += item.terminaciones;
+                        }
                     }
-                    totalTerminaciones += item.terminaciones;
                 });
                 
-                doc('chartSummary20').innerHTML = `Total de Terminaciones: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
-                
-                const labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+                const totalPiezas = hourlyBins.reduce((sum, bin) => sum + bin.piezas, 0);
+                const totalTerminaciones = hourlyBins.reduce((sum, bin) => sum + bin.terminaciones, 0);
 
+                doc('chartSummary20').innerHTML = `Total Piezas: <strong>${totalPiezas.toLocaleString()}</strong> / Total Terminaciones: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
+                
                 production20Chart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [{
                             label: 'Terminaciones por Hora',
-                            data: hourlyBins,
+                            data: hourlyBins.map(b => b.terminaciones),
                             backgroundColor: 'rgba(54, 162, 235, 0.6)',
                             borderColor: 'rgba(54, 162, 235, 1)',
                             borderWidth: 1
@@ -1143,13 +1186,19 @@
                             datalabels: {
                                 anchor: 'end',
                                 align: 'top',
-                                formatter: (value) => value > 0 ? value.toLocaleString() : '',
+                                formatter: (value, ctx) => {
+                                    if (value > 0) {
+                                        const piezas = hourlyBins[ctx.dataIndex].piezas;
+                                        return `Pzs: ${piezas} / Term: ${value}`;
+                                    }
+                                    return '';
+                                },
                                 color: 'var(--text-primary)',
-                                font: { weight: 'bold' }
+                                font: { weight: 'bold', size: 10 }
                             }
                         },
                         scales: {
-                            x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 } } },
+                            x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 }, maxRotation: 45, minRotation: 45 } },
                             y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
                         }
                     },
@@ -1157,6 +1206,7 @@
                 });
                 updateChartTheme();
             }
+
 
             // --- INICIO: LÓGICA REPORTE DE PRODUCCIÓN POR HORA ---
             function getAutoCurrentShift() {
@@ -1824,7 +1874,7 @@
                     loadParams('901_config'),
                     loadParams('terminaciones_config'),
                     loadParams('produccion_hora_config'),
-                    loadParams('produccion_20_config') // <-- Cargar la nueva configuración
+                    loadParams('produccion_20_config')
                 ]);
                 const today = new Date();
                 const timezoneOffset = today.getTimezoneOffset() * 60000;
