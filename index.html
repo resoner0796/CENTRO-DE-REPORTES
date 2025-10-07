@@ -203,21 +203,11 @@
         #dataTableTerminaciones td,
         #dataTableProduccion20 th,
         #dataTableProduccion20 td {
-            white-space: nowrap; /* Prevenir el ajuste de línea para mostrar contenido completo */
+            white-space: break-word; /* Prevenir el ajuste de línea para mostrar contenido completo */
             text-align: center; /* Centrar el contenido horizontalmente */
             vertical-align: middle; /* Centrar el contenido verticalmente */
         }
-          /* ========= INICIO DE LA CORRECCIÓN PARA REPORTE 901 ========= */
-      #dataTable901 {
-          table-layout: auto; /* Permite que el navegador ajuste el ancho de las columnas según el contenido. */
-      }
-      #dataTable901 th, 
-      #dataTable901 td {
-          white-space: normal;      /* Permite que el texto largo (como en 'Descripción') se divida en varias líneas. */
-          word-wrap: break-word;    /* Asegura que palabras muy largas no se desborden de la celda. */
-          vertical-align: top;      /* Alinea el contenido en la parte superior para mejor legibilidad en celdas con múltiples líneas. */
-      }
-      /* ========= FIN DE LA CORRECCIÓN PARA REPORTE 901 ========= */
+      
 
 
         .modal-overlay { 
