@@ -1016,22 +1016,11 @@
             };
 
             function excelSerialToDateObject(serial) {
-                if (typeof serial !== 'number' || isNaN(serial)) {
-                    if(serial instanceof Date) return serial; // It's already a Date object
-                    return null;
-                };
-
-                try {
-                    const decoded = XLSX.SSF.parse_date_code(serial);
-                    if (decoded) {
-                        return new Date(decoded.y, decoded.m - 1, decoded.d, decoded.H, decoded.M, decoded.S);
-                    }
-                } catch (e) {
-                     console.error("Error al analizar el serial de fecha de Excel con XLSX:", e, "Serial:", serial);
-                }
-                const excelEpoch = new Date(1899, 11, 30);
-                const date = new Date(excelEpoch.getTime() + serial * 86400000);
-                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+                if (serial instanceof Date) return serial;
+                if (typeof serial !== 'number' || isNaN(serial)) return null;
+                 const excelEpoch = new Date(1899, 11, 30);
+                const date_info = new Date(excelEpoch.getTime() + (serial - (excelEpoch.getTimezoneOffset() > 0 ? 1 : 0)) * 24 * 60 * 60 * 1000);
+                return new Date(date_info.getTime() + (date_info.getTimezoneOffset() * 60000));
             }
             
             function formatShortDateTime(date) {
@@ -1244,7 +1233,7 @@
                     production20Chart.destroy();
                 }
 
-                if (!data || data.length === 0) {
+                if (!data || data.length === 0 || !shiftStartTime) {
                     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
                     doc('chartSummary20').innerHTML = '';
                     return;
@@ -1306,29 +1295,6 @@
                     return { piezas: totalPzs, terminaciones: totalTerm };
                 });
 
-                const totalLabelsDataset = {
-                    label: 'Total',
-                    data: hourlyTotals.map(h => h.terminaciones),
-                    type: 'line',
-                    borderColor: 'transparent',
-                    backgroundColor: 'transparent',
-                    pointRadius: 0,
-                    datalabels: {
-                        anchor: 'end',
-                        align: 'top',
-                        offset: 4,
-                        formatter: (value, ctx) => {
-                            const { piezas, terminaciones } = hourlyTotals[ctx.dataIndex];
-                            if (piezas > 0 || terminaciones > 0) {
-                                return `Pzs: ${piezas} / Term: ${terminaciones}`;
-                            }
-                            return '';
-                        },
-                        color: 'var(--text-primary)',
-                        font: { weight: 'bold', size: 10 },
-                    }
-                };
-
                 const labels = [];
                 for (let i = 0; i < 12; i++) {
                     const start = new Date(shiftStartTime);
@@ -1341,20 +1307,17 @@
                 
                 production20Chart = new Chart(ctx, {
                     type: 'bar',
-                    data: { labels, datasets: [...datasets, totalLabelsDataset] },
+                    data: { labels, datasets },
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         plugins: {
-                            legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.label !== 'Total' }},
+                            legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
                             title: { display: false },
-                             datalabels: {
-                                display: context => context.dataset.label === 'Total' 
-                            },
+                            datalabels: { display: false }, // Oculta todas las etiquetas individuales por defecto
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
                                         const stationName = context.dataset.label;
-                                        if(stationName === 'Total') return null;
                                         const hourData = hourlyBins[context.dataIndex];
                                         if (hourData && hourData[stationName]) {
                                             const { piezas, terminaciones } = hourData[stationName];
@@ -1367,10 +1330,34 @@
                         },
                         scales: {
                             x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 }, maxRotation: 45, minRotation: 45 } },
-                            y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, afterDataLimits: (scale) => { scale.max *= 1.2; } }
+                            y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, afterDataLimits: (scale) => { scale.max *= 1.25; } }
                         }
                     },
-                    plugins: [ChartDataLabels]
+                    plugins: [{
+                        id: 'totalLabels',
+                        afterDatasetsDraw: (chart) => {
+                            const { ctx, data, scales: { x, y } } = chart;
+                            ctx.save();
+                            ctx.font = 'bold 10px Inter';
+                            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
+                            ctx.textAlign = 'center';
+
+                            hourlyTotals.forEach((total, index) => {
+                                if (total.piezas > 0 || total.terminaciones > 0) {
+                                    const text = `Pzs: ${total.piezas} / Term: ${total.terminaciones}`;
+                                    let yPos = y.getPixelForValue(0);
+                                    data.datasets.forEach(dataset => {
+                                        if (chart.isDatasetVisible(dataset.index)) {
+                                            const value = dataset.data[index] || 0;
+                                            yPos = Math.min(yPos, y.getPixelForValue(value));
+                                        }
+                                    });
+                                    ctx.fillText(text, x.getPixelForTick(index), yPos - 5);
+                                }
+                            });
+                            ctx.restore();
+                        }
+                    }]
                 });
                 updateChartTheme();
             }
