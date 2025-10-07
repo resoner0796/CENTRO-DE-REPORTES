@@ -1018,9 +1018,11 @@
             function excelSerialToDateObject(serial) {
                 if (serial instanceof Date) return serial;
                 if (typeof serial !== 'number' || isNaN(serial)) return null;
-                 const excelEpoch = new Date(1899, 11, 30);
-                const date_info = new Date(excelEpoch.getTime() + (serial - (excelEpoch.getTimezoneOffset() > 0 ? 1 : 0)) * 24 * 60 * 60 * 1000);
-                return new Date(date_info.getTime() + (date_info.getTimezoneOffset() * 60000));
+
+                // This is the correct conversion for Excel serial numbers (Epoch is 1899-12-30)
+                // It accounts for the leap year bug of 1900 and timezone offsets.
+                const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+                return new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
             }
             
             function formatShortDateTime(date) {
@@ -1037,7 +1039,7 @@
 
             async function handleProduccion20File(file) {
                 const config = params.produccion_20_config;
-                if (!config || !config.columns || config.columns.length === 0) {
+                if (!config || !config.columns || !config.columns.length === 0) {
                     showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
                     return;
                 }
@@ -1318,6 +1320,7 @@
                                 callbacks: {
                                     label: function(context) {
                                         const stationName = context.dataset.label;
+                                        if(stationName === 'Total') return null;
                                         const hourData = hourlyBins[context.dataIndex];
                                         if (hourData && hourData[stationName]) {
                                             const { piezas, terminaciones } = hourData[stationName];
@@ -1333,31 +1336,37 @@
                             y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, afterDataLimits: (scale) => { scale.max *= 1.25; } }
                         }
                     },
-                    plugins: [{
-                        id: 'totalLabels',
-                        afterDatasetsDraw: (chart) => {
-                            const { ctx, data, scales: { x, y } } = chart;
-                            ctx.save();
-                            ctx.font = 'bold 10px Inter';
-                            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
-                            ctx.textAlign = 'center';
+                    plugins: [
+                        {
+                            id: 'totalLabels',
+                            afterDatasetsDraw: (chart) => {
+                                const { ctx, data, scales: { x, y } } = chart;
+                                ctx.save();
+                                ctx.font = 'bold 10px Inter';
+                                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
+                                ctx.textAlign = 'center';
 
-                            hourlyTotals.forEach((total, index) => {
-                                if (total.piezas > 0 || total.terminaciones > 0) {
-                                    const text = `Pzs: ${total.piezas} / Term: ${total.terminaciones}`;
-                                    let yPos = y.getPixelForValue(0);
-                                    data.datasets.forEach(dataset => {
-                                        if (chart.isDatasetVisible(dataset.index)) {
-                                            const value = dataset.data[index] || 0;
-                                            yPos = Math.min(yPos, y.getPixelForValue(value));
-                                        }
-                                    });
-                                    ctx.fillText(text, x.getPixelForTick(index), yPos - 5);
-                                }
-                            });
-                            ctx.restore();
-                        }
-                    }]
+                                hourlyTotals.forEach((total, index) => {
+                                    if (total.piezas > 0 || total.terminaciones > 0) {
+                                        const text = `Pzs: ${total.piezas} / Term: ${total.terminaciones}`;
+                                        
+                                        let maxVal = 0;
+                                        chart.getVisibleDatasetMetas().forEach(meta => {
+                                            if (meta.data[index]) {
+                                               const barValue = meta.data[index].$context.raw;
+                                               if(barValue > maxVal) maxVal = barValue;
+                                            }
+                                        });
+
+                                        const yPos = y.getPixelForValue(maxVal);
+                                        ctx.fillText(text, x.getPixelForTick(index), yPos - 8);
+                                    }
+                                });
+                                ctx.restore();
+                            }
+                        },
+                        ChartDataLabels // Keep the main plugin for potential future use
+                    ]
                 });
                 updateChartTheme();
             }
