@@ -207,7 +207,21 @@
             text-align: center; /* Centrar el contenido horizontalmente */
             vertical-align: middle; /* Centrar el contenido verticalmente */
         }
+          /* ========= INICIO DE LA CORRECCIÓN PARA REPORTE 901 ========= */
+      #dataTable901 {
+          table-layout: auto; /* Permite que el navegador ajuste el ancho de las columnas según el contenido. */
+      }
+      #dataTable901 th, 
+      #dataTable901 td {
+          white-space: normal;      /* Permite que el texto largo (como en 'Descripción') se divida en varias líneas. */
+          word-wrap: break-word;    /* Asegura que palabras muy largas no se desborden de la celda. */
+          vertical-align: top;      /* Alinea el contenido en la parte superior para mejor legibilidad en celdas con múltiples líneas. */
+      }
+      /* ========= FIN DE LA CORRECCIÓN PARA REPORTE 901 ========= */
 
+
+        .modal-overlay { 
+          position: fixed; 
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
