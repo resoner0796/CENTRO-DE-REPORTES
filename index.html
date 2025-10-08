@@ -1312,30 +1312,29 @@
             const hour = date.getHours();
             const minute = date.getMinutes();
 
-            // Se crea una copia de la fecha para no modificar la original
             let workDate = new Date(date.getTime());
 
-            // 1. Ajuste de Día de Trabajo: Si es de madrugada, pertenece al día anterior.
             if (hour < 6 || (hour === 6 && minute < 30)) {
                 workDate.setDate(workDate.getDate() - 1);
             }
 
-            // 2. Formateo de Fecha Seguro (sin errores de zona horaria)
             const year = workDate.getFullYear();
             const month = String(workDate.getMonth() + 1).padStart(2, '0');
             const dayOfMonth = String(workDate.getDate()).padStart(2, '0');
             const dateKey = `${year}-${month}-${dayOfMonth}`;
-
-            // --- INICIO: LÓGICA DE SEMANA CORTA/LARGA INTEGRADA ---
-            const referenceDate = new Date('2025-10-06T00:00:00'); // Lunes de una semana CORTA conocida.
-            // Se usa 'workDate' para que el cálculo se base en el día de trabajo correcto.
+            
+            const referenceDate = new Date('2025-10-06T00:00:00');
             const diffTime = workDate.getTime() - referenceDate.getTime();
             const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
             const isShortWeek = diffWeeks % 2 === 0;
-            // --- FIN: LÓGICA DE SEMANA CORTA/LARGA INTEGRADA ---
 
-            const workDay = workDate.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
-            const isDayTime = (hour >= 6 && (hour < 18 || (hour === 18 && minute < 30)));
+            const workDay = workDate.getDay();
+
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Se ajusta la lógica para que el turno de día comience a las 6:30 y termine a las 18:29.
+            const isDayTime = (hour > 6 || (hour === 6 && minute >= 30)) && (hour < 18 || (hour === 18 && minute < 30));
+            // --- FIN DE LA CORRECCIÓN ---
+
             let shift;
 
             if (isShortWeek) {
@@ -1356,7 +1355,7 @@
 
             return {
                 shift: shift,
-                dateKey: dateKey
+                dateKey: dateKey 
             };
         }
         // --- FIN: LÓGICA DEL REPORTE SEMANAL ---
