@@ -1874,33 +1874,41 @@ async function loadAreasForProductionReport() {
             btn.textContent = 'Cargando datos...';
             
             try {
-                const fechaInicio = doc('prod_fecha_inicio').value;
-                const fechaFin = doc('prod_fecha_fin').value;
+                const fechaInicioStr = doc('prod_fecha_inicio').value;
+                const fechaFinStr = doc('prod_fecha_fin').value;
                 const selectedArea = doc('prod_area').value;
                 const selectedTurno = doc('prod_turno').value;
-
-                // --- INICIO: LÓGICA DE EMPACADOR INTELIGENTE ---
+                
                 const todosLosEmpacadores = params.produccion_hora_config.packers || [];
+                // La lista de empacadores ahora filtra por área Y por el turno seleccionado
                 const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
                     (p.area === selectedArea || selectedArea === 'ALL') && p.turno === selectedTurno
                 );
                 const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
                 const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
-                // --- FIN: LÓGICA DE EMPACADOR INTELIGENTE ---
 
-                if (!fechaInicio || !fechaFin) {
+                if (!fechaInicioStr || !fechaFinStr) {
                     showModal('Error', '<p>Por favor, selecciona un rango de fechas.</p>');
+                    btn.disabled = false; btn.textContent = 'Generar Reporte';
                     return;
                 }
 
-                const startTime = new Date(`${fechaInicio}T00:00:00`);
-                const endTime = new Date(`${fechaFin}T23:59:59`);
+                // --- INICIO DE LA CORRECCIÓN DEL RANGO DE FECHAS ---
+                // 1. Se crea un rango de consulta AMPLIO para no perder los datos de turnos de noche.
+                const queryStartTime = new Date(`${fechaInicioStr}T06:30:00`);
+                
+                const queryEndTime = new Date(`${fechaFinStr}T00:00:00`);
+                queryEndTime.setDate(queryEndTime.getDate() + 1); // Pasamos al día siguiente
+                queryEndTime.setHours(6, 29, 59, 999); // Hasta las 6:29:59 AM del día después del fin
+                // --- FIN DE LA CORRECCIÓN ---
 
                 const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
                 const snapshot = await query.get();
 
                 if (snapshot.empty) {
                     showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
+                    renderGraficaSemanalProduccion({}, []);
+                    renderResumenSemanalProduccion({ 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } }, 0);
                     return;
                 }
 
@@ -1915,13 +1923,15 @@ async function loadAreasForProductionReport() {
                                 box.serials.forEach(item => {
                                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                                     
-                                    if (packedDate && packedDate >= startTime && packedDate <= endTime) {
+                                    if (packedDate && packedDate >= queryStartTime && packedDate <= queryEndTime) {
                                         const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                                         const { shift, dateKey } = getWorkShiftAndDate(packedDate);
                                         
                                         const esTurnoValido = (selectedTurno === shift);
-                                        
-                                        if (esTurnoValido) {
+                                        // La fecha de trabajo calculada debe estar dentro del rango que el usuario seleccionó
+                                        const esFechaValida = dateKey >= fechaInicioStr && dateKey <= fechaFinStr;
+
+                                        if (esTurnoValido && esFechaValida) {
                                             let linea = null;
                                             if (empacadoresL1.includes(empacador)) {
                                                 linea = 'Línea 1';
