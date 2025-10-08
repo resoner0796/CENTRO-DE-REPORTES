@@ -1738,6 +1738,26 @@
         });
         // --- FIN MANEJO DE VISTAS ---
 
+async function loadAreasForProductionReport() {
+            try {
+                const areasSnapshot = await db.collection('areas').get();
+                const areaSelect = doc('prod_area');
+                const currentVal = areaSelect.value;
+                const existingOptions = new Set(Array.from(areaSelect.options).map(o => o.value));
+                let areas = [];
+                areasSnapshot.forEach(doc => { if (doc.id !== 'CONFIG') areas.push(doc.id); });
+                areas.sort();
+                areas.forEach(areaId => {
+                    if (!existingOptions.has(areaId)) {
+                        const option = document.createElement('option');
+                        option.value = areaId; option.textContent = areaId;
+                        areaSelect.appendChild(option);
+                    }
+                });
+                areaSelect.value = currentVal;
+            } catch (e) { console.error("Error cargando áreas:", e); }
+        }
+
 
         async function generateProductionReport() {
             // Revisa qué vista está activa para decidir qué reporte generar
