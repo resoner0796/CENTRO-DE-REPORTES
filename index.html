@@ -1940,21 +1940,22 @@ async function generarReporteSemanalProduccion() {
                 );
                 const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
                 const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
-                
-                // --- CORRECCIÓN: Se elimina el filtro de fecha de la consulta a la base de datos ---
-                // Se consultan todas las órdenes del área y se filtran después.
+
                 const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
                 const snapshot = await query.get();
 
                 if (snapshot.empty) {
                     showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
-                    renderGraficaSemanalProduccion({}, []);
-                    renderResumenSemanalProduccion({ 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } }, 0);
                     return;
                 }
 
                 let datosAgrupadosPorDia = {};
                 let totales = { 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } };
+                
+                console.clear(); // Limpia la consola para una nueva depuración
+                console.log(`--- INICIANDO DEPURACIÓN PARA REPORTE SEMANAL ---`);
+                console.log(`Rango de Fechas: ${fechaInicioStr} a ${fechaFinStr}`);
+                console.log(`Turno Seleccionado: ${selectedTurno}`);
 
                 snapshot.forEach(orderDoc => {
                     const orderData = orderDoc.data();
@@ -1964,21 +1965,29 @@ async function generarReporteSemanalProduccion() {
                                 box.serials.forEach(item => {
                                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                                     
-                                    if (packedDate) { // Solo si la fecha es válida
-                                        const empacador = (item['Employee ID'] || '').toString().toUpperCase();
+                                    if (packedDate) {
                                         const { shift, dateKey } = getWorkShiftAndDate(packedDate);
-                                        
-                                        // Todos los filtros se aplican aquí, en el navegador:
                                         const esTurnoValido = (selectedTurno === shift);
                                         const esFechaValida = dateKey >= fechaInicioStr && dateKey <= fechaFinStr;
 
+                                        // --- LÍNEAS DE DEPURACIÓN ---
+                                        // Imprimimos cada pieza para ver cómo se clasifica
+                                        if (esFechaValida && esTurnoValido) {
+                                            console.log({
+                                                fechaOriginal: packedDate.toLocaleString('es-MX'),
+                                                fechaDeTrabajoCalculada: dateKey,
+                                                turnoCalculado: shift,
+                                                pasaFiltroFecha: esFechaValida,
+                                                pasaFiltroTurno: esTurnoValido
+                                            });
+                                        }
+                                        // --- FIN DE LÍNEAS DE DEPURACIÓN ---
+
                                         if (esTurnoValido && esFechaValida) {
+                                            const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                                             let linea = null;
-                                            if (empacadoresL1.includes(empacador)) {
-                                                linea = 'Línea 1';
-                                            } else if (empacadoresL2.includes(empacador)) {
-                                                linea = 'Línea 2';
-                                            }
+                                            if (empacadoresL1.includes(empacador)) linea = 'Línea 1';
+                                            else if (empacadoresL2.includes(empacador)) linea = 'Línea 2';
 
                                             if (linea) {
                                                 const char = (orderData.catalogNumber || '').substring(3, 4).toUpperCase();
