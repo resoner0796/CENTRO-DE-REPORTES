@@ -1979,20 +1979,31 @@
                             if (isPast || (isToday && userIsOnFilterList)) {
                                 let rowData = {};
                                 config.columns.forEach(p => {
-                                    const cellConfig = p.startCell.trim().toUpperCase(); let value;
-                                    if (cellConfig.includes(',')) {
-                                        const cols = cellConfig.split(',').map(c => c.trim().match(/[A-Z]+/)[0]); const values = [];
-                                        cols.forEach(col => {
-                                            const cell = ws[col + (R + 1)]; const cellValue = cell ? (cell.w || cell.v) : undefined;
-                                            if (cellValue !== undefined && cellValue !== null && cellValue !== 0 && String(cellValue).trim() !== '') values.push(cellValue);
-                                        }); value = values.join(' / ');
-                                    } else {
-                                        const col = cellConfig.match(/[A-Z]+/)[0]; const cell = ws[col + (R + 1)];
-                                        value = cell ? (cell.w || cell.v) : undefined;
-                                    }
-                                    if (p.key.toLowerCase() === 'qty' && typeof value === 'number' && value === parseInt(value, 10)) value = parseInt(value, 10);
-                                    rowData[p.key] = value;
-                                });
+    const cellConfig = p.startCell.trim().toUpperCase(); let value;
+    if (cellConfig.includes(',')) {
+        const cols = cellConfig.split(',').map(c => c.trim().match(/[A-Z]+/)[0]); const values = [];
+        cols.forEach(col => {
+            const cell = ws[col + (R + 1)]; const cellValue = cell ? (cell.w || cell.v) : undefined;
+            if (cellValue !== undefined && cellValue !== null && cellValue !== 0 && String(cellValue).trim() !== '') values.push(cellValue);
+        }); value = values.join(' / ');
+    } else {
+        const col = cellConfig.match(/[A-Z]+/)[0]; const cell = ws[col + (R + 1)];
+        value = cell ? (cell.w || cell.v) : undefined;
+    }
+
+    // --- INICIO DE LA CORRECCIÓN PARA LA COLUMNA QTY ---
+    if (p.key.toLowerCase() === 'qty' && value !== undefined && value !== null) {
+        // Convierte el valor a un número entero, descartando cualquier decimal.
+        const num = parseInt(value, 10); 
+        // Si la conversión es exitosa (si no es NaN - Not a Number), actualiza el valor.
+        if (!isNaN(num)) {
+            value = num;
+        }
+    }
+    // --- FIN DE LA CORRECCIÓN ---
+
+    rowData[p.key] = value;
+});
                                 if (userIsOnFilterList) {
                                     if (isToday) rowData.colorClass = 'row-today';
                                     else if (rowDate.getTime() === yesterday.getTime()) rowData.colorClass = 'row-yesterday';
