@@ -218,6 +218,56 @@
       }
       /* ========= FIN DE LA CORRECCIÓN PARA REPORTE 901 ========= */
 
+/* --- ESTILOS PARA EL RESUMEN SEMANAL --- */
+        #resumenSemanal h5 {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        #resumenSemanal p {
+            margin: 4px 0;
+            font-size: 0.9rem;
+        }
+        .summary-bars-wrapper {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+        .summary-bar-container {
+            width: 60px;
+            height: 120px;
+            background-color: var(--surface-hover-color);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column-reverse; /* Hace que la barra crezca de abajo hacia arriba */
+            position: relative;
+        }
+        .summary-bar {
+            width: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+            position: relative;
+            transition: height 0.5s ease-out;
+        }
+        .summary-bar-label {
+            position: absolute;
+            bottom: -20px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        /* --- FIN DE ESTILOS --- */
+
+
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
         .modal-content { transform: scale(0.95); transition: transform 0.3s; width: 90%; max-width: 800px; }
@@ -1878,14 +1928,16 @@ async function loadAreasForProductionReport() {
                 const fechaFinStr = doc('prod_fecha_fin').value;
                 const selectedArea = doc('prod_area').value;
                 const selectedTurno = doc('prod_turno').value;
-                
+
+                // --- INICIO: LÓGICA DE EMPACADOR INTELIGENTE (CORREGIDA) ---
+                // Ahora sí filtra por el turno seleccionado, como debe ser.
                 const todosLosEmpacadores = params.produccion_hora_config.packers || [];
-                // La lista de empacadores ahora filtra por área Y por el turno seleccionado
                 const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
                     (p.area === selectedArea || selectedArea === 'ALL') && p.turno === selectedTurno
                 );
                 const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
                 const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
+                // --- FIN: LÓGICA DE EMPACADOR INTELIGENTE ---
 
                 if (!fechaInicioStr || !fechaFinStr) {
                     showModal('Error', '<p>Por favor, selecciona un rango de fechas.</p>');
@@ -1893,14 +1945,13 @@ async function loadAreasForProductionReport() {
                     return;
                 }
 
-                // --- INICIO DE LA CORRECCIÓN DEL RANGO DE FECHAS ---
-                // 1. Se crea un rango de consulta AMPLIO para no perder los datos de turnos de noche.
+                // Se crea un rango de consulta AMPLIO para no perder los datos de turnos de noche.
                 const queryStartTime = new Date(`${fechaInicioStr}T06:30:00`);
+                queryStartTime.setDate(queryStartTime.getDate() - 1); // Empezamos a buscar desde el día anterior para turnos de noche.
                 
                 const queryEndTime = new Date(`${fechaFinStr}T00:00:00`);
-                queryEndTime.setDate(queryEndTime.getDate() + 1); // Pasamos al día siguiente
-                queryEndTime.setHours(6, 29, 59, 999); // Hasta las 6:29:59 AM del día después del fin
-                // --- FIN DE LA CORRECCIÓN ---
+                queryEndTime.setDate(queryEndTime.getDate() + 1);
+                queryEndTime.setHours(6, 29, 59, 999);
 
                 const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
                 const snapshot = await query.get();
@@ -1928,7 +1979,6 @@ async function loadAreasForProductionReport() {
                                         const { shift, dateKey } = getWorkShiftAndDate(packedDate);
                                         
                                         const esTurnoValido = (selectedTurno === shift);
-                                        // La fecha de trabajo calculada debe estar dentro del rango que el usuario seleccionó
                                         const esFechaValida = dateKey >= fechaInicioStr && dateKey <= fechaFinStr;
 
                                         if (esTurnoValido && esFechaValida) {
@@ -2048,22 +2098,47 @@ async function loadAreasForProductionReport() {
 
         function renderResumenSemanalProduccion(totales, diasTrabajados) {
             const container = doc('resumenSemanal');
-            const metaTotal = 5280 * diasTrabajados;
+            const metaDiaria = 5280;
+            const metaTotal = metaDiaria * diasTrabajados;
 
-            const eficienciaL1 = metaTotal > 0 ? ((totales['Línea 1'].term / metaTotal) * 100).toFixed(1) : 0;
-            const eficienciaL2 = metaTotal > 0 ? ((totales['Línea 2'].term / metaTotal) * 100).toFixed(1) : 0;
+            // Se calcula la eficiencia sobre la meta total del periodo seleccionado
+            const eficienciaL1 = metaTotal > 0 ? ((totales['Línea 1'].term / metaTotal) * 100) : 0;
+            const eficienciaL2 = metaTotal > 0 ? ((totales['Línea 2'].term / metaTotal) * 100) : 0;
+            
+            // Se limita el porcentaje a 100% solo para la altura de la barra visual
+            const alturaBarraL1 = Math.min(eficienciaL1, 100);
+            const alturaBarraL2 = Math.min(eficienciaL2, 100);
 
             container.innerHTML = `
-                <h4 style="text-align: center; margin-top: 0;">Resumen Semanal</h4>
+                <h4 style="text-align: center; margin-top: 0;">Resumen del Periodo</h4>
                 <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px;">
                     <h5>Línea 1</h5>
                     <p><strong>Terminaciones:</strong> ${totales['Línea 1'].term.toLocaleString('es-MX')}</p>
-                    <p><strong>Eficiencia:</strong> ${eficienciaL1}%</p>
+                    <p><strong>Eficiencia:</strong> ${eficienciaL1.toFixed(1)}%</p>
                 </div>
                 <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-top: 16px;">
                     <h5>Línea 2</h5>
                     <p><strong>Terminaciones:</strong> ${totales['Línea 2'].term.toLocaleString('es-MX')}</p>
-                    <p><strong>Eficiencia:</strong> ${eficienciaL2}%</p>
+                    <p><strong>Eficiencia:</strong> ${eficienciaL2.toFixed(1)}%</p>
+                </div>
+                <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-top: 16px;">
+                    <h5>Meta Total del Periodo</h5>
+                    <p><strong>Terminaciones:</strong> ${metaTotal.toLocaleString('es-MX')}</p>
+                </div>
+
+                <div class="summary-bars-wrapper">
+                    <div class="summary-bar-container">
+                        <div class="summary-bar" style="height: ${alturaBarraL1}%; background-color: rgba(54, 162, 235, 0.7);">
+                            <span>${eficienciaL1.toFixed(0)}%</span>
+                        </div>
+                        <div class="summary-bar-label">Línea 1</div>
+                    </div>
+                    <div class="summary-bar-container">
+                        <div class="summary-bar" style="height: ${alturaBarraL2}%; background-color: rgba(255, 99, 132, 0.7);">
+                            <span>${eficienciaL2.toFixed(0)}%</span>
+                        </div>
+                        <div class="summary-bar-label">Línea 2</div>
+                    </div>
                 </div>
             `;
         }
