@@ -1752,7 +1752,8 @@
         // --- MANEJO DE VISTAS Y BOTONES DE REPORTE DE PRODUCCIÓN ---
         doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
         doc('exportChartBtn').addEventListener('click', exportChartAsJPG);
-
+        doc('exportarSemanalBtn').addEventListener('click', exportarSemanalComoJPG);
+        
         function hideAllProductionViews() {
             doc('chartContainer').style.display = 'none';
             doc('fibraReportContainer').style.display = 'none';
@@ -2349,6 +2350,35 @@ async function generarReporteSemanalProduccion() {
                 link.click();
             }).finally(() => { exportBtn.style.visibility = 'visible'; });
         }
+        
+        function exportarSemanalComoJPG() {
+            const container = doc('semanalContainer');
+            if (!weeklyProductionChart || !container) {
+                showModal('Error', '<p>No hay una gráfica semanal para exportar. Genere el reporte primero.</p>');
+                return;
+            }
+            
+            const exportBtn = doc('exportarSemanalBtn');
+            exportBtn.style.visibility = 'hidden'; // Oculta el botón de la captura
+
+            const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+            const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
+
+            html2canvas(container, { backgroundColor: bgColor, scale: 2, useCORS: true })
+                .then(canvas => {
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/jpeg', 0.95);
+                    
+                    const fechaInicio = doc('prod_fecha_inicio').value;
+                    const fechaFin = doc('prod_fecha_fin').value;
+                    
+                    link.download = `Reporte_Semanal_Produccion_${fechaInicio}_al_${fechaFin}.jpg`;
+                    link.click();
+                }).finally(() => {
+                    exportBtn.style.visibility = 'visible'; // Vuelve a mostrar el botón
+                });
+        }
+        
 
         // --- INICIO: LÓGICA REPORTE TERMINACIONES ---
         // (Esta sección se mantiene igual que en tu código original)
