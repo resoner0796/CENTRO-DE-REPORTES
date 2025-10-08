@@ -1250,28 +1250,43 @@
             // Se crea una copia de la fecha para no modificar la original
             let workDate = new Date(date.getTime());
 
-            // Si la hora es antes de las 6:30 AM, la producción pertenece al "día de trabajo" del día anterior.
+            // 1. Ajuste de Día de Trabajo: Si es de madrugada, pertenece al día anterior.
             if (hour < 6 || (hour === 6 && minute < 30)) {
                 workDate.setDate(workDate.getDate() - 1);
             }
-
-            // --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
-            // Se formatea la fecha de forma manual para evitar problemas con zonas horarias (UTC).
+            
+            // 2. Formateo de Fecha Seguro (sin errores de zona horaria)
             const year = workDate.getFullYear();
-            const month = String(workDate.getMonth() + 1).padStart(2, '0'); // Se agrega +1 porque los meses empiezan en 0
+            const month = String(workDate.getMonth() + 1).padStart(2, '0');
             const dayOfMonth = String(workDate.getDate()).padStart(2, '0');
             const dateKey = `${year}-${month}-${dayOfMonth}`;
-            // --- FIN DE LA CORRECCIÓN DEFINITIVA ---
+
+            // --- INICIO: LÓGICA DE SEMANA CORTA/LARGA INTEGRADA ---
+            const referenceDate = new Date('2025-10-06T00:00:00'); // Lunes de una semana CORTA conocida.
+            // Se usa 'workDate' para que el cálculo se base en el día de trabajo correcto.
+            const diffTime = workDate.getTime() - referenceDate.getTime(); 
+            const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
+            const isShortWeek = diffWeeks % 2 === 0;
+            // --- FIN: LÓGICA DE SEMANA CORTA/LARGA INTEGRADA ---
 
             const workDay = workDate.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
             const isDayTime = (hour >= 6 && (hour < 18 || (hour === 18 && minute < 30)));
             let shift;
-            
-            // Determina el tipo de turno basado en el "día de trabajo" ya ajustado.
-            if (workDay >= 1 && workDay <= 3) { // Lunes, Martes, Miércoles
-                shift = isDayTime ? 'T45' : 'T46';
-            } else { // Jueves, Viernes, Sábado, Domingo
-                shift = isDayTime ? 'T47' : 'T48';
+
+            if (isShortWeek) {
+                // Horario para Semana CORTA
+                if (workDay >= 1 && workDay <= 3) { // Lunes a Miércoles
+                    shift = isDayTime ? 'T45' : 'T46';
+                } else { // Jueves a Domingo
+                    shift = isDayTime ? 'T47' : 'T48';
+                }
+            } else {
+                // Horario para Semana LARGA
+                if (workDay >= 1 && workDay <= 4) { // Lunes a Jueves
+                    shift = isDayTime ? 'T45' : 'T46';
+                } else { // Viernes a Domingo
+                    shift = isDayTime ? 'T47' : 'T48';
+                }
             }
 
             return {
