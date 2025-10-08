@@ -371,13 +371,20 @@
                             </div>
                         </div>
                         <div style="flex-grow: 1; overflow-y: auto; padding-right: 8px;">
-                            <div class="control-group">
-                                <label for="prod_fecha_inicio">Fecha Inicio</label>
-                                <input type="date" id="prod_fecha_inicio">
+                        <div id="fechaUnicaContainer" class="control-group">
+                                <label for="prod_fecha_unica">Fecha</label>
+                                <input type="date" id="prod_fecha_unica">
                             </div>
-                            <div class="control-group">
-                                <label for="prod_fecha_fin">Fecha Fin</label>
-                                <input type="date" id="prod_fecha_fin">
+
+                            <div id="fechaRangoContainer" style="display: none;">
+                                <div class="control-group">
+                                    <label for="prod_fecha_inicio">Fecha Inicio</label>
+                                    <input type="date" id="prod_fecha_inicio">
+                                </div>
+                                <div class="control-group">
+                                    <label for="prod_fecha_fin">Fecha Fin</label>
+                                    <input type="date" id="prod_fecha_fin">
+                                </div>
                             </div>
                             <div class="control-group">
                                 <label for="prod_turno">Turno</label>
@@ -1756,42 +1763,48 @@
         }
 
         // --- MANEJO DE VISTAS Y BOTONES DE REPORTE DE PRODUCCIÓN ---
-        doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
-        doc('exportChartBtn').addEventListener('click', exportChartAsJPG);
-        doc('exportarSemanalBtn').addEventListener('click', exportarSemanalComoJPG);
-        
-        function hideAllProductionViews() {
-            doc('chartContainer').style.display = 'none';
-            doc('fibraReportContainer').style.display = 'none';
-            doc('semanalContainer').style.display = 'none';
-            doc('produccionTablesGrid').style.display = 'none';
-        }
+doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
+        doc('exportChartBtn').addEventListener('click', exportChartAsJPG);
+        doc('exportarSemanalBtn').addEventListener('click', exportarSemanalComoJPG);
 
-        doc('showProduccionHoraBtn').addEventListener('click', () => {
-            hideAllProductionViews();
-            doc('chartContainer').style.display = 'flex';
-            doc('produccionTablesGrid').style.display = 'grid';
-            doc('generarReporteProduccionBtn').style.display = 'block';
-        });
+        function hideAllProductionViews() {
+            doc('chartContainer').style.display = 'none';
+            doc('fibraReportContainer').style.display = 'none';
+            doc('semanalContainer').style.display = 'none';
+            doc('produccionTablesGrid').style.display = 'none';
+        }
 
-        doc('showProduccionFibraBtn').addEventListener('click', () => {
-            if (!productionReportData) {
-                showModal('Datos no disponibles', '<p>Primero debe generar un reporte de producción por hora.</p>');
-                return;
-            }
-            hideAllProductionViews();
-            renderFiberReport(productionReportData);
-            doc('fibraReportContainer').style.display = 'flex';
-            doc('generarReporteProduccionBtn').style.display = 'block';
-        });
+        doc('showProduccionHoraBtn').addEventListener('click', () => {
+            hideAllProductionViews();
+            doc('fechaUnicaContainer').style.display = 'block';
+            doc('fechaRangoContainer').style.display = 'none';
+            doc('chartContainer').style.display = 'flex';
+            doc('produccionTablesGrid').style.display = 'grid';
+            doc('generarReporteProduccionBtn').textContent = 'Generar Reporte por Hora';
+        });
 
-        doc('showProduccionSemanaBtn').addEventListener('click', () => {
-            hideAllProductionViews();
-            doc('semanalContainer').style.display = 'flex';
-            // No ocultamos el botón principal, se usará para generar este reporte
-            if (weeklyProductionChart) weeklyProductionChart.destroy();
-            doc('resumenSemanal').innerHTML = '<h4 style="text-align:center;">Configure filtros y presione "Generar Reporte".</h4>';
-        });
+        doc('showProduccionFibraBtn').addEventListener('click', () => {
+            if (!productionReportData) {
+                showModal('Datos no disponibles', '<p>Primero debe generar un reporte de producción por hora.</p>');
+                return;
+            }
+            hideAllProductionViews();
+            doc('fechaUnicaContainer').style.display = 'block';
+            doc('fechaRangoContainer').style.display = 'none';
+            renderFiberReport(productionReportData);
+            doc('fibraReportContainer').style.display = 'flex';
+            doc('generarReporteProduccionBtn').textContent = 'Generar Reporte por Hora';
+        });
+        
+        doc('showProduccionSemanaBtn').addEventListener('click', () => {
+            hideAllProductionViews();
+            doc('fechaUnicaContainer').style.display = 'none';
+            doc('fechaRangoContainer').style.display = 'block';
+            doc('semanalContainer').style.display = 'flex';
+            doc('generarReporteProduccionBtn').textContent = 'Generar Reporte Semanal';
+            if (weeklyProductionChart) weeklyProductionChart.destroy();
+            doc('resumenSemanal').innerHTML = '<h4 style="text-align:center;">Configure filtros y presione "Generar Reporte".</h4>';
+        });
         // --- FIN MANEJO DE VISTAS ---
 
 async function loadAreasForProductionReport() {
@@ -1829,18 +1842,16 @@ async function loadAreasForProductionReport() {
             btn.disabled = true; btn.textContent = 'Cargando datos...';
             doc('exportChartBtn').style.display = 'none';
             try {
-                const selectedDateStr = doc('prod_fecha_inicio').value;
+                const selectedDateStr = doc('prod_fecha_unica').value; // <-- LÍNEA MODIFICADA
                 const selectedTurno = doc('prod_turno').value;
                 const selectedArea = doc('prod_area').value;
                 
-                // --- INICIO: LÓGICA DE EMPACADOR INTELIGENTE ---
                 const todosLosEmpacadores = params.produccion_hora_config.packers || [];
                 const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
                     (p.area === selectedArea || selectedArea === 'ALL') && p.turno === selectedTurno
                 );
                 const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
                 const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
-                // --- FIN: LÓGICA DE EMPACADOR INTELIGENTE ---
 
                 if (!selectedDateStr) { showModal('Error', '<p>Por favor, selecciona una fecha.</p>'); return; }
                 
@@ -1850,7 +1861,6 @@ async function loadAreasForProductionReport() {
                 const snapshot = await query.get();
                 if (snapshot.empty) {
                     showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
-                    // Limpiar vistas si no hay datos
                     renderProductionTable([], 'dataTableProduccionL1', 'Línea 1');
                     renderProductionTable([], 'dataTableProduccionL2', 'Línea 2');
                     renderProductionChart([], startTime, selectedTurno);
@@ -1875,7 +1885,7 @@ async function loadAreasForProductionReport() {
                                             linea = 'Línea 2';
                                         }
 
-                                        if (linea) { // Si el empacador pertenece a una de las listas, se procesa
+                                        if (linea) {
                                             allPackedItems.push({
                                                 orden: orderDoc.id, catalogo: orderData.catalogNumber || 'N/A',
                                                 empacador: empacador, timestamp: packedDate,
@@ -2526,10 +2536,12 @@ async function generarReporteSemanalProduccion() {
                     return `${year}-${month}-${day}`;
                 };
 
+                // Asignar fechas por defecto a todos los campos
+                doc('prod_fecha_unica').value = formatDate(today);
                 doc('prod_fecha_inicio').value = formatDate(pastDate);
                 doc('prod_fecha_fin').value = formatDate(today);
                 doc('prod20_fecha').value = formatDate(today);
-
+                
                 const currentShift = getAutoCurrentShift();
                 doc('prod_turno').value = currentShift;
                 doc('prod20_turno').value = currentShift;
