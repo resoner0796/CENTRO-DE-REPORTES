@@ -1229,23 +1229,33 @@
             });
         }
 /**
+         /**
          * Determina el turno y la fecha de trabajo correcta para una fecha y hora específicas.
          */
         function getWorkShiftAndDate(date) {
             const hour = date.getHours();
             const minute = date.getMinutes();
 
-            let workDate = new Date(date);
+            // Se crea una copia de la fecha para no modificar la original
+            let workDate = new Date(date.getTime());
 
-            // Si la hora es antes de las 6:30 AM, la producción pertenece al "día de trabajo" anterior.
+            // Si la hora es antes de las 6:30 AM, la producción pertenece al "día de trabajo" del día anterior.
             if (hour < 6 || (hour === 6 && minute < 30)) {
                 workDate.setDate(workDate.getDate() - 1);
             }
 
+            // --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
+            // Se formatea la fecha de forma manual para evitar problemas con zonas horarias (UTC).
+            const year = workDate.getFullYear();
+            const month = String(workDate.getMonth() + 1).padStart(2, '0'); // Se agrega +1 porque los meses empiezan en 0
+            const dayOfMonth = String(workDate.getDate()).padStart(2, '0');
+            const dateKey = `${year}-${month}-${dayOfMonth}`;
+            // --- FIN DE LA CORRECCIÓN DEFINITIVA ---
+
             const workDay = workDate.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
             const isDayTime = (hour >= 6 && (hour < 18 || (hour === 18 && minute < 30)));
             let shift;
-
+            
             // Determina el tipo de turno basado en el "día de trabajo" ya ajustado.
             if (workDay >= 1 && workDay <= 3) { // Lunes, Martes, Miércoles
                 shift = isDayTime ? 'T45' : 'T46';
@@ -1255,7 +1265,7 @@
 
             return {
                 shift: shift,
-                dateKey: workDate.toISOString().split('T')[0] // Retorna la fecha de trabajo en formato YYYY-MM-DD
+                dateKey: dateKey 
             };
         }
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN 20% ---
