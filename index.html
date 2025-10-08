@@ -577,27 +577,34 @@
         let productionReportData = null;
         let graficaSemanalInstance = null; // Variable para la gráfica semanal
 
-        // --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
-        function switchView(viewKey) {
-            const currentViewEl = views[activeView]; const nextViewEl = views[viewKey]; if (!nextViewEl) return;
-            activeView = viewKey; currentViewEl.style.opacity = '0';
-            setTimeout(() => {
-                currentViewEl.style.display = 'none'; nextViewEl.style.display = 'block';
-                if (viewKey === 'menu') {
-                    nextViewEl.style.display = 'flex';
-                }
-                requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
-                if(viewKey === 'produccionHora') {
-                    loadAreasForProductionReport();
-                    populatePackerSelects();
-                } else if (viewKey === 'produccion20') {
-                    doc('prod20_fecha').value = new Date().toISOString().split('T')[0];
-                    doc('prod20_turno').value = getAutoCurrentShift();
-                    renderProduccion20Table([]);
-                    renderProduccion20Chart([], new Date());
-                }
-            }, 300);
-        }
+// --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
+            function switchView(viewKey) {
+                const currentViewEl = views[activeView]; const nextViewEl = views[viewKey]; if (!nextViewEl) return;
+                activeView = viewKey; currentViewEl.style.opacity = '0';
+                setTimeout(() => {
+                    currentViewEl.style.display = 'none'; nextViewEl.style.display = 'block';
+                    if (viewKey === 'menu') {
+                        nextViewEl.style.display = 'flex';
+                    }
+                    requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
+                    if(viewKey === 'produccionHora') {
+                        loadAreasForProductionReport();
+                        populatePackerSelects();
+                    } else if (viewKey === 'produccion20') {
+                        // --- INICIO DE LA CORRECCIÓN DE FECHA ---
+                        const today = new Date();
+                        const year = today.getFullYear();
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
+                        const day = String(today.getDate()).padStart(2, '0');
+                        doc('prod20_fecha').value = `${year}-${month}-${day}`;
+                        // --- FIN DE LA CORRECCIÓN DE FECHA ---
+
+                        doc('prod20_turno').value = getAutoCurrentShift();
+                        renderProduccion20Table([]);
+                        renderProduccion20Chart([], new Date());
+                    }
+                }, 300);
+            }
 
         doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
         doc('reporteProduccion20Btn').addEventListener('click', () => switchView('produccion20'));
@@ -1613,15 +1620,46 @@
         // --- INICIO: LÓGICA REPORTE DE PRODUCCIÓN POR HORA ---
         function getAutoCurrentShift() {
             const now = new Date();
-            let day = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+            
+            // --- INICIO: LÓGICA PARA SEMANA CORTA/LARGA ---
+            // 1. Establecemos una fecha de referencia (un lunes de una semana que sabemos que fue CORTA).
+            //    Puedes cambiar esta fecha si es necesario.
+            const referenceDate = new Date('2025-10-06T00:00:00'); // Asumimos que la semana del 6 de Oct, 2025 es CORTA.
+
+            // 2. Calculamos el número de semanas completas que han pasado desde la fecha de referencia.
+            const diffTime = now.getTime() - referenceDate.getTime();
+            const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
+
+            // 3. Determinamos el tipo de semana. Si el número de semanas es par, es igual a la de referencia (corta). Si es impar, es larga.
+            const isShortWeek = diffWeeks % 2 === 0;
+            // --- FIN LÓGICA SEMANA ---
+
+            let day = now.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
             const hour = now.getHours();
             const minute = now.getMinutes();
+
+            // Ajustamos el día para los turnos de noche que cruzan la medianoche (como antes)
             if (hour < 6 || (hour === 6 && minute < 30)) {
                 day = (day === 0) ? 6 : day - 1;
             }
+
             const isDayTime = hour >= 6 && (hour < 18 || (hour === 18 && minute < 30));
-            if (day >= 1 && day <= 3) return isDayTime ? 'T45' : 'T46';
-            else return isDayTime ? 'T47' : 'T48';
+
+            if (isShortWeek) {
+                // Lógica de Semana CORTA (Lunes a Miércoles)
+                if (day >= 1 && day <= 3) { 
+                    return isDayTime ? 'T45' : 'T46';
+                } else { // Jueves a Domingo
+                    return isDayTime ? 'T47' : 'T48';
+                }
+            } else {
+                // Lógica de Semana LARGA (Lunes a Jueves)
+                if (day >= 1 && day <= 4) { 
+                    return isDayTime ? 'T45' : 'T46';
+                } else { // Viernes a Domingo
+                    return isDayTime ? 'T47' : 'T48';
+                }
+            }
         }
 
         function getShiftDateRange(selectedDateStr, selectedShift) {
@@ -2284,29 +2322,35 @@
             });
         }
 
-        // --- INICIO: INICIALIZACIÓN DE LA APP ---
-        async function initializeApp() {
-            if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
-            await Promise.all([
-                loadParams('901_config'),
-                loadParams('terminaciones_config'),
-                loadParams('produccion_hora_config'),
-                loadParams('produccion_20_config')
-            ]);
-            const today = new Date();
-            const timezoneOffset = today.getTimezoneOffset() * 60000;
-            const localToday = new Date(today - timezoneOffset);
-            doc('prod_fecha').value = localToday.toISOString().split('T')[0];
-            doc('prod20_fecha').value = localToday.toISOString().split('T')[0];
+    // --- INICIO: INICIALIZACIÓN DE LA APP ---
+            async function initializeApp() {
+                if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
+                await Promise.all([
+                    loadParams('901_config'),
+                    loadParams('terminaciones_config'),
+                    loadParams('produccion_hora_config'),
+                    loadParams('produccion_20_config')
+                ]);
 
-            const currentShift = getAutoCurrentShift();
-            doc('prod_turno').value = currentShift;
-            doc('prod20_turno').value = currentShift;
+                // --- INICIO DE LA CORRECCIÓN DE FECHA ---
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                const todayString = `${year}-${month}-${day}`;
 
-            applyTheme(currentTheme);
-            Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
-            views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
-        }
+                doc('prod_fecha').value = todayString;
+                doc('prod20_fecha').value = todayString;
+                // --- FIN DE LA CORRECCIÓN DE FECHA ---
+                
+                const currentShift = getAutoCurrentShift();
+                doc('prod_turno').value = currentShift;
+                doc('prod20_turno').value = currentShift;
+
+                applyTheme(currentTheme);
+                Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
+                views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
+            }
         initializeApp();
     });
 </script>
