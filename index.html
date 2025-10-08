@@ -2116,19 +2116,22 @@ async function generarReporteSemanalProduccion() {
 
             container.innerHTML = `
                 <h4 style="text-align: center; margin-top: 0;">Resumen del Periodo</h4>
+                
+                <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                    <h5>Meta Total del Periodo</h5>
+                    <p><strong>Terminaciones:</strong> ${metaTotal.toLocaleString('es-MX')}</p>
+                </div>
+
                 <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px;">
                     <h5>Línea 1</h5>
                     <p><strong>Terminaciones:</strong> ${totales['Línea 1'].term.toLocaleString('es-MX')}</p>
                     <p><strong>Eficiencia:</strong> ${eficienciaL1.toFixed(1)}%</p>
                 </div>
+
                 <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-top: 16px;">
                     <h5>Línea 2</h5>
                     <p><strong>Terminaciones:</strong> ${totales['Línea 2'].term.toLocaleString('es-MX')}</p>
                     <p><strong>Eficiencia:</strong> ${eficienciaL2.toFixed(1)}%</p>
-                </div>
-                <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-top: 16px;">
-                    <h5>Meta Total de la Semana</h5>
-                    <p><strong>Terminaciones:</strong> ${metaTotal.toLocaleString('es-MX')}</p>
                 </div>
 
                 <div class="summary-bars-wrapper">
