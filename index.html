@@ -1085,7 +1085,7 @@
             doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
         }
 
-      /**
+     /**
          * Consulta los datos de Firestore y los procesa para la gráfica semanal.
          */
         async function consultarReporteSemanal() {
@@ -1104,7 +1104,9 @@
                 return;
             }
 
+            // Ampliamos el rango de consulta para capturar los turnos de noche que terminan en el primer día del rango.
             const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+            fechaInicioDate.setHours(6, 30, 0, 0); // El día de trabajo empieza a las 6:30 AM
             const fechaFinDate = new Date(`${fechaFin}T23:59:59`);
 
             try {
@@ -1116,33 +1118,26 @@
                 const datosAgrupados = {};
                 const labelsFechas = new Set();
 
-                snapshot.forEach(doc => {
-                    const data = doc.data();
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
                     const fechaHora = data['Fecha y hora'].toDate();
-                    const turno = getShiftForTimestamp(fechaHora);
 
-                    if (turnosSeleccionados.includes(turno)) {
-                        // --- INICIO DE LA CORRECCIÓN DE FECHA ---
-                        let fechaDeTrabajo = new Date(fechaHora);
-                        // Si es turno de noche y la hora es después de medianoche (antes de las 6:30 AM),
-                        // se asigna la producción al día anterior.
-                        if ((turno === 'T46' || turno === 'T48') && fechaHora.getHours() < 6) {
-                            fechaDeTrabajo.setDate(fechaDeTrabajo.getDate() - 1);
-                        }
-                        const fechaKey = fechaDeTrabajo.toISOString().split('T')[0];
-                        // --- FIN DE LA CORRECCIÓN DE FECHA ---
+                    // --- INICIO DE LA CORRECCIÓN DE FECHA Y TURNO ---
+                    const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
+                    // --- FIN DE LA CORRECCIÓN ---
 
-                        labelsFechas.add(fechaKey);
+                    if (turnosSeleccionados.includes(shift)) {
+                        labelsFechas.add(dateKey);
 
-                        if (!datosAgrupados[fechaKey]) datosAgrupados[fechaKey] = {};
-                        if (!datosAgrupados[fechaKey][turno]) datosAgrupados[fechaKey][turno] = 0;
+                        if (!datosAgrupados[dateKey]) datosAgrupados[dateKey] = {};
+                        if (!datosAgrupados[dateKey][shift]) datosAgrupados[dateKey][shift] = 0;
 
                         const catalogo = data['Catalogo'] || '';
                         const digit = catalogo.substring(3, 4).toUpperCase();
                         const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
                         const cantidad = Number(data['Cantidad']) || 1;
 
-                        datosAgrupados[fechaKey][turno] += terminacionesPorPieza * cantidad;
+                        datosAgrupados[dateKey][shift] += terminacionesPorPieza * cantidad;
                     }
                 });
 
@@ -1158,8 +1153,7 @@
             }
         }
 
-
-     /**
+/**
          * Dibuja la gráfica comparativa semanal en el canvas del modal.
          */
         function renderGraficaSemanal(datos, labels, turnos) {
@@ -1234,30 +1228,36 @@
                 plugins: [ChartDataLabels] // Registrar el plugin de etiquetas
             });
         }
-
-        /**
-         * Determina el turno correspondiente a una fecha y hora específicas.
+/**
+         * Determina el turno y la fecha de trabajo correcta para una fecha y hora específicas.
          */
-        function getShiftForTimestamp(date) {
-            let day = date.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+        function getWorkShiftAndDate(date) {
             const hour = date.getHours();
             const minute = date.getMinutes();
 
-            // Si es antes de las 6:30 AM, pertenece al día y turno anterior.
+            let workDate = new Date(date);
+
+            // Si la hora es antes de las 6:30 AM, la producción pertenece al "día de trabajo" anterior.
             if (hour < 6 || (hour === 6 && minute < 30)) {
-                day = (day === 0) ? 6 : day - 1;
+                workDate.setDate(workDate.getDate() - 1);
             }
 
-            const isDayTime = hour >= 6 && (hour < 18 || (hour === 18 && minute < 30));
+            const workDay = workDate.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+            const isDayTime = (hour >= 6 && (hour < 18 || (hour === 18 && minute < 30)));
+            let shift;
 
-            if (day >= 1 && day <= 3) { // Lunes, Martes, Miércoles
-                return isDayTime ? 'T45' : 'T46';
+            // Determina el tipo de turno basado en el "día de trabajo" ya ajustado.
+            if (workDay >= 1 && workDay <= 3) { // Lunes, Martes, Miércoles
+                shift = isDayTime ? 'T45' : 'T46';
             } else { // Jueves, Viernes, Sábado, Domingo
-                return isDayTime ? 'T47' : 'T48';
+                shift = isDayTime ? 'T47' : 'T48';
             }
-        }
-        // --- FIN: LÓGICA DEL REPORTE SEMANAL ---
 
+            return {
+                shift: shift,
+                dateKey: workDate.toISOString().split('T')[0] // Retorna la fecha de trabajo en formato YYYY-MM-DD
+            };
+        }
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN 20% ---
         doc('consultarProduccion20Btn').addEventListener('click', consultarReporteProduccion20);
 
