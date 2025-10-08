@@ -1991,16 +1991,24 @@
         value = cell ? (cell.w || cell.v) : undefined;
     }
 
-    // --- INICIO DE LA CORRECCIÓN PARA LA COLUMNA QTY ---
+    // --- CORRECCIÓN PARA LA COLUMNA QTY ---
     if (p.key.toLowerCase() === 'qty' && value !== undefined && value !== null) {
         // Convierte el valor a un número entero, descartando cualquier decimal.
         const num = parseInt(value, 10); 
-        // Si la conversión es exitosa (si no es NaN - Not a Number), actualiza el valor.
+        // Si la conversión es exitosa, actualiza el valor.
         if (!isNaN(num)) {
             value = num;
         }
     }
-    // --- FIN DE LA CORRECCIÓN ---
+
+    // --- NUEVA CORRECCIÓN PARA LA COLUMNA Special Stock ---
+    if (p.key.toLowerCase().includes('special stock')) {
+        // Si el valor es 0 (como número o como texto), se reemplaza por una cadena vacía.
+        if (value === 0 || value === '0') {
+            value = '';
+        }
+    }
+    // --- FIN DE LA NUEVA CORRECCIÓN ---
 
     rowData[p.key] = value;
 });
