@@ -1939,22 +1939,26 @@ async function generarReporteSemanalProduccion() {
                 );
                 const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
                 const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
+                
+                const queryStartTime = new Date(`${fechaInicioStr}T06:30:00`);
+                queryStartTime.setDate(queryStartTime.getDate() - 1);
+                
+                const queryEndTime = new Date(`${fechaFinStr}T00:00:00`);
+                queryEndTime.setDate(queryEndTime.getDate() + 1);
+                queryEndTime.setHours(6, 29, 59, 999);
 
                 const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
                 const snapshot = await query.get();
 
                 if (snapshot.empty) {
                     showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
+                    renderGraficaSemanalProduccion({}, []);
+                    renderResumenSemanalProduccion({ 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } }, 0);
                     return;
                 }
 
                 let datosAgrupadosPorDia = {};
                 let totales = { 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } };
-                
-                console.clear(); // Limpia la consola para una nueva depuración
-                console.log(`--- INICIANDO DEPURACIÓN PARA REPORTE SEMANAL ---`);
-                console.log(`Rango de Fechas: ${fechaInicioStr} a ${fechaFinStr}`);
-                console.log(`Turno Seleccionado: ${selectedTurno}`);
 
                 snapshot.forEach(orderDoc => {
                     const orderData = orderDoc.data();
@@ -1968,19 +1972,6 @@ async function generarReporteSemanalProduccion() {
                                         const { shift, dateKey } = getWorkShiftAndDate(packedDate);
                                         const esTurnoValido = (selectedTurno === shift);
                                         const esFechaValida = dateKey >= fechaInicioStr && dateKey <= fechaFinStr;
-
-                                        // --- LÍNEAS DE DEPURACIÓN ---
-                                        // Imprimimos cada pieza para ver cómo se clasifica
-                                        if (esFechaValida && esTurnoValido) {
-                                            console.log({
-                                                fechaOriginal: packedDate.toLocaleString('es-MX'),
-                                                fechaDeTrabajoCalculada: dateKey,
-                                                turnoCalculado: shift,
-                                                pasaFiltroFecha: esFechaValida,
-                                                pasaFiltroTurno: esTurnoValido
-                                            });
-                                        }
-                                        // --- FIN DE LÍNEAS DE DEPURACIÓN ---
 
                                         if (esTurnoValido && esFechaValida) {
                                             const empacador = (item['Employee ID'] || '').toString().toUpperCase();
@@ -2119,7 +2110,7 @@ async function generarReporteSemanalProduccion() {
                     <p><strong>Eficiencia:</strong> ${eficienciaL2.toFixed(1)}%</p>
                 </div>
                 <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-top: 16px;">
-                    <h5>Meta Total del Periodo</h5>
+                    <h5>Meta Total de la Semana</h5>
                     <p><strong>Terminaciones:</strong> ${metaTotal.toLocaleString('es-MX')}</p>
                 </div>
 
