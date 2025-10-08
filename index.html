@@ -1154,6 +1154,7 @@
         }
 
 /**
+    /**
          * Dibuja la gráfica comparativa semanal en el canvas del modal.
          */
         function renderGraficaSemanal(datos, labels, turnos) {
@@ -1178,6 +1179,14 @@
                 };
             });
 
+            // --- INICIO DE LA CORRECCIÓN DE COLOR DE LA CUADRÍCULA ---
+            // Obtener los colores dinámicamente desde las variables CSS
+            const chartGridColor = getComputedStyle(document.body).getPropertyValue('--chart-grid-color').trim();
+            const chartTickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
+            const textPrimaryColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
+            // --- FIN DE LA CORRECCIÓN DE COLOR DE LA CUADRÍCULA ---
+
+
             graficaSemanalInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -1188,47 +1197,42 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { color: 'var(--chart-tick-color)' },
-                            grid: { color: 'var(--chart-grid-color)' }
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { color: chartTickColor }, // Usar color de tick dinámico
+                            grid: { color: chartGridColor } // Usar color de cuadrícula dinámico
                         },
-                        x: {
-                            ticks: { color: 'var(--chart-tick-color)' },
-                            grid: { color: 'var(--chart-grid-color)' }
+                        x: { 
+                            ticks: { color: chartTickColor }, // Usar color de tick dinámico
+                            grid: { color: chartGridColor } // Usar color de cuadrícula dinámico
                         }
                     },
                     plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { color: 'var(--text-primary)' }
+                        legend: { 
+                            position: 'top', 
+                            labels: { color: textPrimaryColor } // Usar color de texto primario dinámico
                         },
-                        // --- INICIO DE LA CORRECCIÓN DE LA GRÁFICA ---
                         datalabels: {
                             display: true,
                             anchor: 'end',
                             align: 'top',
-                            color: getComputedStyle(document.body).getPropertyValue('--text-primary').trim(),
+                            color: textPrimaryColor, // Usar color de texto primario dinámico
                             font: {
                                 weight: 'bold',
                                 size: 10,
                             },
                             formatter: (value) => {
-                                // No mostrar una etiqueta para barras con valor 0
                                 if (value === 0) {
                                     return '';
                                 }
-                                // Formatear el número con comas (o puntos, según la configuración regional)
                                 return value.toLocaleString('es-MX');
                             }
                         }
-                        // --- FIN DE LA CORRECCIÓN DE LA GRÁFICA ---
                     }
                 },
-                plugins: [ChartDataLabels] // Registrar el plugin de etiquetas
+                plugins: [ChartDataLabels]
             });
         }
-/**
          /**
          * Determina el turno y la fecha de trabajo correcta para una fecha y hora específicas.
          */
