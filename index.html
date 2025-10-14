@@ -1456,36 +1456,47 @@
                 return;
             }
 
-            // --- AJUSTE CLAVE ---
-            // Se agruparán los datos por hora sumando las 'Terminaciones'.
             const hourlyBins = Array.from({ length: 12 }, () => ({}));
-            let totalTerminaciones = 0;
+            const totalesPorLinea = {};
+            let granTotalTerminaciones = 0;
             
             data.forEach(item => {
                 const linea = item['Linea'] || 'N/A';
                 const terminaciones = Number(item['Terminaciones']) || 0;
-                totalTerminaciones += terminaciones;
+                granTotalTerminaciones += terminaciones;
+
+                // --- AJUSTE 1: CÁLCULO DE TOTALES POR LÍNEA ---
+                if (!totalesPorLinea[linea]) {
+                    totalesPorLinea[linea] = 0;
+                }
+                totalesPorLinea[linea] += terminaciones;
                 
                 if (item['Finish date'] instanceof Date) {
                     const diffMillis = item['Finish date'] - shiftStartTime;
                     if (diffMillis >= 0) {
                         const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
                         if (hourIndex >= 0 && hourIndex < 12) {
-                            // Sumamos el valor de terminaciones en el contenedor de la hora correspondiente.
                             hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
                         }
                     }
                 }
             });
 
-            // El resumen muestra el total de terminaciones.
-            doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
+            // --- AJUSTE 2: NUEVO HTML PARA EL RESUMEN ---
+            let summaryHtml = `Total Terminaciones del Turno: <strong>${granTotalTerminaciones.toLocaleString()}</strong>`;
+            const lineasOrdenadas = Object.keys(totalesPorLinea).sort();
+            if (lineasOrdenadas.length > 0) {
+                let detailHtml = lineasOrdenadas.map(linea =>
+                    `Línea ${linea}: <strong>${totalesPorLinea[linea].toLocaleString()}</strong>`
+                ).join(' | ');
+                summaryHtml += `<div style="font-size: 0.9em; margin-top: 5px;">${detailHtml}</div>`;
+            }
+            doc('chartSummaryDaily').innerHTML = summaryHtml;
 
             const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
             const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
             const datasets = allLineas.map((linea, index) => ({
                 label: `Terminaciones Línea ${linea}`,
-                // Los datos para la gráfica se toman de los contenedores de terminaciones.
                 data: hourlyBins.map(hourData => hourData[linea] || 0),
                 backgroundColor: colors[index % colors.length],
             }));
@@ -1507,22 +1518,21 @@
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
-                        // El título de la gráfica ahora especifica que son terminaciones.
                         title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
                         datalabels: {
                             display: true,
                             anchor: 'end',
                             align: 'top',
                             color: 'var(--text-primary)',
-                            font: { weight: 'bold' },
-                            // El formateador muestra el valor de la barra (que es la suma de terminaciones).
+                            font: { weight: 'bold', size: 10 },
                             formatter: (value) => value > 0 ? value.toLocaleString() : ''
                         }
                     },
                     scales: {
-                        x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
+                        // --- AJUSTE 3: BARRAS AGRUPADAS ---
+                        // Se elimina la propiedad 'stacked: true' para que las barras se agrupen.
+                        x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
                         y: { 
-                            stacked: true, 
                             beginAtZero: true, 
                             grid: { color: 'var(--chart-grid-color)' }, 
                             ticks: { color: 'var(--chart-tick-color)' },
