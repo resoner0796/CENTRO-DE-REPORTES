@@ -1334,60 +1334,64 @@
         }
 
         async function consultarReporteProduccionDaily() {
-            const fechaInput = doc('prodDaily_fecha').value;
-            const turnoInput = doc('prodDaily_turno').value;
+            const fechaInput = doc('prodDaily_fecha').value;
+            const turnoInput = doc('prodDaily_turno').value;
 
-            if (!fechaInput) {
-                showModal('Fecha Requerida', '<p>Por favor, seleccione una fecha.</p>');
-                return;
-            }
-            const btn = doc('consultarProduccionDailyBtn');
-            btn.disabled = true;
-            btn.textContent = 'Consultando...';
+            if (!fechaInput) {
+                showModal('Fecha Requerida', '<p>Por favor, seleccione una fecha.</p>');
+                return;
+            }
+            const btn = doc('consultarProduccionDailyBtn');
+            btn.disabled = true;
+            btn.textContent = 'Consultando...';
 
-            const { startTime, endTime } = getShiftDateRange(fechaInput, turnoInput);
+            const { startTime, endTime } = getShiftDateRange(fechaInput, turnoInput);
 
-            try {
-                const snapshot = await db.collection('produccion_daily_historico')
-                    .where('Finish date', '>=', startTime)
-                    .where('Finish date', '<=', endTime)
-                    .get();
+            try {
+                const snapshot = await db.collection('produccion_daily_historico')
+                    .where('Finish date', '>=', startTime)
+                    .where('Finish date', '<=', endTime)
+                    .get();
 
-                const data = [];
-                snapshot.forEach(docSnap => {
-                    const docData = docSnap.data();
-                    data.push({
-                        ...docData,
-                        'Finish date': docData['Finish date'] ? docData['Finish date'].toDate() : null
-                    });
-                });
+                const data = [];
+                snapshot.forEach(docSnap => {
+                    const docData = docSnap.data();
+                    data.push({
+                        ...docData,
+                        'Finish date': docData['Finish date'] ? docData['Finish date'].toDate() : null
+                    });
+                });
 
-                if (data.length === 0) {
-                    showModal('Sin Datos', `<p>No se encontraron registros para la fecha y turno seleccionados.</p>`);
-                    renderProduccionDailyTable([]);
-                    renderProduccionDailyChart([], startTime);
-                    return;
-                }
+                if (data.length === 0) {
+                    showModal('Sin Datos', `<p>No se encontraron registros para la fecha y turno seleccionados.</p>`);
+                    renderProduccionDailyTable([]);
+                    renderProduccionDailyChart([], startTime);
+                    return;
+                }
 
-                const processedData = data.map(row => {
-                    const catalogo = row['Catálogo'] || '';
-                    const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
-                    const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
-                    const terminaciones = fibras * (Number(row['Cantidad']) || 0);
-                    return { ...row, Fibras: fibras, Terminaciones: terminaciones };
-                });
+                // --- AJUSTE CLAVE ---
+                // Aquí nos aseguramos de que cada registro tenga su valor de 'Terminaciones' calculado.
+                const processedData = data.map(row => {
+                    const catalogo = row['Catálogo'] || '';
+                    const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
+                    const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
+                    // El campo 'Cantidad' se interpreta como el número de piezas/cables.
+                    const terminaciones = fibras * (Number(row['Cantidad']) || 0);
+                    return { ...row, Fibras: fibras, Terminaciones: terminaciones };
+                });
 
-                renderProduccionDailyTable(processedData);
-                renderProduccionDailyChart(processedData, startTime);
+                // Pasamos los datos ya procesados a las funciones de renderizado.
+                renderProduccionDailyTable(processedData);
+                renderProduccionDailyChart(processedData, startTime);
 
-            } catch (e) {
-                console.error("Error consultando reporte Daily:", e);
-                showModal('Error de Consulta', '<p>No se pudo obtener el reporte de la base de datos.</p>');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Consultar Reporte';
-            }
-        }
+            } catch (e) {
+                console.error("Error consultando reporte Daily:", e);
+                showModal('Error de Consulta', '<p>No se pudo obtener el reporte de la base de datos.</p>');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Consultar Reporte';
+            }
+        }
 
         function renderProduccionDailyTable(data) {
             const table = doc('dataTableProduccionDaily');
@@ -1442,80 +1446,94 @@
         }
 
         function renderProduccionDailyChart(data, shiftStartTime) {
-            const ctx = doc('produccionDailyChart').getContext('2d');
-            if (productionDailyChart) {
-                productionDailyChart.destroy();
-            }
-            if (!data || data.length === 0 || !shiftStartTime) {
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                doc('chartSummaryDaily').innerHTML = '';
-                return;
-            }
+            const ctx = doc('produccionDailyChart').getContext('2d');
+            if (productionDailyChart) {
+                productionDailyChart.destroy();
+            }
+            if (!data || data.length === 0 || !shiftStartTime) {
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                doc('chartSummaryDaily').innerHTML = '';
+                return;
+            }
 
-            const hourlyBins = Array.from({ length: 12 }, () => ({}));
-            let totalTerminaciones = 0;
-            
-            data.forEach(item => {
-                const linea = item['Linea'] || 'N/A';
-                const terminaciones = Number(item['Terminaciones']) || 0;
-                totalTerminaciones += terminaciones;
-                
-                if (item['Finish date'] instanceof Date) {
-                    const diffMillis = item['Finish date'] - shiftStartTime;
-                    if (diffMillis >= 0) {
-                        const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
-                        if (hourIndex >= 0 && hourIndex < 12) {
-                            hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
-                        }
-                    }
-                }
-            });
+            // --- AJUSTE CLAVE ---
+            // Se agruparán los datos por hora sumando las 'Terminaciones'.
+            const hourlyBins = Array.from({ length: 12 }, () => ({}));
+            let totalTerminaciones = 0;
+            
+            data.forEach(item => {
+                const linea = item['Linea'] || 'N/A';
+                const terminaciones = Number(item['Terminaciones']) || 0;
+                totalTerminaciones += terminaciones;
+                
+                if (item['Finish date'] instanceof Date) {
+                    const diffMillis = item['Finish date'] - shiftStartTime;
+                    if (diffMillis >= 0) {
+                        const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                        if (hourIndex >= 0 && hourIndex < 12) {
+                            // Sumamos el valor de terminaciones en el contenedor de la hora correspondiente.
+                            hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
+                        }
+                    }
+                }
+            });
 
-            doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
+            // El resumen muestra el total de terminaciones.
+            doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
 
-            const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
-            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
-            const datasets = allLineas.map((linea, index) => ({
-                label: `Línea ${linea}`,
-                data: hourlyBins.map(hourData => hourData[linea] || 0),
-                backgroundColor: colors[index % colors.length],
-            }));
+            const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
+            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+            const datasets = allLineas.map((linea, index) => ({
+                label: `Terminaciones Línea ${linea}`,
+                // Los datos para la gráfica se toman de los contenedores de terminaciones.
+                data: hourlyBins.map(hourData => hourData[linea] || 0),
+                backgroundColor: colors[index % colors.length],
+            }));
 
-            const labels = [];
-            for (let i = 0; i < 12; i++) {
-                const start = new Date(shiftStartTime);
-                start.setHours(start.getHours() + i);
-                const end = new Date(start);
-                end.setHours(end.getHours() + 1);
-                const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-                labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
-            }
+            const labels = [];
+            for (let i = 0; i < 12; i++) {
+                const start = new Date(shiftStartTime);
+                start.setHours(start.getHours() + i);
+                const end = new Date(start);
+                end.setHours(end.getHours() + 1);
+                const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+                labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+            }
 
-            productionDailyChart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
-                        datalabels: {
-                            display: true,
-                            anchor: 'end',
-                            align: 'top',
-                            color: 'var(--text-primary)',
-                            font: { weight: 'bold' },
-                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
-                        }
-                    },
-                    scales: {
-                        x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
-                        y: { stacked: true, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
-                    }
-                },
-                plugins: [ChartDataLabels]
-            });
-            updateChartTheme();
-        }
+            productionDailyChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
+                        // El título de la gráfica ahora especifica que son terminaciones.
+                        title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: 'var(--text-primary)',
+                            font: { weight: 'bold' },
+                            // El formateador muestra el valor de la barra (que es la suma de terminaciones).
+                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
+                        y: { 
+                            stacked: true, 
+                            beginAtZero: true, 
+                            grid: { color: 'var(--chart-grid-color)' }, 
+                            ticks: { color: 'var(--chart-tick-color)' },
+                            title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+            updateChartTheme();
+        }
 
         // --- Lógica para el Reporte Semanal del Reporte Daily ---
         function abrirModalReporteSemanalDaily() {
@@ -1608,44 +1626,46 @@
         }
 
         function renderGraficaSemanalDaily(datos, labels, lineas) {
-            const ctx = doc('graficaSemanalDaily').getContext('2d');
-            if (graficaSemanalDailyInstance) {
-                graficaSemanalDailyInstance.destroy();
-            }
+            const ctx = doc('graficaSemanalDaily').getContext('2d');
+            if (graficaSemanalDailyInstance) {
+                graficaSemanalDailyInstance.destroy();
+            }
 
-            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
-            const datasets = lineas.map((linea, index) => ({
-                label: `Línea ${linea}`,
-                data: labels.map(fecha => (datos[fecha] && datos[fecha][linea]) ? datos[fecha][linea] : 0),
-                backgroundColor: colors[index % colors.length]
-            }));
+            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+            const datasets = lineas.map((linea, index) => ({
+                // --- AJUSTE CLAVE ---
+                // Se especifica "Terminaciones" en la etiqueta de la leyenda.
+                label: `Terminaciones Línea ${linea}`,
+                data: labels.map(fecha => (datos[fecha] && datos[fecha][linea]) ? datos[fecha][linea] : 0),
+                backgroundColor: colors[index % colors.length]
+            }));
 
-            graficaSemanalDailyInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels.map(f => new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })),
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { stacked: true, beginAtZero: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } },
-                        x: { stacked: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } }
-                    },
-                    plugins: {
-                        legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
-                        datalabels: {
-                            color: 'white',
-                            font: { weight: 'bold' },
-                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
-                        }
-                    }
-                },
-                plugins: [ChartDataLabels]
-            });
-            updateChartTheme();
-        }
+            graficaSemanalDailyInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(f => new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { stacked: true, beginAtZero: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' }, title: { display: true, text: 'Total Terminaciones', color: 'var(--chart-tick-color)' } },
+                        x: { stacked: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
+                        datalabels: {
+                            color: 'white',
+                            font: { weight: 'bold' },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+            updateChartTheme();
+        }
 
         // =======================================================================================
         // --- FIN: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
