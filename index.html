@@ -1546,112 +1546,94 @@
         }
 
         // --- Lógica para el Reporte Semanal del Reporte Daily ---
-    function abrirModalReporteSemanalDaily() {
-            const modalHTML = `
-            	<div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
-            		<div>
-            			<label for="semanalDaily_fecha_inicio">Fecha de Inicio</label>
-            			<input type="date" id="semanalDaily_fecha_inicio">
-            		</div>
-            		<div>
-            			<label for="semanalDaily_fecha_fin">Fecha de Fin</label>
-            			<input type="date" id="semanalDaily_fecha_fin">
-            		</div>
-					
-					// --- AJUSTE CLAVE 1: SELECTOR DE TURNO AÑADIDO ---
-            		<div>
-            			<label for="semanalDaily_turno">Turno</label>
-            			<select id="semanalDaily_turno">
-            				<option value="T45">T45 (L-M, Día)</option>
-            				<option value="T46">T46 (L-M, Noche)</option>
-            				<option value="T47">T47 (J-D, Día)</option>
-            				<option value="T48">T48 (J-D, Noche)</option>
-            			</select>
-            		</div>
-            	</div>
-            	<button id="generarReporteSemanalDailyBtn" class="btn" style="width: 100%;">Generar Gráfica Comparativa</button>
-            	<div id="chartContainerSemanalDaily" style="margin-top: 20px; height: 45vh; position: relative;">
-            		<canvas id="graficaSemanalDaily"></canvas>
-            	</div>
-            `;
-            showModal('Reporte Semanal de Terminaciones (Daily)', modalHTML);
+        function abrirModalReporteSemanalDaily() {
+            const modalHTML = `
+                <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
+                    <div>
+                        <label for="semanalDaily_fecha_inicio">Fecha de Inicio</label>
+                        <input type="date" id="semanalDaily_fecha_inicio">
+                    </div>
+                    <div>
+                        <label for="semanalDaily_fecha_fin">Fecha de Fin</label>
+                        <input type="date" id="semanalDaily_fecha_fin">
+                    </div>
+                </div>
+                <button id="generarReporteSemanalDailyBtn" class="btn" style="width: 100%;">Generar Gráfica Comparativa</button>
+                <div id="chartContainerSemanalDaily" style="margin-top: 20px; height: 45vh; position: relative;">
+                    <canvas id="graficaSemanalDaily"></canvas>
+                </div>
+            `;
+            showModal('Reporte Semanal de Terminaciones (Daily)', modalHTML);
 
-            const hoy = new Date();
-            const haceUnaSemana = new Date();
-            haceUnaSemana.setDate(hoy.getDate() - 6);
-            doc('semanalDaily_fecha_fin').value = hoy.toISOString().split('T')[0];
-            doc('semanalDaily_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
-			
-			// Se pre-selecciona el turno actual automáticamente
-			doc('semanalDaily_turno').value = getAutoCurrentShift();
+            const hoy = new Date();
+            const haceUnaSemana = new Date();
+            haceUnaSemana.setDate(hoy.getDate() - 6);
+            doc('semanalDaily_fecha_fin').value = hoy.toISOString().split('T')[0];
+            doc('semanalDaily_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
 
-            doc('generarReporteSemanalDailyBtn').addEventListener('click', consultarReporteSemanalDaily);
-        }
+            doc('generarReporteSemanalDailyBtn').addEventListener('click', consultarReporteSemanalDaily);
+        }
 
         async function consultarReporteSemanalDaily() {
-            const btn = doc('generarReporteSemanalDailyBtn');
-            btn.disabled = true;
-            btn.textContent = 'Generando...';
+            const btn = doc('generarReporteSemanalDailyBtn');
+            btn.disabled = true;
+            btn.textContent = 'Generando...';
 
-            const fechaInicio = doc('semanalDaily_fecha_inicio').value;
-            const fechaFin = doc('semanalDaily_fecha_fin').value;
-			// --- AJUSTE CLAVE 2: OBTENER EL TURNO SELECCIONADO ---
-            const turnoSeleccionado = doc('semanalDaily_turno').value;
+            const fechaInicio = doc('semanalDaily_fecha_inicio').value;
+            const fechaFin = doc('semanalDaily_fecha_fin').value;
 
-            if (!fechaInicio || !fechaFin || !turnoSeleccionado) {
-                alert('Por favor, selecciona un rango de fechas y un turno.');
-                btn.disabled = false;
-                btn.textContent = 'Generar Gráfica Comparativa';
-                return;
-            }
+            if (!fechaInicio || !fechaFin) {
+                alert('Por favor, selecciona un rango de fechas.');
+                btn.disabled = false;
+                btn.textContent = 'Generar Gráfica Comparativa';
+                return;
+            }
 
-            const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
-            const fechaFinDate = new Date(`${fechaFin}T23:59:59`);
+            const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+            const fechaFinDate = new Date(`${fechaFin}T23:59:59`);
 
-            try {
-				// --- AJUSTE CLAVE 3: FILTRAR LA CONSULTA POR TURNO ---
-                const snapshot = await db.collection('produccion_daily_historico')
-                    .where('Finish date', '>=', fechaInicioDate)
-                    .where('Finish date', '<=', fechaFinDate)
-					.where('Turno', '==', turnoSeleccionado) // Se añade el filtro por el turno seleccionado
-                    .get();
+            try {
+                const snapshot = await db.collection('produccion_daily_historico')
+                    .where('Finish date', '>=', fechaInicioDate)
+                    .where('Finish date', '<=', fechaFinDate)
+                    .get();
 
-                const datosAgrupados = {};
-                const labelsFechas = new Set();
-                const allLineas = new Set();
+                const datosAgrupados = {};
+                const labelsFechas = new Set();
+                const allLineas = new Set();
 
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    const fechaHora = data['Finish date'].toDate();
-                    
-                    const dateKey = fechaHora.toISOString().split('T')[0];
-                    labelsFechas.add(dateKey);
-                    
-                    const linea = data['Linea'] || 'N/A';
-                    allLineas.add(linea);
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const fechaHora = data['Finish date'].toDate();
+                    
+                    const dateKey = fechaHora.toISOString().split('T')[0];
+                    labelsFechas.add(dateKey);
+                    
+                    const linea = data['Linea'] || 'N/A';
+                    allLineas.add(linea);
 
-                    if (!datosAgrupados[dateKey]) datosAgrupados[dateKey] = {};
-                    if (!datosAgrupados[dateKey][linea]) datosAgrupados[dateKey][linea] = 0;
-                    
-                    const catalogo = data['Catálogo'] || '';
-                    const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
-                    const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
-                    const terminaciones = fibras * (Number(data['Cantidad']) || 0);
+                    if (!datosAgrupados[dateKey]) datosAgrupados[dateKey] = {};
+                    if (!datosAgrupados[dateKey][linea]) datosAgrupados[dateKey][linea] = 0;
+                    
+                    const catalogo = data['Catálogo'] || '';
+                    const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
+                    const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
+                    const terminaciones = fibras * (Number(data['Cantidad']) || 0);
 
-                    datosAgrupados[dateKey][linea] += terminaciones;
-                });
+                    datosAgrupados[dateKey][linea] += terminaciones;
+                });
 
-                const fechasOrdenadas = Array.from(labelsFechas).sort();
-                renderGraficaSemanalDaily(datosAgrupados, fechasOrdenadas, Array.from(allLineas).sort());
+                const fechasOrdenadas = Array.from(labelsFechas).sort();
+                renderGraficaSemanalDaily(datosAgrupados, fechasOrdenadas, Array.from(allLineas).sort());
 
-            } catch (e) {
-                console.error("Error consultando reporte semanal daily:", e);
-                alert("No se pudo generar el reporte semanal. Revisa la consola.");
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Generar Gráfica Comparativa';
-            }
-        }
+            } catch (e) {
+                console.error("Error consultando reporte semanal daily:", e);
+                alert("No se pudo generar el reporte semanal. Revisa la consola.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generar Gráfica Comparativa';
+            }
+        }
 
         function renderGraficaSemanalDaily(datos, labels, lineas) {
             const ctx = doc('graficaSemanalDaily').getContext('2d');
@@ -1661,6 +1643,8 @@
 
             const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
             const datasets = lineas.map((linea, index) => ({
+                // --- AJUSTE CLAVE ---
+                // Se especifica "Terminaciones" en la etiqueta de la leyenda.
                 label: `Terminaciones Línea ${linea}`,
                 data: labels.map(fecha => (datos[fecha] && datos[fecha][linea]) ? datos[fecha][linea] : 0),
                 backgroundColor: colors[index % colors.length]
@@ -1671,15 +1655,13 @@
                 data: {
                     labels: labels.map(f => new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })),
                     datasets: datasets
-      _          },
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-						// --- AJUSTE CLAVE 4: BARRAS AGRUPADAS ---
-						// Se elimina 'stacked: true' para que las barras se agrupen por día.
-                        y: { beginAtZero: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' }, title: { display: true, text: 'Total Terminaciones', color: 'var(--chart-tick-color)' } },
-                        x: { ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } }
+                        y: { stacked: true, beginAtZero: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' }, title: { display: true, text: 'Total Terminaciones', color: 'var(--chart-tick-color)' } },
+                        x: { stacked: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } }
                     },
                     plugins: {
                         legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
@@ -1694,6 +1676,7 @@
             });
             updateChartTheme();
         }
+
         // =======================================================================================
         // --- FIN: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
         // =======================================================================================
