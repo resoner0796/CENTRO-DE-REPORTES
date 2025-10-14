@@ -1609,7 +1609,15 @@
             }
 
             const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
-            const fechaFinDate = new Date(`${fechaFin}T23:59:59`);
+
+			// --- AJUSTE CLAVE: CORRECCIÓN DEL RANGO DE FECHA FINAL ---
+			// Creamos la fecha final a partir del string.
+			const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
+			// Le sumamos un día para incluir el turno de noche que termina en la madrugada siguiente.
+			fechaFinDate.setDate(fechaFinDate.getDate() + 1);
+			// Establecemos la hora límite a las 6:29:59 AM, cubriendo todo el turno de noche.
+			fechaFinDate.setHours(6, 29, 59, 999);
+
 
             try {
                 const snapshot = await db.collection('produccion_daily_historico')
@@ -1625,13 +1633,11 @@
                     const data = docSnap.data();
                     const fechaHora = data['Finish date'].toDate();
 					
-					// --- AJUSTE CLAVE: USAR LA FECHA CORRECTA ---
-					// La función getWorkShiftAndDate nos devuelve el turno (shift) Y el día de trabajo correcto (dateKey).
                     const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
 
-					if (shift === turnoSeleccionado) {
-						// Ahora usamos el 'dateKey' que nos da la función, que ya considera el desfase de turno (ej. Lunes 6).
-						// Ya no volvemos a calcular la fecha a partir del timestamp.
+					// Se añade una comprobación para que no se incluyan días fuera del rango seleccionado
+					// (ej. el turno de día del día siguiente que podría colarse por el rango extendido).
+					if (shift === turnoSeleccionado && dateKey >= fechaInicio && dateKey <= fechaFin) {
                     	labelsFechas.add(dateKey);
                     	
                     	const linea = data['Linea'] || 'N/A';
