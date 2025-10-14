@@ -1253,269 +1253,399 @@
             return `${month}/${day} ${hour}:${minute}`;
         }
         
-       // =======================================================================================
-// --- INICIO: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
-// =======================================================================================
+        // =======================================================================================
+        // --- INICIO: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
+        // =======================================================================================
 
-doc('consultarProduccionDailyBtn').addEventListener('click', consultarReporteProduccionDaily);
-doc('abrirModalSemanalDailyBtn').addEventListener('click', abrirModalReporteSemanalDaily);
+        doc('consultarProduccionDailyBtn').addEventListener('click', consultarReporteProduccionDaily);
+        doc('abrirModalSemanalDailyBtn').addEventListener('click', abrirModalReporteSemanalDaily);
 
-async function handleProduccionDailyFile(file) {
-    const config = params.produccion_daily_config;
-    if (!config || !config.columns || config.columns.length === 0) {
-        showModal('Configuración Requerida', '<p>La configuración para este reporte no ha sido cargada. Contacte al administrador.</p>');
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        try {
-            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1, blankrows: false });
+        async function handleProduccionDailyFile(file) {
+            const config = params.produccion_daily_config;
+            if (!config || !config.columns || config.columns.length === 0) {
+                showModal('Configuración Requerida', '<p>La configuración para este reporte no ha sido cargada. Contacte al administrador.</p>');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1, blankrows: false });
 
-            const colMap = {};
-            config.columns.forEach(col => {
-                colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
-            });
+                    const colMap = {};
+                    config.columns.forEach(col => {
+                        colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
+                    });
 
-            const dataToSave = [];
-            jsonData.forEach((row, index) => {
-                const rowData = {};
-                let hasData = false;
-                config.columns.forEach(col => {
-                    const value = row[colMap[col.key]];
-                    rowData[col.key] = value;
-                    if (value !== undefined && value !== null && String(value).trim() !== '') {
-                        hasData = true;
+                    const dataToSave = [];
+                    jsonData.forEach((row, index) => {
+                        const rowData = {};
+                        let hasData = false;
+                        config.columns.forEach(col => {
+                            const value = row[colMap[col.key]];
+                            rowData[col.key] = value;
+                            if (value !== undefined && value !== null && String(value).trim() !== '') {
+                                hasData = true;
+                            }
+                        });
+
+                        if (hasData) {
+                            let fechaHora = null;
+                            if (rowData['Finish date'] instanceof Date) {
+                                fechaHora = rowData['Finish date'];
+                            } else if (typeof rowData['Finish date'] === 'number') {
+                                fechaHora = excelSerialToDateObject(rowData['Finish date']);
+                            }
+                            
+                            if (fechaHora) {
+                                const docId = `${fechaHora.getTime()}-${rowData['Linea'] || 'N/A'}-${index}`;
+                                dataToSave.push({ 
+                                    docId: docId, 
+                                    data: { ...rowData, 'Finish date': firebase.firestore.Timestamp.fromDate(fechaHora) } 
+                                });
+                            }
+                        }
+                    });
+
+                    if (dataToSave.length === 0) {
+                        showModal('Sin Datos', `<p>No se encontraron datos válidos a partir de la fila ${config.startRow}.</p>`);
+                        return;
                     }
+
+                    const batch = db.batch();
+                    dataToSave.forEach(item => {
+                        const docRef = db.collection('produccion_daily_historico').doc(item.docId);
+                        batch.set(docRef, item.data);
+                    });
+                    await batch.commit();
+
+                    doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
+                    showModal('Éxito', `<p>${dataToSave.length} registros han sido guardados. Vuelva a consultar la fecha para ver los datos.</p>`);
+                    consultarReporteProduccionDaily();
+
+                } catch (err) {
+                    console.error("Error al procesar archivo Daily:", err);
+                    doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
+                    showModal('Error de Archivo', `<p>No se pudo procesar o guardar el archivo. Verifique el formato y la configuración.</p>`);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function consultarReporteProduccionDaily() {
+            const fechaInput = doc('prodDaily_fecha').value;
+            const turnoInput = doc('prodDaily_turno').value;
+
+            if (!fechaInput) {
+                showModal('Fecha Requerida', '<p>Por favor, seleccione una fecha.</p>');
+                return;
+            }
+            const btn = doc('consultarProduccionDailyBtn');
+            btn.disabled = true;
+            btn.textContent = 'Consultando...';
+
+            const { startTime, endTime } = getShiftDateRange(fechaInput, turnoInput);
+
+            try {
+                const snapshot = await db.collection('produccion_daily_historico')
+                    .where('Finish date', '>=', startTime)
+                    .where('Finish date', '<=', endTime)
+                    .get();
+
+                const data = [];
+                snapshot.forEach(docSnap => {
+                    const docData = docSnap.data();
+                    data.push({
+                        ...docData,
+                        'Finish date': docData['Finish date'] ? docData['Finish date'].toDate() : null
+                    });
                 });
 
-                if (hasData) {
-                    let fechaHora = null;
-                    if (rowData['Finish date'] instanceof Date) {
-                        fechaHora = rowData['Finish date'];
-                    } else if (typeof rowData['Finish date'] === 'number') {
-                        fechaHora = excelSerialToDateObject(rowData['Finish date']);
-                    }
-                    
-                    if (fechaHora) {
-                        const docId = `${fechaHora.getTime()}-${rowData['Linea'] || 'N/A'}-${index}`;
-                        dataToSave.push({ 
-                            docId: docId, 
-                            data: { ...rowData, 'Finish date': firebase.firestore.Timestamp.fromDate(fechaHora) } 
-                        });
-                    }
+                if (data.length === 0) {
+                    showModal('Sin Datos', `<p>No se encontraron registros para la fecha y turno seleccionados.</p>`);
+                    renderProduccionDailyTable([]);
+                    renderProduccionDailyChart([], startTime);
+                    return;
                 }
-            });
 
-            if (dataToSave.length === 0) {
-                showModal('Sin Datos', `<p>No se encontraron datos válidos a partir de la fila ${config.startRow}.</p>`);
+                const processedData = data.map(row => {
+                    const catalogo = row['Catálogo'] || '';
+                    const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
+                    const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
+                    const terminaciones = fibras * (Number(row['Cantidad']) || 0);
+                    return { ...row, Fibras: fibras, Terminaciones: terminaciones };
+                });
+
+                renderProduccionDailyTable(processedData);
+                renderProduccionDailyChart(processedData, startTime);
+
+            } catch (e) {
+                console.error("Error consultando reporte Daily:", e);
+                showModal('Error de Consulta', '<p>No se pudo obtener el reporte de la base de datos.</p>');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Consultar Reporte';
+            }
+        }
+
+        function renderProduccionDailyTable(data) {
+            const table = doc('dataTableProduccionDaily');
+            if (!data || data.length === 0) {
+                table.innerHTML = `<thead><tr><th>Sin datos para mostrar.</th></tr></thead><tbody></tbody>`;
                 return;
             }
 
-            const batch = db.batch();
-            dataToSave.forEach(item => {
-                const docRef = db.collection('produccion_daily_historico').doc(item.docId);
-                batch.set(docRef, item.data);
+            const headers = [...params.produccion_daily_config.columns.map(c => c.key), 'Fibras', 'Terminaciones'];
+            
+            let headerHtml = '<thead><tr>';
+            headers.forEach(h => headerHtml += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`);
+            headerHtml += '</tr></thead>';
+
+            let bodyHtml = '<tbody>';
+            data.sort((a, b) => (b['Finish date'] || 0) - (a['Finish date'] || 0));
+
+            data.forEach(row => {
+                bodyHtml += `<tr>`;
+                headers.forEach(header => {
+                    let value = row[header];
+                    if (header === 'Finish date' && value instanceof Date) {
+                        value = formatShortDateTime(value);
+                    }
+                    bodyHtml += `<td>${value ?? ''}</td>`;
+                });
+                bodyHtml += `</tr>`;
             });
-            await batch.commit();
-
-            doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-            showModal('Éxito', `<p>${dataToSave.length} registros han sido guardados. Vuelva a consultar la fecha para ver los datos.</p>`);
-            consultarReporteProduccionDaily();
-
-        } catch (err) {
-            console.error("Error al procesar archivo Daily:", err);
-            doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
-            showModal('Error de Archivo', `<p>No se pudo procesar o guardar el archivo. Verifique el formato y la configuración.</p>`);
-        }
-    };
-    reader.readAsArrayBuffer(file);
-}
-
-async function consultarReporteProduccionDaily() {
-    const fechaInput = doc('prodDaily_fecha').value;
-    const turnoInput = doc('prodDaily_turno').value;
-
-    if (!fechaInput) {
-        showModal('Fecha Requerida', '<p>Por favor, seleccione una fecha.</p>');
-        return;
-    }
-    const btn = doc('consultarProduccionDailyBtn');
-    btn.disabled = true;
-    btn.textContent = 'Consultando...';
-
-    const { startTime, endTime } = getShiftDateRange(fechaInput, turnoInput);
-
-    try {
-        const snapshot = await db.collection('produccion_daily_historico')
-            .where('Finish date', '>=', startTime)
-            .where('Finish date', '<=', endTime)
-            .get();
-
-        const data = [];
-        snapshot.forEach(docSnap => {
-            const docData = docSnap.data();
-            data.push({
-                ...docData,
-                'Finish date': docData['Finish date'] ? docData['Finish date'].toDate() : null
+            bodyHtml += '</tbody>';
+            table.innerHTML = headerHtml + bodyHtml;
+            
+            table.querySelectorAll('.filter-input').forEach(input => {
+                input.addEventListener('keyup', () => {
+                    const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({
+                        columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')),
+                        value: i.value.toLowerCase()
+                    }));
+                    table.querySelectorAll('tbody tr').forEach(row => {
+                        let shouldShow = true;
+                        filters.forEach(filter => {
+                            if (filter.value) {
+                                const cell = row.children[filter.columnIndex];
+                                if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) {
+                                    shouldShow = false;
+                                }
+                            }
+                        });
+                        row.style.display = shouldShow ? '' : 'none';
+                    });
+                });
             });
-        });
-
-        if (data.length === 0) {
-            showModal('Sin Datos', `<p>No se encontraron registros para la fecha y turno seleccionados.</p>`);
-            renderProduccionDailyTable([]);
-            renderProduccionDailyChart([], startTime);
-            return;
         }
 
-        const processedData = data.map(row => {
-            const catalogo = row['Catálogo'] || '';
-            const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
-            const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
-            const terminaciones = fibras * (Number(row['Cantidad']) || 0); // La cantidad es necesaria aquí
-            return { ...row, Fibras: fibras, Terminaciones: terminaciones };
-        });
-
-        renderProduccionDailyTable(processedData);
-        renderProduccionDailyChart(processedData, startTime);
-
-    } catch (e) {
-        console.error("Error consultando reporte Daily:", e);
-        showModal('Error de Consulta', '<p>No se pudo obtener el reporte de la base de datos.</p>');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Consultar Reporte';
-    }
-}
-
-function renderProduccionDailyTable(data) {
-    const table = doc('dataTableProduccionDaily');
-    if (!data || data.length === 0) {
-        table.innerHTML = `<thead><tr><th>Sin datos para mostrar.</th></tr></thead><tbody></tbody>`;
-        return;
-    }
-
-    const headers = [...params.produccion_daily_config.columns.map(c => c.key), 'Fibras', 'Terminaciones'];
-    
-    let headerHtml = '<thead><tr>';
-    headers.forEach(h => headerHtml += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`);
-    headerHtml += '</tr></thead>';
-
-    let bodyHtml = '<tbody>';
-    data.sort((a, b) => (b['Finish date'] || 0) - (a['Finish date'] || 0));
-
-    data.forEach(row => {
-        bodyHtml += `<tr>`;
-        headers.forEach(header => {
-            let value = row[header];
-            if (header === 'Finish date' && value instanceof Date) {
-                value = formatShortDateTime(value);
+        function renderProduccionDailyChart(data, shiftStartTime) {
+            const ctx = doc('produccionDailyChart').getContext('2d');
+            if (productionDailyChart) {
+                productionDailyChart.destroy();
             }
-            bodyHtml += `<td>${value ?? ''}</td>`;
-        });
-        bodyHtml += `</tr>`;
-    });
-    bodyHtml += '</tbody>';
-    table.innerHTML = headerHtml + bodyHtml;
-    
-    table.querySelectorAll('.filter-input').forEach(input => {
-        input.addEventListener('keyup', () => {
-            const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({
-                columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')),
-                value: i.value.toLowerCase()
-            }));
-            table.querySelectorAll('tbody tr').forEach(row => {
-                let shouldShow = true;
-                filters.forEach(filter => {
-                    if (filter.value) {
-                        const cell = row.children[filter.columnIndex];
-                        if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) {
-                            shouldShow = false;
+            if (!data || data.length === 0 || !shiftStartTime) {
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                doc('chartSummaryDaily').innerHTML = '';
+                return;
+            }
+
+            const hourlyBins = Array.from({ length: 12 }, () => ({}));
+            let totalTerminaciones = 0;
+            
+            data.forEach(item => {
+                const linea = item['Linea'] || 'N/A';
+                const terminaciones = Number(item['Terminaciones']) || 0;
+                totalTerminaciones += terminaciones;
+                
+                if (item['Finish date'] instanceof Date) {
+                    const diffMillis = item['Finish date'] - shiftStartTime;
+                    if (diffMillis >= 0) {
+                        const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                        if (hourIndex >= 0 && hourIndex < 12) {
+                            hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
                         }
                     }
-                });
-                row.style.display = shouldShow ? '' : 'none';
-            });
-        });
-    });
-}
-
-function renderProduccionDailyChart(data, shiftStartTime) {
-    const ctx = doc('produccionDailyChart').getContext('2d');
-    if (productionDailyChart) {
-        productionDailyChart.destroy();
-    }
-    if (!data || data.length === 0 || !shiftStartTime) {
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        doc('chartSummaryDaily').innerHTML = '';
-        return;
-    }
-
-    const hourlyBins = Array.from({ length: 12 }, () => ({}));
-    let totalTerminaciones = 0;
-
-    data.forEach(item => {
-        const linea = item['Linea'] || 'N/A';
-        const terminaciones = Number(item['Terminaciones']) || 0; 
-        totalTerminaciones += terminaciones; 
-        
-        if (item['Finish date'] instanceof Date) {
-            const diffMillis = item['Finish date'] - shiftStartTime;
-            if (diffMillis >= 0) {
-                const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
-                if (hourIndex >= 0 && hourIndex < 12) {
-                    hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
                 }
+            });
+
+            doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
+
+            const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
+            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+            const datasets = allLineas.map((linea, index) => ({
+                label: `Línea ${linea}`,
+                data: hourlyBins.map(hourData => hourData[linea] || 0),
+                backgroundColor: colors[index % colors.length],
+            }));
+
+            const labels = [];
+            for (let i = 0; i < 12; i++) {
+                const start = new Date(shiftStartTime);
+                start.setHours(start.getHours() + i);
+                const end = new Date(start);
+                end.setHours(end.getHours() + 1);
+                const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+                labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+            }
+
+            productionDailyChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: 'var(--text-primary)',
+                            font: { weight: 'bold' },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
+                        y: { stacked: true, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+            updateChartTheme();
+        }
+
+        // --- Lógica para el Reporte Semanal del Reporte Daily ---
+        function abrirModalReporteSemanalDaily() {
+            const modalHTML = `
+                <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
+                    <div>
+                        <label for="semanalDaily_fecha_inicio">Fecha de Inicio</label>
+                        <input type="date" id="semanalDaily_fecha_inicio">
+                    </div>
+                    <div>
+                        <label for="semanalDaily_fecha_fin">Fecha de Fin</label>
+                        <input type="date" id="semanalDaily_fecha_fin">
+                    </div>
+                </div>
+                <button id="generarReporteSemanalDailyBtn" class="btn" style="width: 100%;">Generar Gráfica Comparativa</button>
+                <div id="chartContainerSemanalDaily" style="margin-top: 20px; height: 45vh; position: relative;">
+                    <canvas id="graficaSemanalDaily"></canvas>
+                </div>
+            `;
+            showModal('Reporte Semanal de Terminaciones (Daily)', modalHTML);
+
+            const hoy = new Date();
+            const haceUnaSemana = new Date();
+            haceUnaSemana.setDate(hoy.getDate() - 6);
+            doc('semanalDaily_fecha_fin').value = hoy.toISOString().split('T')[0];
+            doc('semanalDaily_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
+
+            doc('generarReporteSemanalDailyBtn').addEventListener('click', consultarReporteSemanalDaily);
+        }
+
+        async function consultarReporteSemanalDaily() {
+            const btn = doc('generarReporteSemanalDailyBtn');
+            btn.disabled = true;
+            btn.textContent = 'Generando...';
+
+            const fechaInicio = doc('semanalDaily_fecha_inicio').value;
+            const fechaFin = doc('semanalDaily_fecha_fin').value;
+
+            if (!fechaInicio || !fechaFin) {
+                alert('Por favor, selecciona un rango de fechas.');
+                btn.disabled = false;
+                btn.textContent = 'Generar Gráfica Comparativa';
+                return;
+            }
+
+            const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+            const fechaFinDate = new Date(`${fechaFin}T23:59:59`);
+
+            try {
+                const snapshot = await db.collection('produccion_daily_historico')
+                    .where('Finish date', '>=', fechaInicioDate)
+                    .where('Finish date', '<=', fechaFinDate)
+                    .get();
+
+                const datosAgrupados = {};
+                const labelsFechas = new Set();
+                const allLineas = new Set();
+
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const fechaHora = data['Finish date'].toDate();
+                    
+                    const dateKey = fechaHora.toISOString().split('T')[0];
+                    labelsFechas.add(dateKey);
+                    
+                    const linea = data['Linea'] || 'N/A';
+                    allLineas.add(linea);
+
+                    if (!datosAgrupados[dateKey]) datosAgrupados[dateKey] = {};
+                    if (!datosAgrupados[dateKey][linea]) datosAgrupados[dateKey][linea] = 0;
+                    
+                    const catalogo = data['Catálogo'] || '';
+                    const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
+                    const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
+                    const terminaciones = fibras * (Number(data['Cantidad']) || 0);
+
+                    datosAgrupados[dateKey][linea] += terminaciones;
+                });
+
+                const fechasOrdenadas = Array.from(labelsFechas).sort();
+                renderGraficaSemanalDaily(datosAgrupados, fechasOrdenadas, Array.from(allLineas).sort());
+
+            } catch (e) {
+                console.error("Error consultando reporte semanal daily:", e);
+                alert("No se pudo generar el reporte semanal. Revisa la consola.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generar Gráfica Comparativa';
             }
         }
-    });
 
-    doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
-
-    const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
-    const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
-    const datasets = allLineas.map((linea, index) => ({
-        label: `Línea ${linea}`,
-        data: hourlyBins.map(hourData => hourData[linea] || 0),
-        backgroundColor: colors[index % colors.length],
-    }));
-
-    const labels = [];
-    for (let i = 0; i < 12; i++) {
-        const start = new Date(shiftStartTime);
-        start.setHours(start.getHours() + i);
-        const end = new Date(start);
-        end.setHours(end.getHours() + 1);
-        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-        labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
-    }
-
-    productionDailyChart = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
-                datalabels: {
-                    display: true,
-                    anchor: 'end',
-                    align: 'top',
-                    color: 'var(--text-primary)',
-                    font: { weight: 'bold' },
-                    formatter: (value) => value > 0 ? value.toLocaleString() : ''
-                }
-            },
-            scales: {
-                x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
-                y: { stacked: true, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+        function renderGraficaSemanalDaily(datos, labels, lineas) {
+            const ctx = doc('graficaSemanalDaily').getContext('2d');
+            if (graficaSemanalDailyInstance) {
+                graficaSemanalDailyInstance.destroy();
             }
-        },
-        plugins: [ChartDataLabels]
-    });
-    updateChartTheme();
-}
+
+            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+            const datasets = lineas.map((linea, index) => ({
+                label: `Línea ${linea}`,
+                data: labels.map(fecha => (datos[fecha] && datos[fecha][linea]) ? datos[fecha][linea] : 0),
+                backgroundColor: colors[index % colors.length]
+            }));
+
+            graficaSemanalDailyInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(f => new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { stacked: true, beginAtZero: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } },
+                        x: { stacked: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
+                        datalabels: {
+                            color: 'white',
+                            font: { weight: 'bold' },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+            updateChartTheme();
+        }
 
         // =======================================================================================
         // --- FIN: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
