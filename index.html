@@ -1441,81 +1441,84 @@
             });
         }
 
-        function renderProduccionDailyChart(data, shiftStartTime) {
-            const ctx = doc('produccionDailyChart').getContext('2d');
-            if (productionDailyChart) {
-                productionDailyChart.destroy();
-            }
-            if (!data || data.length === 0 || !shiftStartTime) {
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                doc('chartSummaryDaily').innerHTML = '';
-                return;
-            }
+        // Función para renderizar el gráfico del reporte Daily
+function renderProduccionDailyChart(data, shiftStartTime) {
+    const ctx = doc('produccionDailyChart').getContext('2d');
+    if (productionDailyChart) {
+        productionDailyChart.destroy();
+    }
+    if (!data || data.length === 0 || !shiftStartTime) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        doc('chartSummaryDaily').innerHTML = '';
+        return;
+    }
 
-            const hourlyBins = Array.from({ length: 12 }, () => ({}));
-            let totalTerminaciones = 0;
-            
-            data.forEach(item => {
-                const linea = item['Linea'] || 'N/A';
-                const terminaciones = Number(item['Terminaciones']) || 0;
-                totalTerminaciones += terminaciones;
-                
-                if (item['Finish date'] instanceof Date) {
-                    const diffMillis = item['Finish date'] - shiftStartTime;
-                    if (diffMillis >= 0) {
-                        const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
-                        if (hourIndex >= 0 && hourIndex < 12) {
-                            hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
-                        }
-                    }
+    const hourlyBins = Array.from({ length: 12 }, () => ({}));
+    let totalTerminaciones = 0; // CORRECCIÓN: Cambiamos de totalPiezas a totalTerminaciones
+
+    data.forEach(item => {
+        const linea = item['Linea'] || 'N/A';
+        const terminaciones = Number(item['Terminaciones']) || 0; // CORRECCIÓN: Usamos el valor de Terminaciones
+        totalTerminaciones += terminaciones; // CORRECCIÓN: Acumulamos el total de terminaciones
+        
+        if (item['Finish date'] instanceof Date) {
+            const diffMillis = item['Finish date'] - shiftStartTime;
+            if (diffMillis >= 0) {
+                const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                if (hourIndex >= 0 && hourIndex < 12) {
+                    // CORRECCIÓN: Acumulamos terminaciones por hora, no piezas
+                    hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
                 }
-            });
-
-            doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
-
-            const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
-            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
-            const datasets = allLineas.map((linea, index) => ({
-                label: `Línea ${linea}`,
-                data: hourlyBins.map(hourData => hourData[linea] || 0),
-                backgroundColor: colors[index % colors.length],
-            }));
-
-            const labels = [];
-            for (let i = 0; i < 12; i++) {
-                const start = new Date(shiftStartTime);
-                start.setHours(start.getHours() + i);
-                const end = new Date(start);
-                end.setHours(end.getHours() + 1);
-                const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-                labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
             }
-
-            productionDailyChart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
-                        datalabels: {
-                            display: true,
-                            anchor: 'end',
-                            align: 'top',
-                            color: 'var(--text-primary)',
-                            font: { weight: 'bold' },
-                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
-                        }
-                    },
-                    scales: {
-                        x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
-                        y: { stacked: true, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
-                    }
-                },
-                plugins: [ChartDataLabels]
-            });
-            updateChartTheme();
         }
+    });
+
+    // CORRECCIÓN: Actualizamos el texto del resumen para mostrar terminaciones
+    doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
+
+    const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
+    const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+    const datasets = allLineas.map((linea, index) => ({
+        label: `Línea ${linea}`,
+        data: hourlyBins.map(hourData => hourData[linea] || 0),
+        backgroundColor: colors[index % colors.length],
+    }));
+
+    const labels = [];
+    for (let i = 0; i < 12; i++) {
+        const start = new Date(shiftStartTime);
+        start.setHours(start.getHours() + i);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
+        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+        labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+    }
+
+    productionDailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    color: 'var(--text-primary)',
+                    font: { weight: 'bold' },
+                    formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                }
+            },
+            scales: {
+                x: { stacked: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
+                y: { stacked: true, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+    updateChartTheme();
+}
 
         // --- Lógica para el Reporte Semanal del Reporte Daily ---
         function abrirModalReporteSemanalDaily() {
