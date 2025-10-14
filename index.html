@@ -1442,6 +1442,7 @@
         }
 
         // Función para renderizar el gráfico del reporte Daily
+// Función para renderizar el gráfico del reporte Daily
 function renderProduccionDailyChart(data, shiftStartTime) {
     const ctx = doc('produccionDailyChart').getContext('2d');
     if (productionDailyChart) {
@@ -1454,32 +1455,34 @@ function renderProduccionDailyChart(data, shiftStartTime) {
     }
 
     const hourlyBins = Array.from({ length: 12 }, () => ({}));
-    let totalTerminaciones = 0; // CORRECCIÓN: Cambiamos de totalPiezas a totalTerminaciones
+    let totalTerminaciones = 0; // Se usará para el resumen
 
     data.forEach(item => {
         const linea = item['Linea'] || 'N/A';
-        const terminaciones = Number(item['Terminaciones']) || 0; // CORRECCIÓN: Usamos el valor de Terminaciones
-        totalTerminaciones += terminaciones; // CORRECCIÓN: Acumulamos el total de terminaciones
+        // CORRECCIÓN: Obtenemos el valor de 'Terminaciones' que ya fue calculado
+        const terminaciones = Number(item['Terminaciones']) || 0; 
+        totalTerminaciones += terminaciones; // Acumulamos el total general
         
         if (item['Finish date'] instanceof Date) {
             const diffMillis = item['Finish date'] - shiftStartTime;
             if (diffMillis >= 0) {
                 const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
                 if (hourIndex >= 0 && hourIndex < 12) {
-                    // CORRECCIÓN: Acumulamos terminaciones por hora, no piezas
+                    // CORRECCIÓN CLAVE: Acumulamos 'terminaciones' en el contenedor de la hora, no la cantidad de piezas.
                     hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
                 }
             }
         }
     });
 
-    // CORRECCIÓN: Actualizamos el texto del resumen para mostrar terminaciones
+    // El resumen ya estaba correcto, pero lo confirmamos. Muestra el total de terminaciones.
     doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
 
     const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
     const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
     const datasets = allLineas.map((linea, index) => ({
         label: `Línea ${linea}`,
+        // La data para las barras ahora proviene de los 'hourlyBins' que SÍ contienen las terminaciones sumadas.
         data: hourlyBins.map(hourData => hourData[linea] || 0),
         backgroundColor: colors[index % colors.length],
     }));
