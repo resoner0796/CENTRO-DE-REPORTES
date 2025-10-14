@@ -115,7 +115,7 @@
         .icon-btn:hover { color: var(--text-primary); background-color: var(--surface-hover-color); }
         .main-content { 
             display: flex; flex-direction: column; gap: 16px; min-height: 0;
-            min-width: 0; /* AJUSTE: Previene el desbordamiento horizontal en layouts de grid/flex */
+            min-width: 0;
         }
         #summaryContainer { flex-shrink: 0; padding: 16px; }
         .summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -128,7 +128,7 @@
         table { 
             width: 100%; 
             border-collapse: collapse; 
-            table-layout: fixed; /* AJUSTE: Forzar que las tablas respeten el ancho del contenedor */
+            table-layout: fixed;
         }
         th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; font-size: 0.9rem;}
         thead { position: sticky; top: 0; background-color: var(--thead-bg); backdrop-filter: blur(5px); z-index: 10; }
@@ -175,25 +175,22 @@
             min-height: 0;
         }
 
-        /* AJUSTE: Estilos específicos para las tablas de producción para que no desborden */
         .table-grid-container table th,
         .table-grid-container table td {
-            white-space: normal; /* Permitir ajuste de línea */
-            overflow-wrap: break-word; /* Romper palabras para ajustar */
-            font-size: 0.8rem; /* Reducir fuente para mejor ajuste */
-            padding: 8px 5px; /* Reducir espaciado */
+            white-space: normal;
+            overflow-wrap: break-word;
+            font-size: 0.8rem;
+            padding: 8px 5px;
             text-align: center;
         }
-        /* Alinear columnas de texto a la izquierda para legibilidad */
         .table-grid-container table th:nth-child(1), .table-grid-container table td:nth-child(1),
         .table-grid-container table th:nth-child(2), .table-grid-container table td:nth-child(2),
         .table-grid-container table th:nth-child(3), .table-grid-container table td:nth-child(3) {
             text-align: left;
         }
         
-        /* AJUSTE: Estilos para la tabla de terminaciones y producción 20% */
         #dataTableTerminaciones, #dataTableProduccion20, #dataTableProduccionDaily {
-            table-layout: auto; /* Permitir que el navegador ajuste el ancho de las columnas */
+            table-layout: auto;
             width: 100%;
         }
         #dataTableTerminaciones th,
@@ -202,23 +199,20 @@
         #dataTableProduccion20 td,
         #dataTableProduccionDaily th,
         #dataTableProduccionDaily td {
-            white-space: nowrap; /* Prevenir el ajuste de línea para mostrar contenido completo */
-            text-align: center; /* Centrar el contenido horizontalmente */
-            vertical-align: middle; /* Centrar el contenido verticalmente */
+            white-space: nowrap;
+            text-align: center;
+            vertical-align: middle;
         }
-        /* ========= INICIO DE LA CORRECCIÓN PARA REPORTE 901 ========= */
         #dataTable901 {
-            table-layout: auto; /* Permite que el navegador ajuste el ancho de las columnas según el contenido. */
+            table-layout: auto;
         }
         #dataTable901 th, 
         #dataTable901 td {
-            white-space: normal;      /* Permite que el texto largo (como en 'Descripción') se divida en varias líneas. */
-            word-wrap: break-word;    /* Asegura que palabras muy largas no se desborden de la celda. */
-            vertical-align: top;      /* Alinea el contenido en la parte superior para mejor legibilidad en celdas con múltiples líneas. */
+            white-space: normal;
+            word-wrap: break-word;
+            vertical-align: top;
         }
-        /* ========= FIN DE LA CORRECCIÓN PARA REPORTE 901 ========= */
 
-        /* --- ESTILOS PARA EL RESUMEN SEMANAL --- */
         #resumenSemanal h5 {
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 8px;
@@ -242,7 +236,7 @@
             background-color: var(--surface-hover-color);
             border-radius: 6px;
             display: flex;
-            flex-direction: column-reverse; /* Hace que la barra crezca de abajo hacia arriba */
+            flex-direction: column-reverse;
             position: relative;
         }
         .summary-bar {
@@ -265,8 +259,6 @@
             font-size: 0.8rem;
             color: var(--text-secondary);
         }
-        /* --- FIN DE ESTILOS --- */
-
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s; }
         .modal-overlay.visible { opacity: 1; visibility: visible; }
@@ -570,6 +562,7 @@
                                 </select>
                             </div>
                             <button id="consultarProduccionDailyBtn" class="btn" style="width: 100%;">Consultar Reporte</button>
+                            <button id="abrirModalSemanalDailyBtn" class="btn btn-glass" style="width: 100%; margin-top: 12px;">Reporte Semanal</button>
                             <hr style="border-color: var(--border-color); margin: 24px 0;">
                             <div id="fileDropAreaProdDaily" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center; margin-top: 0;">
                                 <h4>Actualizar Datos</h4>
@@ -584,7 +577,7 @@
 
                     <div id="chartContainerDaily" class="card">
                         <div class="summary-header">
-                            <div class="title-wrapper"><h3>Producción por Hora</h3></div>
+                            <div class="title-wrapper"><h3>Producción de Terminaciones por Hora</h3></div>
                         </div>
                         <canvas id="produccionDailyChart"></canvas>
                         <div id="chartSummaryDaily"></div>
@@ -601,6 +594,7 @@
                 </main>
             </div>
         </div>
+
         <div id="view901">
             <div class="main-container">
                 <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
@@ -724,6 +718,7 @@
         let fiberPieChart2 = null;
         let productionReportData = null;
         let graficaSemanalInstance = null;
+        let graficaSemanalDailyInstance = null;
         let weeklyProductionChart = null;
 
 
@@ -1263,6 +1258,7 @@
         // =======================================================================================
 
         doc('consultarProduccionDailyBtn').addEventListener('click', consultarReporteProduccionDaily);
+        doc('abrirModalSemanalDailyBtn').addEventListener('click', abrirModalReporteSemanalDaily);
 
         async function handleProduccionDailyFile(file) {
             const config = params.produccion_daily_config;
@@ -1377,7 +1373,8 @@
                     const catalogo = row['Catálogo'] || '';
                     const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
                     const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
-                    return { ...row, Fibras: fibras };
+                    const terminaciones = fibras * (Number(row['Cantidad']) || 0);
+                    return { ...row, Fibras: fibras, Terminaciones: terminaciones };
                 });
 
                 renderProduccionDailyTable(processedData);
@@ -1399,7 +1396,7 @@
                 return;
             }
 
-            const headers = [...params.produccion_daily_config.columns.map(c => c.key), 'Fibras'];
+            const headers = [...params.produccion_daily_config.columns.map(c => c.key), 'Fibras', 'Terminaciones'];
             
             let headerHtml = '<thead><tr>';
             headers.forEach(h => headerHtml += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`);
@@ -1456,25 +1453,25 @@
             }
 
             const hourlyBins = Array.from({ length: 12 }, () => ({}));
-            let totalPiezas = 0;
+            let totalTerminaciones = 0;
             
             data.forEach(item => {
                 const linea = item['Linea'] || 'N/A';
-                const cantidad = Number(item['Cantidad']) || 0;
-                totalPiezas += cantidad;
+                const terminaciones = Number(item['Terminaciones']) || 0;
+                totalTerminaciones += terminaciones;
                 
                 if (item['Finish date'] instanceof Date) {
                     const diffMillis = item['Finish date'] - shiftStartTime;
                     if (diffMillis >= 0) {
                         const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
                         if (hourIndex >= 0 && hourIndex < 12) {
-                            hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + cantidad;
+                            hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
                         }
                     }
                 }
             });
 
-            doc('chartSummaryDaily').innerHTML = `Total Piezas del Turno: <strong>${totalPiezas.toLocaleString()}</strong>`;
+            doc('chartSummaryDaily').innerHTML = `Total Terminaciones del Turno: <strong>${totalTerminaciones.toLocaleString()}</strong>`;
 
             const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
             const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
@@ -1519,16 +1516,143 @@
             });
             updateChartTheme();
         }
-        
+
+        // --- Lógica para el Reporte Semanal del Reporte Daily ---
+        function abrirModalReporteSemanalDaily() {
+            const modalHTML = `
+                <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
+                    <div>
+                        <label for="semanalDaily_fecha_inicio">Fecha de Inicio</label>
+                        <input type="date" id="semanalDaily_fecha_inicio">
+                    </div>
+                    <div>
+                        <label for="semanalDaily_fecha_fin">Fecha de Fin</label>
+                        <input type="date" id="semanalDaily_fecha_fin">
+                    </div>
+                </div>
+                <button id="generarReporteSemanalDailyBtn" class="btn" style="width: 100%;">Generar Gráfica Comparativa</button>
+                <div id="chartContainerSemanalDaily" style="margin-top: 20px; height: 45vh; position: relative;">
+                    <canvas id="graficaSemanalDaily"></canvas>
+                </div>
+            `;
+            showModal('Reporte Semanal de Terminaciones (Daily)', modalHTML);
+
+            const hoy = new Date();
+            const haceUnaSemana = new Date();
+            haceUnaSemana.setDate(hoy.getDate() - 6);
+            doc('semanalDaily_fecha_fin').value = hoy.toISOString().split('T')[0];
+            doc('semanalDaily_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
+
+            doc('generarReporteSemanalDailyBtn').addEventListener('click', consultarReporteSemanalDaily);
+        }
+
+        async function consultarReporteSemanalDaily() {
+            const btn = doc('generarReporteSemanalDailyBtn');
+            btn.disabled = true;
+            btn.textContent = 'Generando...';
+
+            const fechaInicio = doc('semanalDaily_fecha_inicio').value;
+            const fechaFin = doc('semanalDaily_fecha_fin').value;
+
+            if (!fechaInicio || !fechaFin) {
+                alert('Por favor, selecciona un rango de fechas.');
+                btn.disabled = false;
+                btn.textContent = 'Generar Gráfica Comparativa';
+                return;
+            }
+
+            const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+            const fechaFinDate = new Date(`${fechaFin}T23:59:59`);
+
+            try {
+                const snapshot = await db.collection('produccion_daily_historico')
+                    .where('Finish date', '>=', fechaInicioDate)
+                    .where('Finish date', '<=', fechaFinDate)
+                    .get();
+
+                const datosAgrupados = {};
+                const labelsFechas = new Set();
+                const allLineas = new Set();
+
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const fechaHora = data['Finish date'].toDate();
+                    
+                    const dateKey = fechaHora.toISOString().split('T')[0];
+                    labelsFechas.add(dateKey);
+                    
+                    const linea = data['Linea'] || 'N/A';
+                    allLineas.add(linea);
+
+                    if (!datosAgrupados[dateKey]) datosAgrupados[dateKey] = {};
+                    if (!datosAgrupados[dateKey][linea]) datosAgrupados[dateKey][linea] = 0;
+                    
+                    const catalogo = data['Catálogo'] || '';
+                    const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
+                    const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
+                    const terminaciones = fibras * (Number(data['Cantidad']) || 0);
+
+                    datosAgrupados[dateKey][linea] += terminaciones;
+                });
+
+                const fechasOrdenadas = Array.from(labelsFechas).sort();
+                renderGraficaSemanalDaily(datosAgrupados, fechasOrdenadas, Array.from(allLineas).sort());
+
+            } catch (e) {
+                console.error("Error consultando reporte semanal daily:", e);
+                alert("No se pudo generar el reporte semanal. Revisa la consola.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generar Gráfica Comparativa';
+            }
+        }
+
+        function renderGraficaSemanalDaily(datos, labels, lineas) {
+            const ctx = doc('graficaSemanalDaily').getContext('2d');
+            if (graficaSemanalDailyInstance) {
+                graficaSemanalDailyInstance.destroy();
+            }
+
+            const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+            const datasets = lineas.map((linea, index) => ({
+                label: `Línea ${linea}`,
+                data: labels.map(fecha => (datos[fecha] && datos[fecha][linea]) ? datos[fecha][linea] : 0),
+                backgroundColor: colors[index % colors.length]
+            }));
+
+            graficaSemanalDailyInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(f => new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { stacked: true, beginAtZero: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } },
+                        x: { stacked: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
+                        datalabels: {
+                            color: 'white',
+                            font: { weight: 'bold' },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+            updateChartTheme();
+        }
+
         // =======================================================================================
         // --- FIN: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
         // =======================================================================================
         
 
-        // --- INICIO: LÓGICA DEL REPORTE SEMANAL ---
-        /**
-         * Abre el modal con las opciones para el reporte semanal.
-         */
+        // --- INICIO: LÓGICA DEL REPORTE SEMANAL 20% ---
         function abrirModalReporteSemanal() {
             const modalHTML = `
                 <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
@@ -1566,9 +1690,6 @@
             doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
         }
 
-        /**
-         * Consulta los datos de Firestore y los procesa para la gráfica semanal.
-         */
         async function consultarReporteSemanal() {
             const btn = doc('generarReporteSemanalBtn');
             btn.disabled = true;
@@ -1632,9 +1753,6 @@
             }
         }
 
-        /**
-         * Dibuja la gráfica comparativa semanal en el canvas del modal.
-         */
         function renderGraficaSemanal(datos, labels, turnos) {
             const ctx = doc('graficaSemanal').getContext('2d');
             if (graficaSemanalInstance) {
@@ -1742,15 +1860,15 @@
             let shift;
 
             if (isShortWeek) {
-                if (workDay >= 1 && workDay <= 3) { // Lunes a Miércoles
+                if (workDay >= 1 && workDay <= 3) {
                     shift = isDayTime ? 'T45' : 'T46';
-                } else { // Jueves a Domingo
+                } else {
                     shift = isDayTime ? 'T47' : 'T48';
                 }
             } else {
-                if (workDay >= 1 && workDay <= 4) { // Lunes a Jueves
+                if (workDay >= 1 && workDay <= 4) {
                     shift = isDayTime ? 'T45' : 'T46';
-                } else { // Viernes a Domingo
+                } else {
                     shift = isDayTime ? 'T47' : 'T48';
                 }
             }
@@ -1760,8 +1878,7 @@
                 dateKey: dateKey 
             };
         }
-        // --- FIN: LÓGICA DEL REPORTE SEMANAL ---
-
+        
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN 20% ---
         doc('consultarProduccion20Btn').addEventListener('click', consultarReporteProduccion20);
 
@@ -2151,8 +2268,7 @@
             return { startTime, endTime };
         }
 
-        // --- MANEJO DE VISTAS Y BOTONES DE REPORTE DE PRODUCCIÓN ---
-    doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
+        doc('generarReporteProduccionBtn').addEventListener('click', generateProductionReport);
         doc('exportChartBtn').addEventListener('click', exportChartAsJPG);
         doc('exportarSemanalBtn').addEventListener('click', exportarSemanalComoJPG);
 
@@ -2194,7 +2310,6 @@
             if (weeklyProductionChart) weeklyProductionChart.destroy();
             doc('resumenSemanal').innerHTML = '<h4 style="text-align:center;">Configure filtros y presione "Generar Reporte".</h4>';
         });
-        // --- FIN MANEJO DE VISTAS ---
 
     async function loadAreasForProductionReport() {
             try {
@@ -2321,7 +2436,6 @@
                 btn.disabled = false; btn.textContent = 'Generar Reporte';
             }
         }
-        
     async function generarReporteSemanalProduccion() {
             const btn = doc('generarReporteProduccionBtn');
             btn.disabled = true;
@@ -2702,7 +2816,7 @@
         }
 
         function updateChartTheme() {
-            const charts = [productionChart, fiberPieChart1, fiberPieChart2, production20Chart, productionDailyChart, weeklyProductionChart].filter(Boolean);
+            const charts = [productionChart, fiberPieChart1, fiberPieChart2, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance].filter(Boolean);
             if (charts.length === 0) return;
             const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
             const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
@@ -2717,7 +2831,7 @@
                 if (chart.options.plugins.title) chart.options.plugins.title.color = textColor;
                 if(chart.config.type.includes('bar') || chart.config.type.includes('line')) {
                     if (chart.options.plugins.datalabels) {
-                        if(chart.options.plugins.datalabels.labels) { // For multi-label setup
+                        if(chart.options.plugins.datalabels.labels) {
                             if(chart.options.plugins.datalabels.labels.terminaciones) chart.options.plugins.datalabels.labels.terminaciones.color = textColor;
                         } else {
                             chart.options.plugins.datalabels.color = textColor;
@@ -2750,7 +2864,7 @@
             .then(canvas => {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/jpeg', 0.95);
-                const fecha = doc('prod_fecha_inicio').value || 'fecha'; // Updated to new ID
+                const fecha = doc('prod_fecha_inicio').value || 'fecha';
                 const turno = doc('prod_turno').value;
                 link.download = `Reporte_Produccion_${turno}_${fecha}.jpg`;
                 link.click();
