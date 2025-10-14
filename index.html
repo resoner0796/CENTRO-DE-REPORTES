@@ -1625,10 +1625,13 @@
                     const data = docSnap.data();
                     const fechaHora = data['Finish date'].toDate();
 					
-					const { shift } = getWorkShiftAndDate(fechaHora);
+					// --- AJUSTE CLAVE: USAR LA FECHA CORRECTA ---
+					// La función getWorkShiftAndDate nos devuelve el turno (shift) Y el día de trabajo correcto (dateKey).
+                    const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
 
 					if (shift === turnoSeleccionado) {
-                    	const dateKey = fechaHora.toISOString().split('T')[0];
+						// Ahora usamos el 'dateKey' que nos da la función, que ya considera el desfase de turno (ej. Lunes 6).
+						// Ya no volvemos a calcular la fecha a partir del timestamp.
                     	labelsFechas.add(dateKey);
                     	
                     	const linea = data['Linea'] || 'N/A';
