@@ -213,26 +213,32 @@
             vertical-align: top;
         }
         
+       /* Estilos para la tabla de Producción Calidad */
        #dataTableProduccionCalidad {
-            table-layout: fixed; /* Forzamos anchos de columna fijos */
-            width: 100%;
-        }
-        #dataTableProduccionCalidad th,
-        #dataTableProduccionCalidad td {
-            white-space: nowrap; /* Mantenemos todo en una línea */
-            overflow: hidden; /* Ocultamos lo que no quepa */
-            text-overflow: ellipsis; /* Ponemos "..." al final del texto largo */
-            vertical-align: middle;
-        }
-        /* Asignamos anchos específicos a las columnas problemáticas */
-        #dataTableProduccionCalidad th:nth-child(1), /* Columna 1: Line */
-        #dataTableProduccionCalidad td:nth-child(1) {
-            width: 150px; 
-        }
-        #dataTableProduccionCalidad th:nth-child(4), /* Columna 4: Catalogo */
-        #dataTableProduccionCalidad td:nth-child(4) {
-            width: 200px;
-        }
+            table-layout: fixed; /* Forzamos anchos de columna fijos */
+            width: 100%;
+        }
+
+        #dataTableProduccionCalidad th,
+        #dataTableProduccionCalidad td {
+            white-space: nowrap; /* Mantenemos el texto en una sola línea */
+            overflow: hidden; /* Ocultamos lo que no quepa en la celda */
+            text-overflow: ellipsis; /* Ponemos "..." al final del texto largo */
+            vertical-align: middle; /* Centramos verticalmente el contenido */
+        }
+
+        /* Asignamos anchos específicos a las columnas problemáticas */
+        /* Columna 1: Line */
+        #dataTableProduccionCalidad th:nth-child(1),
+        #dataTableProduccionCalidad td:nth-child(1) {
+            width: 150px; 
+        }
+
+        /* Columna 4: Catalogo */
+        #dataTableProduccionCalidad th:nth-child(4),
+        #dataTableProduccionCalidad td:nth-child(4) {
+            width: 200px;
+        }
 
         #resumenSemanal h5 {
             border-bottom: 1px solid var(--border-color);
@@ -2878,86 +2884,113 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         }
 
         function renderProductionChart(data, shiftStartTime, turno) {
-            const ctx = doc('produccionChart').getContext('2d');
-            if (productionChart) productionChart.destroy();
-            if(data.length === 0){
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
-            }
-            const hourlyData = {}; const labels = [];
-            const totalSummary = { linea1: { piezas: 0, terminaciones: 0 }, linea2: { piezas: 0, terminaciones: 0 } };
-            for (let i = 0; i < 12; i++) {
-                const startHour = new Date(shiftStartTime); startHour.setHours(startHour.getHours() + i);
-                const endHour = new Date(startHour); endHour.setHours(endHour.getHours() + 1);
-                const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-                labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
-                hourlyData[i] = { 'Línea 1': 0, 'Línea 2': 0 };
-            }
-            data.forEach(item => {
-                const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
-                if(diffHours >= 0 && diffHours < 12){
-                    if(item.linea === 'Línea 1') hourlyData[diffHours]['Línea 1'] += item.terminaciones;
-                    else hourlyData[diffHours]['Línea 2'] += item.terminaciones;
-                }
-                if (item.linea === 'Línea 1') { totalSummary.linea1.piezas++; totalSummary.linea1.terminaciones += item.terminaciones; }
-                else { totalSummary.linea2.piezas++; totalSummary.linea2.terminaciones += item.terminaciones; }
-            });
-            doc('chartSummary').innerHTML = `Línea 1: <strong>${totalSummary.linea1.piezas} pzas / ${totalSummary.linea1.terminaciones} term.</strong> | Línea 2: <strong>${totalSummary.linea2.piezas} pzas / ${totalSummary.linea2.terminaciones} term.</strong>`;
-
-            productionChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { type: 'line', label: 'Meta', data: Array(12).fill(480), borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 0 },
-                        { label: 'Línea 1', data: Object.values(hourlyData).map(d => d['Línea 1']), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, order: 1 },
-                        { label: 'Línea 2', data: Object.values(hourlyData).map(d => d['Línea 2']), backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1, order: 1 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } },
-                        title: { display: true, text: `Producción de Terminaciones - ${turno}`, color: 'var(--text-primary)', font: { size: 16 } },
-                        datalabels: {
-                            display: context => context.dataset.type !== 'line',
-                            labels: {
-                                value: {
-                                    anchor: 'end', align: 'top',
-                                    formatter: (value) => value > 0 ? value : '',
-                                    color: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color'),
-                                    textShadowColor: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? getComputedStyle(document.body).getPropertyValue('--glow-green') : getComputedStyle(document.body).getPropertyValue('--glow-red'),
-                                    textShadowBlur: 12,
-                                    font: { weight: 'bold' }
-                                },
-                                percentage: {
-                                    align: 'center', anchor: 'center',
-                                    color: (ctx) => {
-                                        const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
-                                        return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
-                                    },
-                                    font: { weight: 'bold', size: 11 },
-                                    formatter: (value) => {
-                                        if (value <= 0) return '';
-                                        const percentage = (value / 480) * 100;
-                                        return percentage.toFixed(0) + '%';
-                                    },
-                                    textStrokeColor: 'rgba(0,0,0,0.6)',
-                                    textStrokeWidth: 2
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } } },
-                        y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' } }
-                    }
-                },
-                plugins: [ChartDataLabels]
-            });
-            doc('exportChartBtn').style.display = 'block';
-            updateChartTheme();
+    const ctx = doc('produccionChart').getContext('2d');
+    if (productionChart) productionChart.destroy();
+    if(data.length === 0){
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
+    }
+    const hourlyData = {}; const labels = [];
+    const totalSummary = { linea1: { piezas: 0, terminaciones: 0 }, linea2: { piezas: 0, terminaciones: 0 } };
+    for (let i = 0; i < 12; i++) {
+        const startHour = new Date(shiftStartTime); startHour.setHours(startHour.getHours() + i);
+        const endHour = new Date(startHour); endHour.setHours(endHour.getHours() + 1);
+        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+        labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
+        hourlyData[i] = { 'Línea 1': 0, 'Línea 2': 0 };
+    }
+    data.forEach(item => {
+        const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
+        if(diffHours >= 0 && diffHours < 12){
+            if(item.linea === 'Línea 1') hourlyData[diffHours]['Línea 1'] += item.terminaciones;
+            else hourlyData[diffHours]['Línea 2'] += item.terminaciones;
         }
+        if (item.linea === 'Línea 1') { totalSummary.linea1.piezas++; totalSummary.linea1.terminaciones += item.terminaciones; }
+        else { totalSummary.linea2.piezas++; totalSummary.linea2.terminaciones += item.terminaciones; }
+    });
+    doc('chartSummary').innerHTML = `Línea 1: <strong>${totalSummary.linea1.piezas} pzas / ${totalSummary.linea1.terminaciones} term.</strong> | Línea 2: <strong>${totalSummary.linea2.piezas} pzas / ${totalSummary.linea2.terminaciones} term.</strong>`;
+
+    productionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { type: 'line', label: 'Meta', data: Array(12).fill(480), borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 0 },
+                { label: 'Línea 1', data: Object.values(hourlyData).map(d => d['Línea 1']), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, order: 1 },
+                { label: 'Línea 2', data: Object.values(hourlyData).map(d => d['Línea 2']), backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1, order: 1 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } },
+                title: { display: true, text: `Producción de Terminaciones - ${turno}`, color: 'var(--text-primary)', font: { size: 16 } },
+                datalabels: {
+                    display: context => context.dataset.type !== 'line',
+                    labels: {
+                        // --- INICIO DE LA MODIFICACIÓN ---
+                        value: {
+                            anchor: 'end', 
+                            align: 'top',
+                            offset: 5,
+                            // El fondo del contenedor será una versión semitransparente del color de éxito o peligro
+                            backgroundColor: (ctx) => {
+                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= 480;
+                                const colorVar = isSuccess ? '--glow-green' : '--glow-red';
+                                // Extraemos el color de la variable CSS y le bajamos la opacidad para el fondo
+                                const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
+                                return rawColor.replace(/0.9\)$/, '0.4)'); // Cambia la opacidad
+                            },
+                            // El borde del contenedor será el color sólido de éxito o peligro
+                            borderColor: (ctx) => {
+                                return ctx.dataset.data[ctx.dataIndex] >= 480 ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
+                            },
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            // El color del texto será blanco para contrastar con ambos fondos
+                            color: 'white',
+                            font: { weight: 'bold' },
+                            padding: { top: 2, bottom: 2, left: 5, right: 5 },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : '',
+                        },
+                        // --- FIN DE LA MODIFICACIÓN ---
+                        percentage: { // Esta parte se mantiene intacta
+                            align: 'center', anchor: 'center',
+                            color: (ctx) => {
+                                const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
+                                return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
+                            },
+                            font: { weight: 'bold', size: 11 },
+                            formatter: (value) => {
+                                if (value <= 0) return '';
+                                const percentage = (value / 480) * 100;
+                                return percentage.toFixed(0) + '%';
+                            },
+                            textStrokeColor: 'rgba(0,0,0,0.6)',
+                            textStrokeWidth: 2
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } } },
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)' }, 
+                    title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
+                    // Agregamos espacio extra arriba para que las etiquetas no se corten
+                    afterDataLimits: (scale) => {
+                        scale.max = scale.max * 1.2;
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+    doc('exportChartBtn').style.display = 'block';
+    updateChartTheme();
+}
 
         function renderFiberReport(data) {
             const container = doc('fibraReportContent');
