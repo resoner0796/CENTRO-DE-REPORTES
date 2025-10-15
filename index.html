@@ -1353,7 +1353,7 @@
             const { startTime, endTime } = getShiftDateRange(fechaInput, turnoInput);
 
             try {
-                // Ahora consultamos la colección correcta con el campo de fecha correcto
+                // --- AJUSTE CLAVE 1: Usar el nombre de campo correcto ('Fecha y hora') en la consulta ---
                 const snapshot = await db.collection('produccion_daily_historico')
                     .where('Fecha y hora', '>=', startTime)
                     .where('Fecha y hora', '<=', endTime)
@@ -1379,16 +1379,18 @@
                 }
 
                 const processedData = data.map(row => {
-                    const catalogo = row['Catalogo'] || ''; // Usar 'Catalogo' sin acento
+                    // --- AJUSTE CLAVE 2: Usar 'Catalogo' (sin acento) para el cálculo ---
+                    const catalogo = row['Catalogo'] || '';
                     const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
                     const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
                     const terminaciones = fibras * (Number(row['Cantidad']) || 0);
-                    // "Traducimos" los nombres para que el resto del código los entienda
+
+                    // --- AJUSTE CLAVE 3: "Traducir" los nombres para que las gráficas y tablas los entiendan ---
                     return { 
                         ...row, 
                         'Finish date': row['Fecha y hora'], 
-                        Linea: row['Estación'], // El config del 20% usa 'Estación', lo renombramos a 'Linea'
-                        'Catálogo': row['Catalogo'],
+                        Linea: row['Estación'], // Renombramos 'Estación' a 'Linea'
+                        'Catálogo': row['Catalogo'], // Creamos la versión con acento que la tabla espera
                         Fibras: fibras, 
                         Terminaciones: terminaciones 
                     };
@@ -1399,7 +1401,7 @@
 
             } catch (e) {
                 console.error("Error consultando reporte Daily:", e);
-                showModal('Error de Consulta', `<p>No se pudo obtener el reporte de la base de datos.</p>`);
+                showModal('Error de Consulta', '<p>No se pudo obtener el reporte de la base de datos.</p>');
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Consultar Reporte';
