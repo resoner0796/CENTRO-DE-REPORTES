@@ -1276,7 +1276,6 @@
         doc('abrirModalSemanalDailyBtn').addEventListener('click', abrirModalReporteSemanalDaily);
 
         async function handleProduccionDailyFile(file) {
-            // Usa la configuración del Daily (que ya igualamos a la del 20%)
             const config = params.produccion_daily_config;
             if (!config || !config.columns || !config.columns.length === 0) {
                 showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
@@ -1291,7 +1290,7 @@
 
                     const colMap = {};
                     config.columns.forEach(col => {
-                        colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
+                       colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
                     });
 
                     const data = jsonData.map(row => {
@@ -1303,19 +1302,18 @@
                     }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
 
                     if (data.length === 0) {
-                        throw new Error(`No se encontraron datos válidos con 'Serial Number' a partir de la fila ${config.startRow}.`);
+                        showModal('Sin Datos', `<p>No se encontraron datos válidos con 'Serial Number' a partir de la fila ${config.startRow}.</p>`);
+                        return;
                     }
 
                     const batch = db.batch();
                     let processedCount = 0;
                     data.forEach(row => {
                         const serial = String(row['Serial Number']).trim();
-                        if (serial) {
-                            // CAMBIO 1: Apunta a la colección correcta
+                        if(serial){
+                            // CAMBIO: Apunta a la colección del Daily
                             const docRef = db.collection('produccion_daily_historico').doc(serial);
                             let fechaHora = null;
-
-                            // Lógica de fecha IDÉNTICA a la del 20%
                             if (row['Fecha y hora'] instanceof Date) {
                                 fechaHora = row['Fecha y hora'];
                             } else if (typeof row['Fecha y hora'] === 'number') {
@@ -1328,22 +1326,19 @@
                             }
                         }
                     });
-
-                    if (processedCount === 0) {
-                        throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
-                    }
+						
+						if (processedCount === 0) {
+							throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
+						}
 
                     await batch.commit();
 
-                    // CAMBIO 2: Apunta al elemento correcto de la página
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-                    showModal('Éxito', `<p>${processedCount} registros han sido guardados o actualizados en 'produccion_daily_historico'.</p>`);
-                    // CAMBIO 3: Llama a la función de refresco correcta
+                    showModal('Éxito', `<p>${processedCount} registros han sido guardados en la base de datos. Vuelva a consultar la fecha para ver los datos actualizados.</p>`);
                     consultarReporteProduccionDaily();
 
                 } catch (err) {
-                    console.error("Error al procesar archivo Daily:", err);
-                    // CAMBIO 4: Apunta al elemento correcto de la página
+                    console.error("Error al procesar y guardar archivo de Producción Daily:", err);
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
                     showModal('Error de Archivo', `<p>${err.message}</p>`);
                 }
