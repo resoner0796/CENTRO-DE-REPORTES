@@ -702,7 +702,8 @@
             produccion_daily_config: {
                 startRow: 15,
                 columns: [
-                  
+                    // --- AJUSTE CLAVE 1: AÑADIR EL SERIAL NUMBER ---
+                    { key: 'Serial Number', excel_col: 'I' },
                     { key: 'Linea', excel_col: 'C' },
                     { key: 'Cantidad', excel_col: 'L' },
                     { key: 'Catálogo', excel_col: 'Q' },
@@ -1276,7 +1277,7 @@
 
         async function handleProduccionDailyFile(file) {
             const config = params.produccion_daily_config;
-            if (!config || !config.columns || !config.columns.length === 0) {
+            if (!config || !config.columns || config.columns.length === 0) {
                 showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte.</p>');
                 return;
             }
@@ -1293,13 +1294,23 @@
                     });
 
                     const dataToSave = [];
+                    console.log(`Iniciando lectura de ${jsonData.length} filas desde la fila de Excel ${config.startRow}`);
+
                     jsonData.forEach((row, index) => {
                         const rowData = {};
                         config.columns.forEach(col => {
                             rowData[col.key] = row[colMap[col.key]];
                         });
 							
-							// --- AJUSTE CLAVE 2: USAR SERIAL NUMBER COMO ID ---
+							// --- INICIO DE DEPURACIÓN ---
+							// Estas líneas nos mostrarán en la consola qué datos se están leyendo.
+							if (index < 5) { // Mostramos solo las primeras 5 filas para no saturar.
+								console.log(`--- Datos crudos de la Fila de Excel ${index + config.startRow} ---`);
+								console.log('Objeto rowData completo:', rowData);
+								console.log("Valor específico para 'Serial Number':", rowData['Serial Number']);
+							}
+							// --- FIN DE DEPURACIÓN ---
+
                         const serial = rowData['Serial Number'] ? String(rowData['Serial Number']).trim() : null;
 
                         if (serial) {
@@ -1327,7 +1338,7 @@
                     const batch = db.batch();
                     dataToSave.forEach(item => {
                         const docRef = db.collection('produccion_daily_historico').doc(item.docId);
-                        batch.set(docRef, item.data, { merge: true }); // Usar merge:true por si acaso
+                        batch.set(docRef, item.data, { merge: true });
                     });
                     await batch.commit();
 
