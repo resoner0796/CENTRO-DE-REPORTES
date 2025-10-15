@@ -1277,7 +1277,12 @@
 
         async function handleProduccionDailyFile(file) {
     const config = params.produccion_daily_config;
-    if (!config || !config.columns || !config.columns.length === 0) {
+    
+    // --- LÍNEA DE DEPURACIÓN CLAVE ---
+    // Vamos a ver qué configuración está usando realmente la función.
+    console.log('CONFIGURACIÓN USADA PARA DAILY:', JSON.stringify(config, null, 2));
+
+    if (!config || !config.columns || config.columns.length === 0) {
         showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
         return;
     }
@@ -1311,11 +1316,6 @@
             data.forEach(row => {
                 const serial = String(row['Serial Number']).trim();
                 let fechaHora = null;
-
-                // --- LÍNEA DE DEPURACIÓN ---
-                // Nos dirá qué está leyendo ANTES de intentar procesarlo.
-                console.log(`Fila con Serial: ${serial}, Valor crudo de fecha:`, row['Fecha y hora']);
-
                 if(serial){
                     const docRef = db.collection('produccion_daily_historico').doc(serial);
                     if (row['Fecha y hora'] instanceof Date) {
@@ -1325,16 +1325,11 @@
                     }
 
                     if (fechaHora) {
-                        console.log(`   -> FECHA VÁLIDA encontrada y procesada: ${fechaHora}`);
                         batch.set(docRef, { ...row, 'Fecha y hora': firebase.firestore.Timestamp.fromDate(fechaHora) });
                         processedCount++;
-                    } else {
-                        console.log(`   -> ADVERTENCIA: No se encontró una fecha válida para este serial.`);
                     }
                 }
             });
-            
-            console.log(`Procesamiento terminado. Total de registros para guardar: ${processedCount}`);
             
             await batch.commit();
 
