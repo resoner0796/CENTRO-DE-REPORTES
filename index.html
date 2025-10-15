@@ -1260,13 +1260,14 @@
         }
 
         function formatShortDateTime(date) {
-            if (!(date instanceof Date) || isNaN(date)) return '';
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hour = String(date.getHours()).padStart(2, '0');
-            const minute = String(date.getMinutes()).padStart(2, '0');
-            return `${month}/${day} ${hour}:${minute}`;
-        }
+            if (!(date instanceof Date) || isNaN(date)) return '';
+            const year = date.getFullYear().toString().slice(-2); // Saca los últimos 2 dígitos del año
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hour = String(date.getHours()).padStart(2, '0');
+            const minute = String(date.getMinutes()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hour}:${minute}`; // Formato: 14/10/25 08:00
+        }
         
         // =======================================================================================
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
@@ -1493,7 +1494,7 @@
                 }
                 totalesPorLinea[linea] += terminaciones;
                 
-                if (item['Finish date'] instanceof Date) {
+                if (item['Fecha y hora'] instanceof Date) {
                     const diffMillis = item['Finish date'] - shiftStartTime;
                     if (diffMillis >= 0) {
                         const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
