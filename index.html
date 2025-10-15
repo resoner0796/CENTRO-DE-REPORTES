@@ -1366,16 +1366,19 @@
                     .get();
 
                 const data = [];
+                // --- INICIO DEL CAMBIO ---
+                // Eliminamos la lógica compleja de getWorkShiftAndDate y el doble filtro.
+                // Ahora, simplemente tomamos TODOS los resultados que nos da la base de datos,
+                // que ya vienen filtrados por el rango de horas correcto.
                 snapshot.forEach(docSnap => {
                     const docData = docSnap.data();
                     const fechaHora = docData['Fecha y hora'] ? docData['Fecha y hora'].toDate() : null;
                     if (fechaHora) {
-                        const { shift } = getWorkShiftAndDate(fechaHora);
-                        if (shift === turnoInput) {
-                            data.push({ ...docData, 'Fecha y hora': fechaHora });
-                        }
+                        // Ya no hay un "if (shift === turnoInput)" aquí.
+                        data.push({ ...docData, 'Fecha y hora': fechaHora });
                     }
                 });
+                // --- FIN DEL CAMBIO ---
 
                 if (data.length === 0) {
                     showModal('Sin Datos', `<p>No se encontraron registros para la fecha y turno seleccionados.</p>`);
@@ -1389,14 +1392,14 @@
                     const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
                     const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
                     const terminaciones = fibras * (Number(row['Cantidad']) || 0);
-                    
-                    return { 
-                        ...row, 
-                        'Finish date': row['Fecha y hora'], 
-                        Linea: row['Estación'], 
+                    
+                    return { 
+                        ...row, 
+                        'Finish date': row['Fecha y hora'], 
+                        Linea: row['Estación'], 
                         'Catálogo': row['Catalogo'],
-                        Fibras: fibras, 
-                        Terminaciones: terminaciones 
+                        Fibras: fibras, 
+                        Terminaciones: terminaciones 
                     };
                 });
 				
