@@ -2928,33 +2928,27 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                 datalabels: {
                     display: context => context.dataset.type !== 'line',
                     labels: {
-                        // --- INICIO DE LA MODIFICACIÓN ---
                         value: {
                             anchor: 'end', 
                             align: 'top',
                             offset: 5,
-                            // El fondo del contenedor será una versión semitransparente del color de éxito o peligro
                             backgroundColor: (ctx) => {
                                 const isSuccess = ctx.dataset.data[ctx.dataIndex] >= 480;
                                 const colorVar = isSuccess ? '--glow-green' : '--glow-red';
-                                // Extraemos el color de la variable CSS y le bajamos la opacidad para el fondo
                                 const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
-                                return rawColor.replace(/0.9\)$/, '0.4)'); // Cambia la opacidad
+                                return rawColor.replace(/0.9\)$/, '0.4)');
                             },
-                            // El borde del contenedor será el color sólido de éxito o peligro
                             borderColor: (ctx) => {
                                 return ctx.dataset.data[ctx.dataIndex] >= 480 ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
                             },
                             borderWidth: 1,
                             borderRadius: 4,
-                            // El color del texto será blanco para contrastar con ambos fondos
                             color: 'white',
                             font: { weight: 'bold' },
                             padding: { top: 2, bottom: 2, left: 5, right: 5 },
                             formatter: (value) => value > 0 ? value.toLocaleString() : '',
                         },
-                        // --- FIN DE LA MODIFICACIÓN ---
-                        percentage: { // Esta parte se mantiene intacta
+                        percentage: { 
                             align: 'center', anchor: 'center',
                             color: (ctx) => {
                                 const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
@@ -2973,13 +2967,18 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                 }
             },
             scales: {
-                x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } } },
+                x: { 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
+                    // --- AJUSTE PARA SEPARAR BARRAS ---
+                    categoryPercentage: 0.7, // Controla el espacio entre grupos de barras (ej. entre 18:30 y 19:30)
+                    barPercentage: 0.9       // Controla el espacio entre barras del mismo grupo (ej. entre Línea 1 y Línea 2)
+                },
                 y: { 
                     beginAtZero: true, 
                     grid: { color: 'var(--chart-grid-color)' }, 
                     ticks: { color: 'var(--chart-tick-color)' }, 
                     title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
-                    // Agregamos espacio extra arriba para que las etiquetas no se corten
                     afterDataLimits: (scale) => {
                         scale.max = scale.max * 1.2;
                     }
