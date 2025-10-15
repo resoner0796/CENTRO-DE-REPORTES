@@ -338,12 +338,13 @@
                 <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Centro de Reportes</h2></header>
                 <main class="card animated-startup" style="animation-delay: 0.1s;">
                     <div class="menu-container">
-                        <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
-                        <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
-                        <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
-                        <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
-                        <button id="view901Btn" class="btn">Reporte 901</button>
-                    </div>
+    <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
+    <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
+    <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
+    <button id="reporteProduccionCalidadBtn" class="btn">Reporte de Producción Calidad</button>
+    <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
+    <button id="view901Btn" class="btn">Reporte 901</button>
+</div>
                 </main>
             </div>
         </div>
@@ -594,6 +595,68 @@
                 </main>
             </div>
         </div>
+<div id="viewProduccionCalidad" style="display: none;">
+    <div class="main-container">
+        <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+            <div class="card" style="height: 100%; display:flex; flex-direction: column;">
+                <div class="sidebar-header">
+                    <h3>Panel de Control</h3>
+                    <div>
+                        <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                        <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                            <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                        </button>
+                        <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+                    </div>
+                </div>
+                <div style="padding: 0 10px; flex-grow: 1; display: flex; flex-direction: column;">
+                   <div class="control-group">
+                        <label for="prodCalidad_fecha">Fecha del Reporte</label>
+                        <input type="date" id="prodCalidad_fecha">
+                    </div>
+                    <div class="control-group">
+                        <label for="prodCalidad_turno">Turno</label>
+                        <select id="prodCalidad_turno">
+                            <option value="T45">T45 (L-M, Día)</option>
+                            <option value="T46">T46 (L-M, Noche)</option>
+                            <option value="T47">T47 (J-D, Día)</option>
+                            <option value="T48">T48 (J-D, Noche)</option>
+                        </select>
+                    </div>
+                    <button id="consultarProduccionCalidadBtn" class="btn" style="width: 100%;">Consultar Reporte</button>
+                    <button id="abrirModalSemanalCalidadBtn" class="btn btn-glass" style="width: 100%; margin-top: 12px;">Reporte Semanal</button>
+                    <hr style="border-color: var(--border-color); margin: 24px 0;">
+                    <div id="fileDropAreaProdCalidad" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center; margin-top: 0;">
+                        <h4>Actualizar Datos</h4>
+                        <p>Arrastra un archivo para añadir o actualizar registros</p>
+                    </div>
+                    <input type="file" id="fileInputProdCalidad" accept=".xlsx, .xls" style="display: none;">
+                </div>
+            </div>
+        </aside>
+        <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+            <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Producción Calidad</h2></header>
+
+            <div id="chartContainerCalidad" class="card">
+                <div class="summary-header">
+                    <div class="title-wrapper"><h3>Producción de Terminaciones por Hora</h3></div>
+                </div>
+                <canvas id="produccionCalidadChart"></canvas>
+                <div id="chartSummaryCalidad"></div>
+            </div>
+
+            <div class="card table-container">
+                <div class="table-wrapper">
+                    <table id="dataTableProduccionCalidad">
+                        <thead><tr><th>Carga o consulta un reporte para ver los datos...</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
 
         <div id="view901">
             <div class="main-container">
@@ -673,6 +736,7 @@
             produccionHora: doc('viewProduccionHora'),
             produccion20: doc('viewProduccion20'),
             produccionDaily: doc('viewProduccionDaily')
+            produccionCalidad: doc('viewProduccionCalidad')
         };
         let session = { isMaster: false };
         let activeView = 'menu';
@@ -711,16 +775,30 @@
                     { key: 'Fecha y hora', excel_col: 'W' }
                 ]
             },
+produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
+    startRow: 15,
+    columns: [
+        { key: 'Line', excel_col: 'C' },
+        { key: 'Serial Number', excel_col: 'I' },
+        { key: 'Cantidad', excel_col: 'L' },
+        { key: 'Catalogo', excel_col: 'Q' },
+        { key: 'Orden', excel_col: 'R' },
+        { key: 'Fecha y hora', excel_col: 'W' }
+    ]
+},
+
         };
         let reportData = { zpptwc: null, coois: null };
         let productionChart = null;
         let production20Chart = null;
         let productionDailyChart = null;
+        let productionCalidadChart = null;
         let fiberPieChart1 = null;
         let fiberPieChart2 = null;
         let productionReportData = null;
         let graficaSemanalInstance = null;
         let graficaSemanalDailyInstance = null;
+        let graficaSemanalCalidadInstance = null;
         let weeklyProductionChart = null;
 
 
@@ -759,13 +837,25 @@
                     doc('prodDaily_turno').value = getAutoCurrentShift();
                     renderProduccionDailyTable([]);
                     renderProduccionDailyChart([], new Date());
-                }
+                } else if (viewKey === 'produccionCalidad') { // <-- AÑADE ESTE BLOQUE
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    doc('prodCalidad_fecha').value = `${year}-${month}-${day}`;
+    doc('prodCalidad_turno').value = getAutoCurrentShift();
+    renderProduccionCalidadTable([]);
+    renderProduccionCalidadChart([], new Date());
+}
+           
+                
             }, 300);
         }
 
         doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
         doc('reporteProduccion20Btn').addEventListener('click', () => switchView('produccion20'));
         doc('reporteProduccionDailyBtn').addEventListener('click', () => switchView('produccionDaily'));
+        doc('reporteProduccionCalidadBtn').addEventListener('click', () => switchView('produccionCalidad'));
         doc('view901Btn').addEventListener('click', () => switchView('901'));
         doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
         doc('abrirModalSemanalBtn').addEventListener('click', abrirModalReporteSemanal);
@@ -1120,6 +1210,7 @@
                 'produccion_hora_config': 'produccion_hora_params',
                 'produccion_20_config': 'produccion_20_params',
                 'produccion_daily_config': 'produccion_daily_params'
+                'produccion_calidad_config': 'produccion_calidad_params' 
             };
             const docId = docIdMap[configKey];
             if (!docId) return;
@@ -1185,6 +1276,7 @@
         setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
         setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20');
         setupFileHandler('fileDropAreaProdDaily', 'fileInputProdDaily', 'produccionDaily');
+        setupFileHandler('fileDropAreaProdCalidad', 'fileInputProdCalidad', 'produccionCalidad');
 
         function handleFile(file, configKey) {
             if(configKey === '901') {
@@ -1193,6 +1285,8 @@
                 handleProduccion20File(file);
             } else if (configKey === 'produccionDaily') {
                 handleProduccionDailyFile(file);
+                } else if (configKey === 'produccionCalidad') { // <-- AÑADE ESTE BLOQUE
+    handleProduccionCalidadFile(file);
             } else {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
@@ -3109,6 +3203,395 @@
             });
         }
 
+// =======================================================================================
+// --- INICIO: LÓGICA REPORTE PRODUCCIÓN CALIDAD ---
+// =======================================================================================
+
+doc('consultarProduccionCalidadBtn').addEventListener('click', consultarProduccionCalidad);
+doc('abrirModalSemanalCalidadBtn').addEventListener('click', abrirModalReporteSemanalCalidad);
+
+async function handleProduccionCalidadFile(file) {
+    const config = params.produccion_calidad_config;
+    if (!config || !config.columns || !config.columns.length === 0) {
+        showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1, blankrows: false });
+
+            const colMap = {};
+            config.columns.forEach(col => {
+               colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
+            });
+
+            const data = jsonData.map(row => {
+                const rowData = {};
+                config.columns.forEach(col => {
+                    rowData[col.key] = row[colMap[col.key]];
+                });
+                return rowData;
+            }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
+
+            if (data.length === 0) {
+                showModal('Sin Datos', `<p>No se encontraron datos válidos a partir de la fila ${config.startRow} en el archivo Excel.</p>`);
+                return;
+            }
+
+            const batch = db.batch();
+            let processedCount = 0;
+            data.forEach(row => {
+                const serial = String(row['Serial Number']).trim();
+                if(serial){
+                    const docRef = db.collection('produccion_calidad_historico').doc(serial);
+                    let fechaHora = null;
+                    if (row['Fecha y hora'] instanceof Date) {
+                        fechaHora = row['Fecha y hora'];
+                    } else if (typeof row['Fecha y hora'] === 'number') {
+                        fechaHora = excelSerialToDateObject(row['Fecha y hora']);
+                    }
+
+                    if (fechaHora) {
+                        batch.set(docRef, { ...row, 'Fecha y hora': firebase.firestore.Timestamp.fromDate(fechaHora) });
+                        processedCount++;
+                    }
+                }
+            });
+
+            await batch.commit();
+
+            doc('fileDropAreaProdCalidad').style.borderColor = 'var(--success-color)';
+            showModal('Éxito', `<p>${processedCount} registros han sido guardados en la base de datos. Vuelva a consultar la fecha para ver los datos actualizados.</p>`);
+            consultarProduccionCalidad();
+
+        } catch (err) {
+            console.error("Error al procesar y guardar archivo de Producción Calidad:", err);
+            doc('fileDropAreaProdCalidad').style.borderColor = 'var(--danger-color)';
+            showModal('Error de Archivo', `<p>No se pudo procesar o guardar el archivo. Verifique el formato, la configuración y la conexión a la base de datos.</p>`);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+async function consultarProduccionCalidad() {
+    const fechaInput = doc('prodCalidad_fecha').value;
+    const turnoInput = doc('prodCalidad_turno').value;
+
+    if (!fechaInput) {
+        showModal('Fecha Requerida', '<p>Por favor, seleccione una fecha.</p>');
+        return;
+    }
+    const btn = doc('consultarProduccionCalidadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Consultando...';
+
+    const { startTime, endTime } = getShiftDateRange(fechaInput, turnoInput);
+
+    try {
+        const snapshot = await db.collection('produccion_calidad_historico')
+            .where('Fecha y hora', '>=', startTime)
+            .where('Fecha y hora', '<=', endTime)
+            .get();
+
+        const data = [];
+        snapshot.forEach(docSnap => {
+            const docData = docSnap.data();
+            const fechaHora = docData['Fecha y hora'] ? docData['Fecha y hora'].toDate() : null;
+            if (fechaHora) {
+                data.push({ ...docData, 'Fecha y hora': fechaHora });
+            }
+        });
+
+        if (data.length === 0) {
+            showModal('Sin Datos', `<p>No se encontraron registros para la fecha y turno seleccionados.</p>`);
+            renderProduccionCalidadTable([]);
+            renderProduccionCalidadChart([], startTime);
+            return;
+        }
+
+        const processedData = data.map(row => {
+            const catalogo = row['Catalogo'] || '';
+            const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
+            const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
+            const terminaciones = fibras * (Number(row['Cantidad']) || 0);
+
+            return { 
+                ...row,
+                Fibras: fibras, 
+                Terminaciones: terminaciones 
+            };
+        });
+
+        renderProduccionCalidadTable(processedData);
+        renderProduccionCalidadChart(processedData, startTime);
+
+    } catch (e) {
+        console.error("Error consultando reporte Calidad:", e);
+        showModal('Error de Consulta', `<p>No se pudo obtener el reporte de la base de datos.</p>`);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Consultar Reporte';
+    }
+}
+
+function renderProduccionCalidadTable(data) {
+    const table = doc('dataTableProduccionCalidad');
+    if (!data || data.length === 0) {
+        table.innerHTML = `<thead><tr><th>Sin datos para mostrar.</th></tr></thead><tbody></tbody>`;
+        return;
+    }
+
+    const headers = [...params.produccion_calidad_config.columns.map(c => c.key), 'Fibras', 'Terminaciones'];
+
+    let headerHtml = '<thead><tr>';
+    headers.forEach(h => headerHtml += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`);
+    headerHtml += '</tr></thead>';
+
+    let bodyHtml = '<tbody>';
+    data.sort((a, b) => (b['Fecha y hora'] || 0) - (a['Fecha y hora'] || 0));
+
+    data.forEach(row => {
+        bodyHtml += `<tr>`;
+        headers.forEach(header => {
+            let value = row[header];
+            if (header === 'Fecha y hora' && value instanceof Date) {
+                value = formatShortDateTime(value);
+            }
+            bodyHtml += `<td>${value ?? ''}</td>`;
+        });
+        bodyHtml += `</tr>`;
+    });
+    bodyHtml += '</tbody>';
+    table.innerHTML = headerHtml + bodyHtml;
+
+    table.querySelectorAll('.filter-input').forEach(input => {
+        input.addEventListener('keyup', () => {
+            const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({
+                columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')),
+                value: i.value.toLowerCase()
+            }));
+            table.querySelectorAll('tbody tr').forEach(row => {
+                let shouldShow = true;
+                filters.forEach(filter => {
+                    if (filter.value) {
+                        const cell = row.children[filter.columnIndex];
+                        if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) {
+                            shouldShow = false;
+                        }
+                    }
+                });
+                row.style.display = shouldShow ? '' : 'none';
+            });
+        });
+    });
+}
+
+function renderProduccionCalidadChart(data, shiftStartTime) {
+    const ctx = doc('produccionCalidadChart').getContext('2d');
+    if (productionCalidadChart) {
+        productionCalidadChart.destroy();
+    }
+    if (!data || data.length === 0 || !shiftStartTime) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        doc('chartSummaryCalidad').innerHTML = '';
+        return;
+    }
+
+    const hourlyBins = Array.from({ length: 12 }, () => ({}));
+    const totalesPorLinea = {};
+    let totalPiezas = 0;
+    let granTotalTerminaciones = 0;
+
+    data.forEach(item => {
+        let linea = 'N/A';
+        const lineValue = String(item['Line'] || '').toUpperCase();
+        if (lineValue.includes('LINEA 1')) {
+            linea = 'Linea 1';
+        } else if (lineValue.includes('LINEA 2')) {
+            linea = 'Linea 2';
+        }
+
+        const terminaciones = Number(item['Terminaciones']) || 0;
+        const piezas = Number(item['Cantidad']) || 0;
+
+        granTotalTerminaciones += terminaciones;
+        totalPiezas += piezas;
+
+        if (!totalesPorLinea[linea]) {
+            totalesPorLinea[linea] = { pzas: 0, term: 0 };
+        }
+        totalesPorLinea[linea].pzas += piezas;
+        totalesPorLinea[linea].term += terminaciones;
+
+        if (item['Fecha y hora'] instanceof Date) {
+            const diffMillis = item['Fecha y hora'] - shiftStartTime;
+            if (diffMillis >= 0) {
+                const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                if (hourIndex >= 0 && hourIndex < 12) {
+                    hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
+                }
+            }
+        }
+    });
+
+    const lineasOrdenadas = Object.keys(totalesPorLinea).sort();
+    const summaryHtml = lineasOrdenadas.map(linea =>
+        `${linea}: <strong>${totalesPorLinea[linea].pzas.toLocaleString()} pzas</strong> / <strong>${totalesPorLinea[linea].term.toLocaleString()} term.</strong>`
+    ).join(' | ');
+
+    doc('chartSummaryCalidad').innerHTML = summaryHtml;
+
+    const allLineas = Object.keys(totalesPorLinea).sort();
+    const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+    const datasets = allLineas.map((linea, index) => ({
+        label: `Terminaciones ${linea}`,
+        data: hourlyBins.map(hourData => hourData[linea] || 0),
+        backgroundColor: colors[index % colors.length],
+    }));
+
+    const labels = [];
+    for (let i = 0; i < 12; i++) {
+        const start = new Date(shiftStartTime);
+        start.setHours(start.getHours() + i);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
+        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+        labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+    }
+
+    productionCalidadChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: { /* Opciones de la gráfica son idénticas... */ },
+        plugins: [ChartDataLabels]
+    });
+    updateChartTheme();
+}
+
+// --- Lógica para el Reporte Semanal de Calidad ---
+function abrirModalReporteSemanalCalidad() {
+    const modalHTML = `
+        <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
+            <div><label for="semanalCalidad_fecha_inicio">Fecha de Inicio</label><input type="date" id="semanalCalidad_fecha_inicio"></div>
+            <div><label for="semanalCalidad_fecha_fin">Fecha de Fin</label><input type="date" id="semanalCalidad_fecha_fin"></div>
+            <div><label for="semanalCalidad_turno">Turno</label><select id="semanalCalidad_turno">${doc('prodCalidad_turno').innerHTML}</select></div>
+        </div>
+        <button id="generarReporteSemanalCalidadBtn" class="btn" style="width: 100%;">Generar Gráfica Comparativa</button>
+        <div id="chartContainerSemanalCalidad" style="margin-top: 20px; height: 45vh; position: relative;"><canvas id="graficaSemanalCalidad"></canvas></div>`;
+    showModal('Reporte Semanal de Terminaciones (Calidad)', modalHTML);
+
+    const hoy = new Date();
+    const haceUnaSemana = new Date();
+    haceUnaSemana.setDate(hoy.getDate() - 6);
+    doc('semanalCalidad_fecha_fin').value = hoy.toISOString().split('T')[0];
+    doc('semanalCalidad_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
+    doc('semanalCalidad_turno').value = getAutoCurrentShift();
+
+    doc('generarReporteSemanalCalidadBtn').addEventListener('click', consultarReporteSemanalCalidad);
+}
+
+async function consultarReporteSemanalCalidad() {
+    const btn = doc('generarReporteSemanalCalidadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Generando...';
+
+    const fechaInicio = doc('semanalCalidad_fecha_inicio').value;
+    const fechaFin = doc('semanalCalidad_fecha_fin').value;
+    const turnoSeleccionado = doc('semanalCalidad_turno').value;
+
+    if (!fechaInicio || !fechaFin || !turnoSeleccionado) {
+        alert('Por favor, selecciona un rango de fechas y un turno.');
+        btn.disabled = false;
+        btn.textContent = 'Generar Gráfica Comparativa';
+        return;
+    }
+
+    const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+    const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
+    fechaFinDate.setDate(fechaFinDate.getDate() + 1);
+    fechaFinDate.setHours(6, 29, 59, 999);
+
+    try {
+        const snapshot = await db.collection('produccion_calidad_historico')
+            .where('Fecha y hora', '>=', fechaInicioDate)
+            .where('Fecha y hora', '<=', fechaFinDate)
+            .get();
+
+        const datosAgrupados = {};
+        const labelsFechas = new Set();
+        const allLineas = new Set();
+
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const fechaHora = data['Fecha y hora'].toDate();
+            const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
+
+            if (shift === turnoSeleccionado && dateKey >= fechaInicio && dateKey <= fechaFin) {
+                labelsFechas.add(dateKey);
+
+                let linea = 'N/A';
+                const lineValue = String(data['Line'] || '').toUpperCase();
+                if (lineValue.includes('LINEA 1')) linea = 'Linea 1';
+                else if (lineValue.includes('LINEA 2')) linea = 'Linea 2';
+                allLineas.add(linea);
+
+                if (!datosAgrupados[dateKey]) datosAgrupados[dateKey] = {};
+                if (!datosAgrupados[dateKey][linea]) datosAgrupados[dateKey][linea] = 0;
+
+                const catalogo = data['Catalogo'] || '';
+                const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
+                const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
+                const terminaciones = fibras * (Number(data['Cantidad']) || 0);
+
+                datosAgrupados[dateKey][linea] += terminaciones;
+            }
+        });
+
+        const fechasOrdenadas = Array.from(labelsFechas).sort();
+        renderGraficaSemanalCalidad(datosAgrupados, fechasOrdenadas, Array.from(allLineas).sort());
+
+    } catch (e) {
+        console.error("Error consultando reporte semanal calidad:", e);
+        alert("No se pudo generar el reporte semanal. Revisa la consola.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generar Gráfica Comparativa';
+    }
+}
+
+function renderGraficaSemanalCalidad(datos, labels, lineas) {
+    const ctx = doc('graficaSemanalCalidad').getContext('2d');
+    if (graficaSemanalCalidadInstance) {
+        graficaSemanalCalidadInstance.destroy();
+    }
+
+    const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
+    const datasets = lineas.map((linea, index) => ({
+        label: `Terminaciones ${linea}`,
+        data: labels.map(fecha => (datos[fecha] && datos[fecha][linea]) ? datos[fecha][linea] : 0),
+        backgroundColor: colors[index % colors.length]
+    }));
+
+    graficaSemanalCalidadInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.map(f => new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })),
+            datasets: datasets
+        },
+        options: { /* Opciones idénticas... */ },
+        plugins: [ChartDataLabels]
+    });
+    updateChartTheme();
+}
+
+// =======================================================================================
+// --- FIN: LÓGICA REPORTE PRODUCCIÓN CALIDAD ---
+// =======================================================================================
+
+
         // --- INICIO: INICIALIZACIÓN DE LA APP ---
         function initializeApp() {
             if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
@@ -3118,6 +3601,7 @@
                 loadParams('produccion_hora_config'),
                 loadParams('produccion_20_config'),
                 loadParams('produccion_daily_config')
+                loadParams('produccion_calidad_config')
             ]).then(() => {
                 const today = new Date();
                 const pastDate = new Date();
