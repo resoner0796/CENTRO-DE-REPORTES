@@ -1302,7 +1302,7 @@
                     }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
 
                     if (data.length === 0) {
-                        showModal('Sin Datos', `<p>No se encontraron datos válidos con 'Serial Number' a partir de la fila ${config.startRow}.</p>`);
+                        showModal('Sin Datos', `<p>No se encontraron datos válidos a partir de la fila ${config.startRow} en el archivo Excel.</p>`);
                         return;
                     }
 
@@ -1311,7 +1311,6 @@
                     data.forEach(row => {
                         const serial = String(row['Serial Number']).trim();
                         if(serial){
-                            // CAMBIO: Apunta a la colección del Daily
                             const docRef = db.collection('produccion_daily_historico').doc(serial);
                             let fechaHora = null;
                             if (row['Fecha y hora'] instanceof Date) {
@@ -1326,19 +1325,19 @@
                             }
                         }
                     });
-						
-						if (processedCount === 0) {
+                    
+                    if (processedCount === 0 && data.length > 0) {
 							throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
 						}
 
                     await batch.commit();
 
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-                    showModal('Éxito', `<p>${processedCount} registros han sido guardados en la base de datos. Vuelva a consultar la fecha para ver los datos actualizados.</p>`);
+                    showModal('Éxito', `<p>${processedCount} registros han sido guardados en 'produccion_daily_historico'.</p>`);
                     consultarReporteProduccionDaily();
 
                 } catch (err) {
-                    console.error("Error al procesar y guardar archivo de Producción Daily:", err);
+                    console.error("Error al procesar archivo Daily:", err);
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
                     showModal('Error de Archivo', `<p>${err.message}</p>`);
                 }
