@@ -1275,7 +1275,6 @@
         doc('abrirModalSemanalDailyBtn').addEventListener('click', abrirModalReporteSemanalDaily);
 
         async function handleProduccionDailyFile(file) {
-            // Ahora sí, leerá la configuración directamente de tu archivo HTML o de la que guardaste en Firebase.
             const config = params.produccion_daily_config;
             if (!config || !config.columns || !config.columns.length === 0) {
                 showModal('Configuración Requerida', '<p>La configuración para este reporte no ha sido cargada.</p>');
@@ -1291,57 +1290,54 @@
                     const colMap = {};
                     config.columns.forEach(col => { colMap[col.key] = XLSX.utils.decode_col(col.excel_col); });
 
-                    const dataToSave = [];
-                    jsonData.forEach(row => {
+                    const data = jsonData.map(row => {
                         const rowData = {};
                         config.columns.forEach(col => { rowData[col.key] = row[colMap[col.key]]; });
+                        return rowData;
+                    }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
 
-                        const serial = rowData['Serial Number'] ? String(rowData['Serial Number']).trim() : null;
-                        if (serial) {
-                            let fechaHora = null;
-                            const dateValue = rowData['Finish date'];
-
-                            // --- AJUSTE CLAVE: Lógica de fecha robusta ---
-                            if (dateValue instanceof Date) {
-                                fechaHora = dateValue;
-                            } else if (typeof dateValue === 'number') {
-                                fechaHora = excelSerialToDateObject(dateValue);
-                            } else if (typeof dateValue === 'string' && dateValue.trim() !== '') {
-                                // Intenta convertir el texto a una fecha.
-                                fechaHora = new Date(dateValue);
-                                // Si la conversión resulta en una fecha inválida, la descartamos.
-                                if (isNaN(fechaHora.getTime())) {
-                                    fechaHora = null;
-                                }
-                            }
-
-                            if (fechaHora) {
-                                dataToSave.push({ docId: serial, data: { ...rowData, 'Finish date': firebase.firestore.Timestamp.fromDate(fechaHora) } });
-                            }
-                        }
-                    });
-
-                    if (dataToSave.length === 0) {
-                        showModal('Sin Datos para Guardar', `<p>Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida en la columna W. No se guardó nada.</p>`);
+                    if (data.length === 0) {
+                        showModal('Sin Datos', `<p>No se encontraron datos válidos con 'Serial Number' a partir de la fila ${config.startRow}.</p>`);
                         return;
                     }
 
                     const batch = db.batch();
-                    dataToSave.forEach(item => {
-                        const docRef = db.collection('produccion_daily_historico').doc(item.docId);
-                        batch.set(docRef, item.data, { merge: true });
+                    data.forEach(row => {
+                        const serial = String(row['Serial Number']).trim();
+                        if (serial) {
+                            const docRef = db.collection('produccion_daily_historico').doc(serial);
+                            let fechaHora = null;
+
+                                // --- ESTE ES EL CORAZÓN DEL ARREGLO ---
+                                // 1. Lee el campo con el nombre correcto: 'Fecha y hora'
+                                // 2. Usa la misma lógica del reporte 20% (sin inventar nada nuevo).
+                                if (row['Fecha y hora'] instanceof Date) {
+                                    fechaHora = row['Fecha y hora'];
+                                } else if (typeof row['Fecha y hora'] === 'number') {
+                                    fechaHora = excelSerialToDateObject(row['Fecha y hora']);
+                                }
+
+                            if (fechaHora) {
+                                batch.set(docRef, { ...row, 'Fecha y hora': firebase.firestore.Timestamp.fromDate(fechaHora) });
+                            }
+                        }
                     });
-                    
+						
+						// Seguro anti "falsos positivos"
+                    if (batch._ops.length === 0) {
+							throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
+						}
+						
                     await batch.commit();
 
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-                    showModal('Éxito', `<p>${dataToSave.length} registros han sido guardados o actualizados en 'produccion_daily_historico'.</p>`);
+                    showModal('Éxito', `<p>${data.length} registros han sido guardados o actualizados en 'produccion_daily_historico'.</p>`);
                     consultarReporteProduccionDaily();
 
                 } catch (err) {
                     console.error("Error al procesar archivo Daily:", err);
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
-                    showModal('Error de Archivo', `<p>No se pudo procesar o guardar el archivo: ${err.message}</p>`);
+                    showModal('Error de Archivo', `<p>${err.message}</p>`);
                 }
             };
             reader.readAsArrayBuffer(file);
