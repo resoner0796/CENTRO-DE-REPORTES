@@ -3413,86 +3413,128 @@ function renderProduccionCalidadTable(data) {
 }
 
 function renderProduccionCalidadChart(data, shiftStartTime) {
-        const ctx = doc('produccionCalidadChart').getContext('2d');
-        if (productionCalidadChart) {
-            productionCalidadChart.destroy();
-        }
-        if (!data || data.length === 0 || !shiftStartTime) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            doc('chartSummaryCalidad').innerHTML = '';
-            return;
-        }
+    const ctx = doc('produccionCalidadChart').getContext('2d');
+    if (productionCalidadChart) {
+        productionCalidadChart.destroy();
+    }
+    if (!data || data.length === 0 || !shiftStartTime) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        doc('chartSummaryCalidad').innerHTML = '';
+        return;
+    }
 
-        const hourlyBins = Array.from({ length: 12 }, () => ({}));
-        const totalesPorGrupo = {};
-        let totalPiezas = 0;
-        let granTotalTerminaciones = 0;
-        
-        data.forEach(item => {
-            const grupo = item['Line'] || 'N/A';
-            const terminaciones = Number(item['Terminaciones']) || 0;
-            const piezas = Number(item['Cantidad']) || 0;
-            granTotalTerminaciones += terminaciones;
-            totalPiezas += piezas;
+    const hourlyBins = Array.from({ length: 12 }, () => ({}));
+    const totalesPorGrupo = {};
+    let totalPiezas = 0;
+    let granTotalTerminaciones = 0;
+    
+    data.forEach(item => {
+        const grupo = item['Line'] || 'N/A';
+        const terminaciones = Number(item['Terminaciones']) || 0;
+        const piezas = Number(item['Cantidad']) || 0;
+        granTotalTerminaciones += terminaciones;
+        totalPiezas += piezas;
 
-            if (!totalesPorGrupo[grupo]) {
-                totalesPorGrupo[grupo] = { pzas: 0, term: 0 };
-            }
-            totalesPorGrupo[grupo].pzas += piezas;
-            totalesPorGrupo[grupo].term += terminaciones;
-            
-            if (item['Fecha y hora'] instanceof Date) {
-                const diffMillis = item['Fecha y hora'] - shiftStartTime;
-                if (diffMillis >= 0) {
-                    const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
-                    if (hourIndex >= 0 && hourIndex < 12) {
-                        hourlyBins[hourIndex][grupo] = (hourlyBins[hourIndex][grupo] || 0) + terminaciones;
-                    }
-                }
-            }
-        });
+        if (!totalesPorGrupo[grupo]) {
+            totalesPorGrupo[grupo] = { pzas: 0, term: 0 };
+        }
+        totalesPorGrupo[grupo].pzas += piezas;
+        totalesPorGrupo[grupo].term += terminaciones;
+        
+        if (item['Fecha y hora'] instanceof Date) {
+            const diffMillis = item['Fecha y hora'] - shiftStartTime;
+            if (diffMillis >= 0) {
+                const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                if (hourIndex >= 0 && hourIndex < 12) {
+                    hourlyBins[hourIndex][grupo] = (hourlyBins[hourIndex][grupo] || 0) + terminaciones;
+                }
+            }
+        }
+    });
 
-        const gruposOrdenados = Object.keys(totalesPorGrupo).sort();
-        const summaryHtml = gruposOrdenados.map(grupo =>
-            `${grupo}: <strong>${totalesPorGrupo[grupo].pzas.toLocaleString()} pzas</strong> / <strong>${totalesPorGrupo[grupo].term.toLocaleString()} term.</strong>`
-        ).join(' | ');
-        doc('chartSummaryCalidad').innerHTML = summaryHtml;
+    const gruposOrdenados = Object.keys(totalesPorGrupo).sort();
+    const summaryHtml = gruposOrdenados.map(grupo =>
+        `${grupo}: <strong>${totalesPorGrupo[grupo].pzas.toLocaleString()} pzas</strong> / <strong>${totalesPorGrupo[grupo].term.toLocaleString()} term.</strong>`
+    ).join(' | ');
+    doc('chartSummaryCalidad').innerHTML = summaryHtml;
 
-        const todosLosGrupos = Object.keys(totalesPorGrupo).sort();
-        // --- CAMBIO A COLORES SÓLIDOS ---
-        const colors = ['rgb(54, 162, 235)', 'rgb(255, 99, 132)', 'rgb(75, 192, 192)', 'rgb(255, 206, 86)'];
-        const datasets = todosLosGrupos.map((grupo, index) => ({
-            label: `Terminaciones ${grupo}`,
-            data: hourlyBins.map(hourData => hourData[grupo] || 0),
-            backgroundColor: colors[index % colors.length],
-        }));
+    const todosLosGrupos = Object.keys(totalesPorGrupo).sort();
+    const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(255, 206, 86, 0.7)'];
+    const datasets = todosLosGrupos.map((grupo, index) => ({
+        label: `Terminaciones ${grupo}`,
+        data: hourlyBins.map(hourData => hourData[grupo] || 0),
+        backgroundColor: colors[index % colors.length],
+    }));
 
-        const labels = [];
-        for (let i = 0; i < 12; i++) {
-            const start = new Date(shiftStartTime);
-            start.setHours(start.getHours() + i);
-            const end = new Date(start);
-            end.setHours(end.getHours() + 1);
-            const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-            labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
-        }
+    const labels = [];
+    for (let i = 0; i < 12; i++) {
+        const start = new Date(shiftStartTime);
+        start.setHours(start.getHours() + i);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
+        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+        labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+    }
 
-        productionCalidadChart = new Chart(ctx, {
-            type: 'bar',
-            data: { labels, datasets },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { /* sin cambios */ },
-                scales: {
-                    x: { stacked: false, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
-                    // --- CAMBIO PARA LÍNEAS DETRÁS DE LAS BARRAS ---
-                    y: { stacked: false, beginAtZero: true, grid: { drawOnChartArea: false, color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' } }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
-        updateChartTheme();
-    }
+    productionCalidadChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
+                title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
+                // --- INICIO DEL AJUSTE ESTÉTICO PARA LAS ETIQUETAS ---
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    offset: 8, // Separa la etiqueta de la barra para que no se superponga
+                    backgroundColor: (context) => {
+                        // Cambia el color del fondo de la etiqueta dependiendo del tema
+                        return document.body.classList.contains('dark-theme') ? 'rgba(40, 43, 48, 0.75)' : 'rgba(255, 255, 255, 0.75)';
+                    },
+                    borderColor: (context) => context.dataset.backgroundColor, // Borde del color de la barra
+                    borderWidth: 1,
+                    borderRadius: 4, // Bordes redondeados
+                    color: (context) => {
+                        // Cambia el color del texto dependiendo del tema para mejor contraste
+                        return document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827';
+                    },
+                    padding: { top: 2, bottom: 2, left: 5, right: 5 },
+                    font: { weight: 'bold', size: 10 },
+                    formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                }
+                // --- FIN DEL AJUSTE ESTÉTICO ---
+            },
+            scales: {
+                // Aseguramos que las barras no estén apiladas
+                x: { 
+                    stacked: false, 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)' } 
+                },
+                y: { 
+                    stacked: false, 
+                    beginAtZero: true, 
+                    grid: { 
+                        drawOnChartArea: true, // La cuadrícula se dibuja detrás de las barras
+                        color: 'var(--chart-grid-color)' 
+                    }, 
+                    ticks: { color: 'var(--chart-tick-color)' }, 
+                    title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
+                    // Agregamos un poco de espacio extra arriba para que quepan las etiquetas
+                    afterDataLimits: (scale) => {
+                        scale.max = scale.max * 1.15;
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+    updateChartTheme();
+}
+
 // --- Lógica para el Reporte Semanal de Calidad ---
 function abrirModalReporteSemanalCalidad() {
     const modalHTML = `
