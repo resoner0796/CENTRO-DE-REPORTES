@@ -214,13 +214,24 @@
         }
         
        #dataTableProduccionCalidad {
-            table-layout: auto; /* Deja que el navegador decida el ancho de las columnas */
+            table-layout: fixed; /* Forzamos anchos de columna fijos */
+            width: 100%;
         }
         #dataTableProduccionCalidad th,
         #dataTableProduccionCalidad td {
-            white-space: normal; /* Permite que el texto se parta en varias líneas */
-            word-break: break-all; /* Fuerza el corte de palabras si es necesario */
+            white-space: nowrap; /* Mantenemos todo en una línea */
+            overflow: hidden; /* Ocultamos lo que no quepa */
+            text-overflow: ellipsis; /* Ponemos "..." al final del texto largo */
             vertical-align: middle;
+        }
+        /* Asignamos anchos específicos a las columnas problemáticas */
+        #dataTableProduccionCalidad th:nth-child(1), /* Columna 1: Line */
+        #dataTableProduccionCalidad td:nth-child(1) {
+            width: 150px; 
+        }
+        #dataTableProduccionCalidad th:nth-child(4), /* Columna 4: Catalogo */
+        #dataTableProduccionCalidad td:nth-child(4) {
+            width: 200px;
         }
 
         #resumenSemanal h5 {
@@ -3015,42 +3026,42 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         }
 
         function updateChartTheme() {
-            const charts = [productionChart, fiberPieChart1, fiberPieChart2, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance].filter(Boolean);
-            if (charts.length === 0) return;
-            const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
-            const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
-            const gridColor = getComputedStyle(document.body).getPropertyValue('--chart-grid-color').trim();
-            const successColor = getComputedStyle(document.body).getPropertyValue('--success-color').trim();
-            const dangerColor = getComputedStyle(document.body).getPropertyValue('--danger-color').trim();
-            const glowGreen = getComputedStyle(document.body).getPropertyValue('--glow-green').trim();
-            const glowRed = getComputedStyle(document.body).getPropertyValue('--glow-red').trim();
+            const charts = [productionChart, fiberPieChart1, fiberPieChart2, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance].filter(Boolean);
+            if (charts.length === 0) return;
+            const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
+            const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
+            const gridColor = getComputedStyle(document.body).getPropertyValue('--chart-grid-color').trim();
+            const successColor = getComputedStyle(document.body).getPropertyValue('--success-color').trim();
+            const dangerColor = getComputedStyle(document.body).getPropertyValue('--danger-color').trim();
+            const glowGreen = getComputedStyle(document.body).getPropertyValue('--glow-green').trim();
+            const glowRed = getComputedStyle(document.body).getPropertyValue('--glow-red').trim();
 
-            charts.forEach(chart => {
-                if (chart.options.plugins.legend) chart.options.plugins.legend.labels.color = textColor;
-                if (chart.options.plugins.title) chart.options.plugins.title.color = textColor;
-                if(chart.config.type.includes('bar') || chart.config.type.includes('line')) {
-                    if (chart.options.plugins.datalabels) {
-                        if(chart.options.plugins.datalabels.labels) {
-                            if(chart.options.plugins.datalabels.labels.terminaciones) chart.options.plugins.datalabels.labels.terminaciones.color = textColor;
-                        } else {
-                            chart.options.plugins.datalabels.color = textColor;
-                        }
-                    }
-                    if (chart.data.datasets.some(ds => ds.type === 'line')) {
-                        let lineDataset = chart.data.datasets.find(ds => ds.type === 'line');
-                        if (lineDataset) lineDataset.borderColor = successColor;
-                    }
-                    if(chart.options.plugins.datalabels && chart.options.plugins.datalabels.labels && chart.options.plugins.datalabels.labels.value){
-                         chart.options.plugins.datalabels.labels.value.color = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? successColor : dangerColor;
-                         chart.options.plugins.datalabels.labels.value.textShadowColor = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? glowGreen : glowRed;
-                    }
-                    if (chart.options.scales.x) { chart.options.scales.x.ticks.color = tickColor; chart.options.scales.x.grid.color = gridColor; }
-                    if (chart.options.scales.y) { chart.options.scales.y.ticks.color = tickColor; chart.options.scales.y.grid.color = gridColor; }
-                    if (chart.options.scales.y.title) chart.options.scales.y.title.color = tickColor;
-                }
-                chart.update();
-            });
-        }
+            charts.forEach(chart => {
+                if (chart.options.plugins.legend) chart.options.plugins.legend.labels.color = textColor;
+                if (chart.options.plugins.title) chart.options.plugins.title.color = textColor;
+                if(chart.config.type.includes('bar') || chart.config.type.includes('line')) {
+                    if (chart.options.plugins.datalabels) {
+                        if(chart.options.plugins.datalabels.labels) {
+                            if(chart.options.plugins.datalabels.labels.terminaciones) chart.options.plugins.datalabels.labels.terminaciones.color = textColor;
+                        } else if (chart.options.plugins.datalabels.color !== 'white') { // No cambiar las etiquetas blancas del nuevo estilo
+                            chart.options.plugins.datalabels.color = textColor;
+                        }
+                    }
+                    if (chart.data.datasets.some(ds => ds.type === 'line')) {
+                        let lineDataset = chart.data.datasets.find(ds => ds.type === 'line');
+                        if (lineDataset) lineDataset.borderColor = successColor;
+                    }
+                    if(chart.options.plugins.datalabels && chart.options.plugins.datalabels.labels && chart.options.plugins.datalabels.labels.value){
+                         chart.options.plugins.datalabels.labels.value.color = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? successColor : dangerColor;
+                         chart.options.plugins.datalabels.labels.value.textShadowColor = (ctx) => ctx.dataset.data[ctx.dataIndex] >= 480 ? glowGreen : glowRed;
+                    }
+                    if (chart.options.scales.x) { chart.options.scales.x.ticks.color = tickColor; chart.options.scales.x.grid.color = gridColor; }
+                    if (chart.options.scales.y) { chart.options.scales.y.ticks.color = tickColor; chart.options.scales.y.grid.color = gridColor; }
+                    if (chart.options.scales.y.title) chart.options.scales.y.title.color = tickColor;
+                }
+                chart.update();
+            });
+        }
 
         function exportChartAsJPG() {
             const chartContainer = doc('chartContainer');
@@ -3448,7 +3459,8 @@ function renderProduccionCalidadChart(data, shiftStartTime) {
         doc('chartSummaryCalidad').innerHTML = summaryHtml;
 
         const todosLosGrupos = Object.keys(totalesPorGrupo).sort();
-        const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(255, 206, 86, 0.7)'];
+        // --- CAMBIO A COLORES SÓLIDOS ---
+        const colors = ['rgb(54, 162, 235)', 'rgb(255, 99, 132)', 'rgb(75, 192, 192)', 'rgb(255, 206, 86)'];
         const datasets = todosLosGrupos.map((grupo, index) => ({
             label: `Terminaciones ${grupo}`,
             data: hourlyBins.map(hourData => hourData[grupo] || 0),
@@ -3470,34 +3482,17 @@ function renderProduccionCalidadChart(data, shiftStartTime) {
             data: { labels, datasets },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
-                    title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
-                    // --- INICIO DEL AJUSTE ESTÉTICO ---
-                    datalabels: {
-                        display: true,
-                        anchor: 'end',
-                        align: 'top',
-                        offset: 8, // Separa la etiqueta 8px de la barra
-                        backgroundColor: 'rgba(30, 30, 30, 0.7)', // Fondo semitransparente
-                        borderRadius: 4, // Bordes redondeados
-                        color: 'white', // Letra blanca
-                        padding: { top: 2, bottom: 2, left: 4, right: 4 },
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (value) => value > 0 ? value.toLocaleString() : ''
-                    }
-                    // --- FIN DEL AJUSTE ESTÉTICO ---
-                },
+                plugins: { /* sin cambios */ },
                 scales: {
                     x: { stacked: false, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
-                    y: { stacked: false, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' } }
+                    // --- CAMBIO PARA LÍNEAS DETRÁS DE LAS BARRAS ---
+                    y: { stacked: false, beginAtZero: true, grid: { drawOnChartArea: false, color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' } }
                 }
             },
             plugins: [ChartDataLabels]
         });
         updateChartTheme();
     }
-
 // --- Lógica para el Reporte Semanal de Calidad ---
 function abrirModalReporteSemanalCalidad() {
     const modalHTML = `
