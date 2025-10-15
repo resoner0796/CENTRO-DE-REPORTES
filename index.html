@@ -1483,9 +1483,10 @@
             const hourlyBins = Array.from({ length: 12 }, () => ({}));
             const totalesPorLinea = {};
             let granTotalTerminaciones = 0;
+            // --- INICIO DE LA MODIFICACIÓN ---
+            let totalPiezas = 0; // Agregamos la variable para contar las piezas
             
             data.forEach(item => {
-                // --- CAMBIO CLAVE: EXTRAEMOS "Linea 1" o "Linea 2" ---
                 let linea = 'N/A';
                 const lineValue = String(item['Line'] || '').toUpperCase();
                 if (lineValue.includes('LINEA 1')) {
@@ -1495,7 +1496,9 @@
                 }
 
                 const terminaciones = Number(item['Terminaciones']) || 0;
+                // Sumamos las piezas y las terminaciones totales
                 granTotalTerminaciones += terminaciones;
+                totalPiezas += Number(item['Cantidad']) || 0;
 
                 if (!totalesPorLinea[linea]) {
                     totalesPorLinea[linea] = 0;
@@ -1513,16 +1516,21 @@
                 }
             });
 
-            let summaryHtml = `Total Terminaciones del Turno: <strong>${granTotalTerminaciones.toLocaleString()}</strong>`;
+            // Modificamos el resumen para incluir el total de piezas
+            let summaryHtml = `Total Piezas: <strong>${totalPiezas.toLocaleString()}</strong> / Total Terminaciones: <strong>${granTotalTerminaciones.toLocaleString()}</strong>`;
+            // --- FIN DE LA MODIFICACIÓN ---
+
             const lineasOrdenadas = Object.keys(totalesPorLinea).sort();
             if (lineasOrdenadas.length > 0) {
                 let detailHtml = lineasOrdenadas.map(linea =>
-                    `${linea}: <strong>${totalesPorLinea[linea].toLocaleString()}</strong>`
+                    `${linea}: <strong>${totalesPorLinea[linea].toLocaleString()} term.</strong>`
                 ).join(' | ');
                 summaryHtml += `<div style="font-size: 0.9em; margin-top: 5px;">${detailHtml}</div>`;
             }
             doc('chartSummaryDaily').innerHTML = summaryHtml;
 
+            // ... (el resto de la función es idéntico y no necesita cambios)
+            
             const allLineas = Object.keys(totalesPorLinea).sort();
             const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
             const datasets = allLineas.map((linea, index) => ({
