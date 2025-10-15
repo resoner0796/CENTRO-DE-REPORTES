@@ -1395,13 +1395,13 @@
                         Fibras: fibras, 
                         Terminaciones: terminaciones 
                     };
-            _  });
+                });
 				
                 renderProduccionDailyTable(processedData);
                 renderProduccionDailyChart(processedData, startTime);
 
             } catch (e) {
-        _        console.error("Error consultando reporte Daily:", e);
+                console.error("Error consultando reporte Daily:", e);
                 showModal('Error de Consulta', `<p>No se pudo obtener el reporte de la base de datos.</p>`);
             } finally {
                 btn.disabled = false;
