@@ -1302,36 +1302,36 @@
                     }
 
                     const batch = db.batch();
+                    let operationsInBatch = 0; // 1. Se inicializa el contador
+
                     data.forEach(row => {
                         const serial = String(row['Serial Number']).trim();
                         if (serial) {
                             const docRef = db.collection('produccion_daily_historico').doc(serial);
                             let fechaHora = null;
 
-                                // --- ESTE ES EL CORAZÓN DEL ARREGLO ---
-                                // 1. Lee el campo con el nombre correcto: 'Fecha y hora'
-                                // 2. Usa la misma lógica del reporte 20% (sin inventar nada nuevo).
-                                if (row['Fecha y hora'] instanceof Date) {
-                                    fechaHora = row['Fecha y hora'];
-                                } else if (typeof row['Fecha y hora'] === 'number') {
-                                    fechaHora = excelSerialToDateObject(row['Fecha y hora']);
-                                }
+                            if (row['Fecha y hora'] instanceof Date) {
+                                fechaHora = row['Fecha y hora'];
+                            } else if (typeof row['Fecha y hora'] === 'number') {
+                                fechaHora = excelSerialToDateObject(row['Fecha y hora']);
+                            }
 
                             if (fechaHora) {
                                 batch.set(docRef, { ...row, 'Fecha y hora': firebase.firestore.Timestamp.fromDate(fechaHora) });
+                                operationsInBatch++; // 2. Se incrementa el contador por cada guardado exitoso
                             }
                         }
                     });
 						
-						// Seguro anti "falsos positivos"
-                    if (batch._ops.length === 0) {
+						// 3. Se usa el contador seguro para verificar si hay algo que guardar
+                    if (operationsInBatch === 0) {
 							throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
 						}
 						
                     await batch.commit();
 
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-                    showModal('Éxito', `<p>${data.length} registros han sido guardados o actualizados en 'produccion_daily_historico'.</p>`);
+                    showModal('Éxito', `<p>${operationsInBatch} registros han sido guardados o actualizados en 'produccion_daily_historico'.</p>`);
                     consultarReporteProduccionDaily();
 
                 } catch (err) {
