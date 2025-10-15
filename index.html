@@ -1276,9 +1276,10 @@
         doc('abrirModalSemanalDailyBtn').addEventListener('click', abrirModalReporteSemanalDaily);
 
         async function handleProduccionDailyFile(file) {
+            // Usa la configuración del Daily (que ya igualamos a la del 20%)
             const config = params.produccion_daily_config;
             if (!config || !config.columns || !config.columns.length === 0) {
-                showModal('Configuración Requerida', '<p>La configuración para este reporte no ha sido cargada.</p>');
+                showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
                 return;
             }
             const reader = new FileReader();
@@ -1289,11 +1290,15 @@
                     const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: config.startRow - 1, blankrows: false });
 
                     const colMap = {};
-                    config.columns.forEach(col => { colMap[col.key] = XLSX.utils.decode_col(col.excel_col); });
+                    config.columns.forEach(col => {
+                        colMap[col.key] = XLSX.utils.decode_col(col.excel_col);
+                    });
 
                     const data = jsonData.map(row => {
                         const rowData = {};
-                        config.columns.forEach(col => { rowData[col.key] = row[colMap[col.key]]; });
+                        config.columns.forEach(col => {
+                            rowData[col.key] = row[colMap[col.key]];
+                        });
                         return rowData;
                     }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
 
@@ -1302,14 +1307,15 @@
                     }
 
                     const batch = db.batch();
-                    let operationsInBatch = 0;
-
+                    let processedCount = 0;
                     data.forEach(row => {
                         const serial = String(row['Serial Number']).trim();
                         if (serial) {
+                            // CAMBIO 1: Apunta a la colección correcta
                             const docRef = db.collection('produccion_daily_historico').doc(serial);
                             let fechaHora = null;
 
+                            // Lógica de fecha IDÉNTICA a la del 20%
                             if (row['Fecha y hora'] instanceof Date) {
                                 fechaHora = row['Fecha y hora'];
                             } else if (typeof row['Fecha y hora'] === 'number') {
@@ -1318,23 +1324,26 @@
 
                             if (fechaHora) {
                                 batch.set(docRef, { ...row, 'Fecha y hora': firebase.firestore.Timestamp.fromDate(fechaHora) });
-                                operationsInBatch++;
+                                processedCount++;
                             }
                         }
                     });
-						
-						if (operationsInBatch === 0) {
-							throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
-						}
-						
+
+                    if (processedCount === 0) {
+                        throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
+                    }
+
                     await batch.commit();
 
+                    // CAMBIO 2: Apunta al elemento correcto de la página
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-                    showModal('Éxito', `<p>${operationsInBatch} registros han sido guardados o actualizados en 'produccion_daily_historico'.</p>`);
+                    showModal('Éxito', `<p>${processedCount} registros han sido guardados o actualizados en 'produccion_daily_historico'.</p>`);
+                    // CAMBIO 3: Llama a la función de refresco correcta
                     consultarReporteProduccionDaily();
 
                 } catch (err) {
                     console.error("Error al procesar archivo Daily:", err);
+                    // CAMBIO 4: Apunta al elemento correcto de la página
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
                     showModal('Error de Archivo', `<p>${err.message}</p>`);
                 }
