@@ -1481,10 +1481,8 @@
             }
 
             const hourlyBins = Array.from({ length: 12 }, () => ({}));
-            const totalesPorLinea = {};
-            let granTotalTerminaciones = 0;
-            // --- INICIO DE LA MODIFICACIÓN ---
-            let totalPiezas = 0; // Agregamos la variable para contar las piezas
+            // --- INICIO DEL CAMBIO ---
+            const totalesPorLinea = {}; // Este objeto ahora guardará piezas Y terminaciones
             
             data.forEach(item => {
                 let linea = 'N/A';
@@ -1496,14 +1494,15 @@
                 }
 
                 const terminaciones = Number(item['Terminaciones']) || 0;
-                // Sumamos las piezas y las terminaciones totales
-                granTotalTerminaciones += terminaciones;
-                totalPiezas += Number(item['Cantidad']) || 0;
+                const piezas = Number(item['Cantidad']) || 0;
 
+                // Si es la primera vez que vemos esta línea, la inicializamos como un objeto
                 if (!totalesPorLinea[linea]) {
-                    totalesPorLinea[linea] = 0;
+                    totalesPorLinea[linea] = { pzas: 0, term: 0 };
                 }
-                totalesPorLinea[linea] += terminaciones;
+                // Sumamos tanto piezas como terminaciones a su línea correspondiente
+                totalesPorLinea[linea].pzas += piezas;
+                totalesPorLinea[linea].term += terminaciones;
                 
                 if (item['Fecha y hora'] instanceof Date) {
                     const diffMillis = item['Fecha y hora'] - shiftStartTime;
@@ -1516,21 +1515,15 @@
                 }
             });
 
-            // Modificamos el resumen para incluir el total de piezas
-            let summaryHtml = `Total Piezas: <strong>${totalPiezas.toLocaleString()}</strong> / Total Terminaciones: <strong>${granTotalTerminaciones.toLocaleString()}</strong>`;
-            // --- FIN DE LA MODIFICACIÓN ---
-
+            // Generamos el nuevo HTML para el resumen, desglosado por línea
             const lineasOrdenadas = Object.keys(totalesPorLinea).sort();
-            if (lineasOrdenadas.length > 0) {
-                let detailHtml = lineasOrdenadas.map(linea =>
-                    `${linea}: <strong>${totalesPorLinea[linea].toLocaleString()} term.</strong>`
-                ).join(' | ');
-                summaryHtml += `<div style="font-size: 0.9em; margin-top: 5px;">${detailHtml}</div>`;
-            }
-            doc('chartSummaryDaily').innerHTML = summaryHtml;
+            const summaryHtml = lineasOrdenadas.map(linea =>
+                `${linea}: <strong>${totalesPorLinea[linea].pzas.toLocaleString()} pzas</strong> / <strong>${totalesPorLinea[linea].term.toLocaleString()} term.</strong>`
+            ).join(' | ');
 
-            // ... (el resto de la función es idéntico y no necesita cambios)
-            
+            doc('chartSummaryDaily').innerHTML = summaryHtml;
+            // --- FIN DEL CAMBIO ---
+
             const allLineas = Object.keys(totalesPorLinea).sort();
             const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
             const datasets = allLineas.map((linea, index) => ({
