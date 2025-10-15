@@ -703,7 +703,7 @@
                 startRow: 15,
                 columns: [
                     // --- AJUSTE CLAVE 1: AÑADIR EL SERIAL NUMBER ---
-                    { key: 'Serial Number', excel_col: 'I' },
+                    { key: 'Serial Number', excel_col: 'J' },
                     { key: 'Linea', excel_col: 'C' },
                     { key: 'Cantidad', excel_col: 'L' },
                     { key: 'Catálogo', excel_col: 'Q' },
@@ -1294,23 +1294,12 @@
                     });
 
                     const dataToSave = [];
-                    console.log(`Iniciando lectura de ${jsonData.length} filas desde la fila de Excel ${config.startRow}`);
-
                     jsonData.forEach((row, index) => {
                         const rowData = {};
                         config.columns.forEach(col => {
                             rowData[col.key] = row[colMap[col.key]];
                         });
 							
-							// --- INICIO DE DEPURACIÓN ---
-							// Estas líneas nos mostrarán en la consola qué datos se están leyendo.
-							if (index < 5) { // Mostramos solo las primeras 5 filas para no saturar.
-								console.log(`--- Datos crudos de la Fila de Excel ${index + config.startRow} ---`);
-								console.log('Objeto rowData completo:', rowData);
-								console.log("Valor específico para 'Serial Number':", rowData['Serial Number']);
-							}
-							// --- FIN DE DEPURACIÓN ---
-
                         const serial = rowData['Serial Number'] ? String(rowData['Serial Number']).trim() : null;
 
                         if (serial) {
