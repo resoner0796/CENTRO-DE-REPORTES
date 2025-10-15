@@ -3601,12 +3601,13 @@ function renderGraficaSemanalCalidad(datos, labels, lineas) {
                 loadParams('produccion_hora_config'),
                 loadParams('produccion_20_config'),
                 loadParams('produccion_daily_config'),
-                loadParams('produccion_calidad_config')
+                loadParams('produccion_calidad_config'),
             ]).then(() => {
                 const today = new Date();
                 const pastDate = new Date();
                 pastDate.setDate(today.getDate() - 6);
 
+				
                 const formatDate = (date) => {
                     const year = date.getFullYear();
                     const month = String(date.getMonth() + 1).padStart(2, '0');
