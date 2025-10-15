@@ -1417,56 +1417,57 @@
         }
 
         function renderProduccionDailyTable(data) {
-            const table = doc('dataTableProduccionDaily');
-            if (!data || data.length === 0) {
-                table.innerHTML = `<thead><tr><th>Sin datos para mostrar.</th></tr></thead><tbody></tbody>`;
-                return;
-            }
+            const table = doc('dataTableProduccionDaily');
+            if (!data || data.length === 0) {
+                table.innerHTML = `<thead><tr><th>Sin datos para mostrar.</th></tr></thead><tbody></tbody>`;
+                return;
+            }
 
-            const headers = [...params.produccion_daily_config.columns.map(c => c.key), 'Fibras', 'Terminaciones'];
-            
-            let headerHtml = '<thead><tr>';
-            headers.forEach(h => headerHtml += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`);
-            headerHtml += '</tr></thead>';
+            const headers = [...params.produccion_daily_config.columns.map(c => c.key), 'Fibras', 'Terminaciones'];
+            
+            let headerHtml = '<thead><tr>';
+            headers.forEach(h => headerHtml += `<th><span>${h}</span><input type="text" class="filter-input" placeholder="Filtrar..." data-column="${h}"></th>`);
+            headerHtml += '</tr></thead>';
 
-            let bodyHtml = '<tbody>';
-            data.sort((a, b) => (b['Finish date'] || 0) - (a['Finish date'] || 0));
+            let bodyHtml = '<tbody>';
+            data.sort((a, b) => (b['Fecha y hora'] || 0) - (a['Fecha y hora'] || 0));
 
-            data.forEach(row => {
-                bodyHtml += `<tr>`;
-                headers.forEach(header => {
-                    let value = row[header];
-                    if (header === 'Finish date' && value instanceof Date) {
-                        value = formatShortDateTime(value);
-                    }
-                    bodyHtml += `<td>${value ?? ''}</td>`;
-                });
-                bodyHtml += `</tr>`;
-            });
-            bodyHtml += '</tbody>';
-            table.innerHTML = headerHtml + bodyHtml;
-            
-            table.querySelectorAll('.filter-input').forEach(input => {
-                input.addEventListener('keyup', () => {
-                    const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({
-                        columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')),
-                        value: i.value.toLowerCase()
-                    }));
-                    table.querySelectorAll('tbody tr').forEach(row => {
-                        let shouldShow = true;
-                        filters.forEach(filter => {
-                            if (filter.value) {
-                                const cell = row.children[filter.columnIndex];
-                                if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) {
-                                    shouldShow = false;
-                                }
-                            }
-                        });
-                        row.style.display = shouldShow ? '' : 'none';
-                    });
-                });
-            });
-        }
+            data.forEach(row => {
+                bodyHtml += `<tr>`;
+                headers.forEach(header => {
+                    let value = row[header];
+                    // --- CORRECCIÓN DE FORMATO DE FECHA ---
+                    if (header === 'Fecha y hora' && value instanceof Date) {
+                        value = formatShortDateTime(value);
+                    }
+                    bodyHtml += `<td>${value ?? ''}</td>`;
+                });
+                bodyHtml += `</tr>`;
+            });
+            bodyHtml += '</tbody>';
+            table.innerHTML = headerHtml + bodyHtml;
+            
+            table.querySelectorAll('.filter-input').forEach(input => {
+                input.addEventListener('keyup', () => {
+                    const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({
+                        columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')),
+                        value: i.value.toLowerCase()
+                    }));
+                    table.querySelectorAll('tbody tr').forEach(row => {
+                        let shouldShow = true;
+                        filters.forEach(filter => {
+                            if (filter.value) {
+                                const cell = row.children[filter.columnIndex];
+                                if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) {
+                                    shouldShow = false;
+                                }
+                            }
+                        });
+                        row.style.display = shouldShow ? '' : 'none';
+                    });
+                });
+            });
+        }
 
         function renderProduccionDailyChart(data, shiftStartTime) {
             const ctx = doc('produccionDailyChart').getContext('2d');
@@ -1484,18 +1485,25 @@
             let granTotalTerminaciones = 0;
             
             data.forEach(item => {
-                const linea = item['Linea'] || 'N/A';
+                // --- CAMBIO CLAVE: EXTRAEMOS "Linea 1" o "Linea 2" ---
+                let linea = 'N/A';
+                const lineValue = String(item['Line'] || '').toUpperCase();
+                if (lineValue.includes('LINEA 1')) {
+                    linea = 'Linea 1';
+                } else if (lineValue.includes('LINEA 2')) {
+                    linea = 'Linea 2';
+                }
+
                 const terminaciones = Number(item['Terminaciones']) || 0;
                 granTotalTerminaciones += terminaciones;
 
-                // --- AJUSTE 1: CÁLCULO DE TOTALES POR LÍNEA ---
                 if (!totalesPorLinea[linea]) {
                     totalesPorLinea[linea] = 0;
                 }
                 totalesPorLinea[linea] += terminaciones;
                 
                 if (item['Fecha y hora'] instanceof Date) {
-                    const diffMillis = item['Finish date'] - shiftStartTime;
+                    const diffMillis = item['Fecha y hora'] - shiftStartTime;
                     if (diffMillis >= 0) {
                         const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
                         if (hourIndex >= 0 && hourIndex < 12) {
@@ -1505,21 +1513,20 @@
                 }
             });
 
-            // --- AJUSTE 2: NUEVO HTML PARA EL RESUMEN ---
             let summaryHtml = `Total Terminaciones del Turno: <strong>${granTotalTerminaciones.toLocaleString()}</strong>`;
             const lineasOrdenadas = Object.keys(totalesPorLinea).sort();
             if (lineasOrdenadas.length > 0) {
                 let detailHtml = lineasOrdenadas.map(linea =>
-                    `Línea ${linea}: <strong>${totalesPorLinea[linea].toLocaleString()}</strong>`
+                    `${linea}: <strong>${totalesPorLinea[linea].toLocaleString()}</strong>`
                 ).join(' | ');
                 summaryHtml += `<div style="font-size: 0.9em; margin-top: 5px;">${detailHtml}</div>`;
             }
             doc('chartSummaryDaily').innerHTML = summaryHtml;
 
-            const allLineas = [...new Set(data.map(item => item['Linea'] || 'N/A'))].sort();
+            const allLineas = Object.keys(totalesPorLinea).sort();
             const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
             const datasets = allLineas.map((linea, index) => ({
-                label: `Terminaciones Línea ${linea}`,
+                label: `Terminaciones ${linea}`,
                 data: hourlyBins.map(hourData => hourData[linea] || 0),
                 backgroundColor: colors[index % colors.length],
             }));
@@ -1543,21 +1550,17 @@
                         legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
                         title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
                         datalabels: {
-                            display: true,
-                            anchor: 'end',
-                            align: 'top',
+                            display: true, anchor: 'end', align: 'top',
                             color: 'var(--text-primary)',
                             font: { weight: 'bold', size: 10 },
                             formatter: (value) => value > 0 ? value.toLocaleString() : ''
                         }
                     },
                     scales: {
-                        // --- AJUSTE 3: BARRAS AGRUPADAS ---
-                        // Se elimina la propiedad 'stacked: true' para que las barras se agrupen.
                         x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
-                        y: { 
-                            beginAtZero: true, 
-                            grid: { color: 'var(--chart-grid-color)' }, 
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'var(--chart-grid-color)' }, 
                             ticks: { color: 'var(--chart-tick-color)' },
                             title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' }
                         }
