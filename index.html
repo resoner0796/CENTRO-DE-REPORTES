@@ -212,6 +212,13 @@
             word-wrap: break-word;
             vertical-align: top;
         }
+        
+        #dataTableProduccionCalidad th,
+        #dataTableProduccionCalidad td {
+            white-space: normal; /* Permite que el texto se parta en varias líneas */
+            word-wrap: break-word; /* Fuerza el corte de palabras muy largas */
+            vertical-align: middle;
+        }
 
         #resumenSemanal h5 {
             border-bottom: 1px solid var(--border-color);
@@ -3392,86 +3399,98 @@ function renderProduccionCalidadTable(data) {
 }
 
 function renderProduccionCalidadChart(data, shiftStartTime) {
-    const ctx = doc('produccionCalidadChart').getContext('2d');
-    if (productionCalidadChart) {
-        productionCalidadChart.destroy();
-    }
-    if (!data || data.length === 0 || !shiftStartTime) {
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        doc('chartSummaryCalidad').innerHTML = '';
-        return;
-    }
+        const ctx = doc('produccionCalidadChart').getContext('2d');
+        if (productionCalidadChart) {
+            productionCalidadChart.destroy();
+        }
+        if (!data || data.length === 0 || !shiftStartTime) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            doc('chartSummaryCalidad').innerHTML = '';
+            return;
+        }
 
-    const hourlyBins = Array.from({ length: 12 }, () => ({}));
-    const totalesPorLinea = {};
-    let totalPiezas = 0;
-    let granTotalTerminaciones = 0;
+        const hourlyBins = Array.from({ length: 12 }, () => ({}));
+        const totalesPorGrupo = {};
+        let totalPiezas = 0;
+        let granTotalTerminaciones = 0;
+        
+        data.forEach(item => {
+            // --- CAMBIO CLAVE: AGRUPACIÓN DINÁMICA ---
+            // Ahora agrupará por cualquier valor que venga en la columna 'Line'.
+            const grupo = item['Line'] || 'N/A';
 
-    data.forEach(item => {
-        let linea = 'N/A';
-        const lineValue = String(item['Line'] || '').toUpperCase();
-        if (lineValue.includes('LINEA 1')) {
-            linea = 'Linea 1';
-        } else if (lineValue.includes('LINEA 2')) {
-            linea = 'Linea 2';
-        }
+            const terminaciones = Number(item['Terminaciones']) || 0;
+            const piezas = Number(item['Cantidad']) || 0;
+            
+            granTotalTerminaciones += terminaciones;
+            totalPiezas += piezas;
 
-        const terminaciones = Number(item['Terminaciones']) || 0;
-        const piezas = Number(item['Cantidad']) || 0;
+            if (!totalesPorGrupo[grupo]) {
+                totalesPorGrupo[grupo] = { pzas: 0, term: 0 };
+            }
+            totalesPorGrupo[grupo].pzas += piezas;
+            totalesPorGrupo[grupo].term += terminaciones;
+            
+            if (item['Fecha y hora'] instanceof Date) {
+                const diffMillis = item['Fecha y hora'] - shiftStartTime;
+                if (diffMillis >= 0) {
+                    const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                    if (hourIndex >= 0 && hourIndex < 12) {
+                        hourlyBins[hourIndex][grupo] = (hourlyBins[hourIndex][grupo] || 0) + terminaciones;
+                    }
+                }
+            }
+        });
 
-        granTotalTerminaciones += terminaciones;
-        totalPiezas += piezas;
+        const gruposOrdenados = Object.keys(totalesPorGrupo).sort();
+        const summaryHtml = gruposOrdenados.map(grupo =>
+            `${grupo}: <strong>${totalesPorGrupo[grupo].pzas.toLocaleString()} pzas</strong> / <strong>${totalesPorGrupo[grupo].term.toLocaleString()} term.</strong>`
+        ).join(' | ');
 
-        if (!totalesPorLinea[linea]) {
-            totalesPorLinea[linea] = { pzas: 0, term: 0 };
-        }
-        totalesPorLinea[linea].pzas += piezas;
-        totalesPorLinea[linea].term += terminaciones;
+        doc('chartSummaryCalidad').innerHTML = summaryHtml;
 
-        if (item['Fecha y hora'] instanceof Date) {
-            const diffMillis = item['Fecha y hora'] - shiftStartTime;
-            if (diffMillis >= 0) {
-                const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
-                if (hourIndex >= 0 && hourIndex < 12) {
-                    hourlyBins[hourIndex][linea] = (hourlyBins[hourIndex][linea] || 0) + terminaciones;
+        const todosLosGrupos = Object.keys(totalesPorGrupo).sort();
+        const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(255, 206, 86, 0.7)'];
+        const datasets = todosLosGrupos.map((grupo, index) => ({
+            label: `Terminaciones ${grupo}`,
+            data: hourlyBins.map(hourData => hourData[grupo] || 0),
+            backgroundColor: colors[index % colors.length],
+        }));
+
+        const labels = [];
+        for (let i = 0; i < 12; i++) {
+            const start = new Date(shiftStartTime);
+            start.setHours(start.getHours() + i);
+            const end = new Date(start);
+            end.setHours(end.getHours() + 1);
+            const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+            labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+        }
+
+        productionCalidadChart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
+                    title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
+                    datalabels: {
+                        display: true, anchor: 'end', align: 'top',
+                        color: 'var(--text-primary)',
+                        font: { weight: 'bold', size: 10 },
+                        formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                    }
+                },
+                scales: {
+                    x: { stacked: false, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
+                    y: { stacked: false, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' } }
                 }
-            }
-        }
-    });
-
-    const lineasOrdenadas = Object.keys(totalesPorLinea).sort();
-    const summaryHtml = lineasOrdenadas.map(linea =>
-        `${linea}: <strong>${totalesPorLinea[linea].pzas.toLocaleString()} pzas</strong> / <strong>${totalesPorLinea[linea].term.toLocaleString()} term.</strong>`
-    ).join(' | ');
-
-    doc('chartSummaryCalidad').innerHTML = summaryHtml;
-
-    const allLineas = Object.keys(totalesPorLinea).sort();
-    const colors = ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)'];
-    const datasets = allLineas.map((linea, index) => ({
-        label: `Terminaciones ${linea}`,
-        data: hourlyBins.map(hourData => hourData[linea] || 0),
-        backgroundColor: colors[index % colors.length],
-    }));
-
-    const labels = [];
-    for (let i = 0; i < 12; i++) {
-        const start = new Date(shiftStartTime);
-        start.setHours(start.getHours() + i);
-        const end = new Date(start);
-        end.setHours(end.getHours() + 1);
-        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-        labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
-    }
-
-    productionCalidadChart = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets },
-        options: { /* Opciones de la gráfica son idénticas... */ },
-        plugins: [ChartDataLabels]
-    });
-    updateChartTheme();
-}
+            },
+            plugins: [ChartDataLabels]
+        });
+        updateChartTheme();
+    }
 
 // --- Lógica para el Reporte Semanal de Calidad ---
 function abrirModalReporteSemanalCalidad() {
