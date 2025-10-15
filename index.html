@@ -1275,6 +1275,7 @@
         doc('abrirModalSemanalDailyBtn').addEventListener('click', abrirModalReporteSemanalDaily);
 
         async function handleProduccionDailyFile(file) {
+            // Ahora sí, leerá la configuración directamente de tu archivo HTML o de la que guardaste en Firebase.
             const config = params.produccion_daily_config;
             if (!config || !config.columns || !config.columns.length === 0) {
                 showModal('Configuración Requerida', '<p>La configuración para este reporte no ha sido cargada.</p>');
@@ -1298,11 +1299,20 @@
                         const serial = rowData['Serial Number'] ? String(rowData['Serial Number']).trim() : null;
                         if (serial) {
                             let fechaHora = null;
-                            // La lógica ahora busca el campo correcto: 'Finish date'
-                            if (rowData['Finish date'] instanceof Date) {
-                                fechaHora = rowData['Finish date'];
-                            } else if (typeof rowData['Finish date'] === 'number') {
-                                fechaHora = excelSerialToDateObject(rowData['Finish date']);
+                            const dateValue = rowData['Finish date'];
+
+                            // --- AJUSTE CLAVE: Lógica de fecha robusta ---
+                            if (dateValue instanceof Date) {
+                                fechaHora = dateValue;
+                            } else if (typeof dateValue === 'number') {
+                                fechaHora = excelSerialToDateObject(dateValue);
+                            } else if (typeof dateValue === 'string' && dateValue.trim() !== '') {
+                                // Intenta convertir el texto a una fecha.
+                                fechaHora = new Date(dateValue);
+                                // Si la conversión resulta en una fecha inválida, la descartamos.
+                                if (isNaN(fechaHora.getTime())) {
+                                    fechaHora = null;
+                                }
                             }
 
                             if (fechaHora) {
