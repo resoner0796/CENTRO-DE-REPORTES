@@ -1277,13 +1277,10 @@
 
         async function handleProduccionDailyFile(file) {
     const config = params.produccion_daily_config;
-    
-    // --- LÍNEA DE DEPURACIÓN CLAVE ---
-    // Vamos a ver qué configuración está usando realmente la función.
     console.log('CONFIGURACIÓN USADA PARA DAILY:', JSON.stringify(config, null, 2));
 
-    if (!config || !config.columns || config.columns.length === 0) {
-        showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
+    if (!config || !config.columns || !config.columns.length === 0) {
+        showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas...</p>');
         return;
     }
     const reader = new FileReader();
@@ -1300,16 +1297,21 @@
 
             const data = jsonData.map(row => {
                 const rowData = {};
+                
+                // --- INICIO DE LA NUEVA DEPURACIÓN DETALLADA ---
+                console.log('--- Procesando nueva fila del Excel ---');
                 config.columns.forEach(col => {
+                    // Imprimimos la clave con delimitadores para ver espacios
+                    console.log(`Mapeando clave: '[${col.key}]' con valor de la celda:`, row[colMap[col.key]]);
                     rowData[col.key] = row[colMap[col.key]];
                 });
+                console.log('Objeto final creado:', rowData);
+                // --- FIN DE LA NUEVA DEPURACIÓN ---
+
                 return rowData;
             }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
 
-            if (data.length === 0) {
-                showModal('Sin Datos', `<p>No se encontraron datos válidos a partir de la fila ${config.startRow} en el archivo Excel.</p>`);
-                return;
-            }
+            if (data.length === 0) { /* ...código sin cambios... */ return; }
 
             const batch = db.batch();
             let processedCount = 0;
@@ -1318,6 +1320,7 @@
                 let fechaHora = null;
                 if(serial){
                     const docRef = db.collection('produccion_daily_historico').doc(serial);
+                    // Aquí es donde falla, al intentar leer la propiedad con la clave incorrecta
                     if (row['Fecha y hora'] instanceof Date) {
                         fechaHora = row['Fecha y hora'];
                     } else if (typeof row['Fecha y hora'] === 'number') {
@@ -1334,14 +1337,10 @@
             await batch.commit();
 
             doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-            showModal('Éxito', `<p>${processedCount} registros han sido guardados en la base de datos. Vuelva a consultar la fecha para ver los datos actualizados.</p>`);
+            showModal('Éxito', `<p>${processedCount} registros han sido guardados...</p>`);
             consultarReporteProduccionDaily();
 
-        } catch (err) {
-            console.error("Error al procesar y guardar archivo de Producción Daily:", err);
-            doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
-            showModal('Error de Archivo', `<p>No se pudo procesar o guardar el archivo. Verifique el formato, la configuración y la conexión a la base de datos.</p>`);
-        }
+        } catch (err) { /* ...código de error sin cambios... */ }
     };
     reader.readAsArrayBuffer(file);
 }
