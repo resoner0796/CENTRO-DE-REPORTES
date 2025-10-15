@@ -700,14 +700,15 @@
                 ]
             },
             produccion_daily_config: {
-                startRow: 15, // Confirmamos que los datos inician en la fila 16
+                startRow: 15,
                 columns: [
+                    { key: 'Estación', excel_col: 'F' },
                     { key: 'Serial Number', excel_col: 'I' },
-                    { key: 'Linea', excel_col: 'C' },
                     { key: 'Cantidad', excel_col: 'L' },
-                    { key: 'Catálogo', excel_col: 'Q' },
-                    { key: 'Finish date', excel_col: 'W' },
-                    { key: 'Turno', excel_col: 'X' }
+                    { key: 'Catalogo', excel_col: 'Q' },
+                    { key: 'Orden', excel_col: 'R' },
+                    { key: 'Empleado', excel_col: 'S' },
+                    { key: 'Fecha y hora', excel_col: 'W' }
                 ]
             },
         };
@@ -1297,12 +1298,11 @@
                     }).filter(row => row['Serial Number'] !== undefined && String(row['Serial Number']).trim() !== '');
 
                     if (data.length === 0) {
-                        showModal('Sin Datos', `<p>No se encontraron datos válidos con 'Serial Number' a partir de la fila ${config.startRow}.</p>`);
-                        return;
+                        throw new Error(`No se encontraron datos válidos con 'Serial Number' a partir de la fila ${config.startRow}.`);
                     }
 
                     const batch = db.batch();
-                    let operationsInBatch = 0; // 1. Se inicializa el contador
+                    let operationsInBatch = 0;
 
                     data.forEach(row => {
                         const serial = String(row['Serial Number']).trim();
@@ -1318,13 +1318,12 @@
 
                             if (fechaHora) {
                                 batch.set(docRef, { ...row, 'Fecha y hora': firebase.firestore.Timestamp.fromDate(fechaHora) });
-                                operationsInBatch++; // 2. Se incrementa el contador por cada guardado exitoso
+                                operationsInBatch++;
                             }
                         }
                     });
 						
-						// 3. Se usa el contador seguro para verificar si hay algo que guardar
-                    if (operationsInBatch === 0) {
+						if (operationsInBatch === 0) {
 							throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
 						}
 						
@@ -1359,18 +1358,18 @@
 
             try {
                 const snapshot = await db.collection('produccion_daily_historico')
-                    .where('Finish date', '>=', startTime)
-                    .where('Finish date', '<=', endTime)
+                    .where('Fecha y hora', '>=', startTime)
+                    .where('Fecha y hora', '<=', endTime)
                     .get();
 
                 const data = [];
                 snapshot.forEach(docSnap => {
                     const docData = docSnap.data();
-                    const fechaHora = docData['Finish date'] ? docData['Finish date'].toDate() : null;
+                    const fechaHora = docData['Fecha y hora'] ? docData['Fecha y hora'].toDate() : null;
                     if (fechaHora) {
                         const { shift } = getWorkShiftAndDate(fechaHora);
                         if (shift === turnoInput) {
-                            data.push({ ...docData, 'Finish date': fechaHora });
+                            data.push({ ...docData, 'Fecha y hora': fechaHora });
                         }
                     }
                 });
@@ -1383,22 +1382,26 @@
                 }
 
                 const processedData = data.map(row => {
-                    const catalogo = row['Catálogo'] || '';
+                    const catalogo = row['Catalogo'] || '';
                     const cuartoDigito = catalogo.substring(3, 4).toUpperCase();
                     const fibras = cuartoDigito === 'T' ? 12 : parseInt(cuartoDigito, 10) || 0;
                     const terminaciones = fibras * (Number(row['Cantidad']) || 0);
+                    
                     return { 
                         ...row, 
+                        'Finish date': row['Fecha y hora'], 
+                        Linea: row['Estación'], 
+                        'Catálogo': row['Catalogo'],
                         Fibras: fibras, 
                         Terminaciones: terminaciones 
                     };
-                });
+            _  });
 				
                 renderProduccionDailyTable(processedData);
                 renderProduccionDailyChart(processedData, startTime);
 
             } catch (e) {
-                console.error("Error consultando reporte Daily:", e);
+        _        console.error("Error consultando reporte Daily:", e);
                 showModal('Error de Consulta', `<p>No se pudo obtener el reporte de la base de datos.</p>`);
             } finally {
                 btn.disabled = false;
