@@ -700,10 +700,11 @@
                 ]
             },
             produccion_daily_config: {
-                startRow: 16,
+                // --- CONFIGURACIÓN DE PRUEBA: Usando la estructura del Reporte 20% ---
+                startRow: 15, // Tomado del config del 20%
                 columns: [
-                    // --- AJUSTE CLAVE 1: AÑADIR EL SERIAL NUMBER ---
-                    { key: 'Serial Number', excel_col: 'J' },
+                    // Se usan las columnas del reporte 20, pero con los nombres que espera el reporte Daily
+                    { key: 'Serial Number', excel_col: 'I' }, // La columna clave que funciona en el 20%
                     { key: 'Linea', excel_col: 'C' },
                     { key: 'Cantidad', excel_col: 'L' },
                     { key: 'Catálogo', excel_col: 'Q' },
