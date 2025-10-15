@@ -213,10 +213,13 @@
             vertical-align: top;
         }
         
-        #dataTableProduccionCalidad th,
+       #dataTableProduccionCalidad {
+            table-layout: auto; /* Deja que el navegador decida el ancho de las columnas */
+        }
+        #dataTableProduccionCalidad th,
         #dataTableProduccionCalidad td {
             white-space: normal; /* Permite que el texto se parta en varias líneas */
-            word-wrap: break-word; /* Fuerza el corte de palabras muy largas */
+            word-break: break-all; /* Fuerza el corte de palabras si es necesario */
             vertical-align: middle;
         }
 
@@ -3415,13 +3418,9 @@ function renderProduccionCalidadChart(data, shiftStartTime) {
         let granTotalTerminaciones = 0;
         
         data.forEach(item => {
-            // --- CAMBIO CLAVE: AGRUPACIÓN DINÁMICA ---
-            // Ahora agrupará por cualquier valor que venga en la columna 'Line'.
             const grupo = item['Line'] || 'N/A';
-
             const terminaciones = Number(item['Terminaciones']) || 0;
             const piezas = Number(item['Cantidad']) || 0;
-            
             granTotalTerminaciones += terminaciones;
             totalPiezas += piezas;
 
@@ -3446,7 +3445,6 @@ function renderProduccionCalidadChart(data, shiftStartTime) {
         const summaryHtml = gruposOrdenados.map(grupo =>
             `${grupo}: <strong>${totalesPorGrupo[grupo].pzas.toLocaleString()} pzas</strong> / <strong>${totalesPorGrupo[grupo].term.toLocaleString()} term.</strong>`
         ).join(' | ');
-
         doc('chartSummaryCalidad').innerHTML = summaryHtml;
 
         const todosLosGrupos = Object.keys(totalesPorGrupo).sort();
@@ -3471,22 +3469,30 @@ function renderProduccionCalidadChart(data, shiftStartTime) {
             type: 'bar',
             data: { labels, datasets },
             options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
-                    title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
-                    datalabels: {
-                        display: true, anchor: 'end', align: 'top',
-                        color: 'var(--text-primary)',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (value) => value > 0 ? value.toLocaleString() : ''
-                    }
-                },
-                scales: {
-                    x: { stacked: false, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
-                    y: { stacked: false, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' } }
-                }
-            },
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { color: 'var(--text-primary)'}},
+                    title: { display: true, text: 'Producción de Terminaciones por Hora', color: 'var(--text-primary)', font: { size: 14 }},
+                    // --- INICIO DEL AJUSTE ESTÉTICO ---
+                    datalabels: {
+                        display: true,
+                        anchor: 'end',
+                        align: 'top',
+                        offset: 8, // Separa la etiqueta 8px de la barra
+                        backgroundColor: 'rgba(30, 30, 30, 0.7)', // Fondo semitransparente
+                        borderRadius: 4, // Bordes redondeados
+                        color: 'white', // Letra blanca
+                        padding: { top: 2, bottom: 2, left: 4, right: 4 },
+                        font: { weight: 'bold', size: 10 },
+                        formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                    }
+                    // --- FIN DEL AJUSTE ESTÉTICO ---
+                },
+                scales: {
+                    x: { stacked: false, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } },
+                    y: { stacked: false, beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' }, title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' } }
+                }
+            },
             plugins: [ChartDataLabels]
         });
         updateChartTheme();
