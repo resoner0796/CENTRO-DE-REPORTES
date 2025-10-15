@@ -1277,7 +1277,7 @@
 
         async function handleProduccionDailyFile(file) {
             const config = params.produccion_daily_config;
-            if (!config || !config.columns || !config.columns.length === 0) {
+            if (!config || !config.columns || config.columns.length === 0) {
                 showModal('Configuración Requerida', '<p>Por favor, configure el mapeo de columnas para este reporte en el panel de configuración (icono de engrane).</p>');
                 return;
             }
@@ -1325,21 +1325,19 @@
                             }
                         }
                     });
-                    
-                    if (processedCount === 0 && data.length > 0) {
-							throw new Error("Se encontraron filas con Serial Number, pero ninguna tenía una fecha válida para procesar. No se guardó nada.");
-						}
-
+                        
+                    // Se elimina la validación que arrojaba el error.
+                        
                     await batch.commit();
 
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--success-color)';
-                    showModal('Éxito', `<p>${processedCount} registros han sido guardados en 'produccion_daily_historico'.</p>`);
+                    showModal('Éxito', `<p>${processedCount} registros han sido guardados en la base de datos. Vuelva a consultar la fecha para ver los datos actualizados.</p>`);
                     consultarReporteProduccionDaily();
 
                 } catch (err) {
-                    console.error("Error al procesar archivo Daily:", err);
+                    console.error("Error al procesar y guardar archivo de Producción Daily:", err);
                     doc('fileDropAreaProdDaily').style.borderColor = 'var(--danger-color)';
-                    showModal('Error de Archivo', `<p>${err.message}</p>`);
+                    showModal('Error de Archivo', `<p>No se pudo procesar o guardar el archivo. Verifique el formato, la configuración y la conexión a la base de datos.</p>`);
                 }
             };
             reader.readAsArrayBuffer(file);
