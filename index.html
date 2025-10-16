@@ -2921,7 +2921,6 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         data: {
             labels: labels,
             datasets: [
-                // --- AJUSTE 1: La línea de meta vuelve a ser fija en 480 para una mejor estética ---
                 { type: 'line', label: 'Meta', data: Array(12).fill(480), borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 0 },
                 { label: 'Línea 1', data: Object.values(hourlyData).map(d => d['Línea 1']), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, order: 1 },
                 { label: 'Línea 2', data: Object.values(hourlyData).map(d => d['Línea 2']), backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1, order: 1 }
@@ -2950,12 +2949,12 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                             },
                             borderWidth: 1,
                             borderRadius: 4,
-                            // --- AJUSTE 2: El color del TEXTO ahora también respeta la meta dinámica ---
+                            // --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+                            // Ahora el color del texto también usa la meta dinámica de 'goals'
                             color: (ctx) => {
-                                // Usamos 'white' para un mejor contraste en ambos casos (verde/rojo)
-                                // Si prefieres texto verde/rojo, descomenta la siguiente línea y comenta la de 'white'
-                                return 'white';
-                                // return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
+                                return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] 
+                                    ? getComputedStyle(document.body).getPropertyValue('--success-color') 
+                                    : getComputedStyle(document.body).getPropertyValue('--danger-color');
                             },
                             font: { weight: 'bold' },
                             padding: { top: 2, bottom: 2, left: 5, right: 5 },
