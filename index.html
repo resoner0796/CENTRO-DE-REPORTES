@@ -861,53 +861,54 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
 
         // --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
         function switchView(viewKey) {
-            const currentViewEl = views[activeView];
-            const nextViewEl = views[viewKey];
-            if (!nextViewEl) return;
-            activeView = viewKey;
-            currentViewEl.style.opacity = '0';
-            setTimeout(() => {
-                currentViewEl.style.display = 'none';
-                nextViewEl.style.display = 'block';
-                if (viewKey === 'menu') {
-                    nextViewEl.style.display = 'flex';
-                }
-                requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
-                if (viewKey === 'produccionHora') {
-                    loadAreasForProductionReport();
-                    populatePackerSelects();
-                } else if (viewKey === 'produccion20') {
-                    const today = new Date();
-                    const year = today.getFullYear();
-                    const month = String(today.getMonth() + 1).padStart(2, '0');
-                    const day = String(today.getDate()).padStart(2, '0');
-                    doc('prod20_fecha').value = `${year}-${month}-${day}`;
-                    doc('prod20_turno').value = getAutoCurrentShift();
-                    renderProduccion20Table([]);
-                    renderProduccion20Chart([], new Date());
-                } else if (viewKey === 'produccionDaily') {
-                    const today = new Date();
-                    const year = today.getFullYear();
-                    const month = String(today.getMonth() + 1).padStart(2, '0');
-                    const day = String(today.getDate()).padStart(2, '0');
-                    doc('prodDaily_fecha').value = `${year}-${month}-${day}`;
-                    doc('prodDaily_turno').value = getAutoCurrentShift();
-                    renderProduccionDailyTable([]);
-                    renderProduccionDailyChart([], new Date());
-                } else if (viewKey === 'produccionCalidad') { // <-- AÑADE ESTE BLOQUE
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    doc('prodCalidad_fecha').value = `${year}-${month}-${day}`;
-    doc('prodCalidad_turno').value = getAutoCurrentShift();
-    renderProduccionCalidadTable([]);
-    renderProduccionCalidadChart([], new Date());
-}
-           
-                
-            }, 300);
+    const currentViewEl = views[activeView];
+    const nextViewEl = views[viewKey];
+    if (!nextViewEl) return;
+    activeView = viewKey;
+    currentViewEl.style.opacity = '0';
+    setTimeout(() => {
+        currentViewEl.style.display = 'none';
+        nextViewEl.style.display = 'block';
+        if (viewKey === 'menu') {
+            nextViewEl.style.display = 'flex';
         }
+        requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
+        if (viewKey === 'produccionHora') {
+            loadAreasForProductionReport();
+            populatePackerSelects();
+        } else if (viewKey === 'produccion20') {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            doc('prod20_fecha').value = `${year}-${month}-${day}`;
+            doc('prod20_turno').value = getAutoCurrentShift();
+            renderProduccion20Table([]);
+            renderProduccion20Chart([], new Date());
+        } else if (viewKey === 'produccionDaily') {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            doc('prodDaily_fecha').value = `${year}-${month}-${day}`;
+            doc('prodDaily_turno').value = getAutoCurrentShift();
+            renderProduccionDailyTable([]);
+            renderProduccionDailyChart([], new Date());
+        } else if (viewKey === 'produccionCalidad') {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            doc('prodCalidad_fecha').value = `${year}-${month}-${day}`;
+            doc('prodCalidad_turno').value = getAutoCurrentShift();
+            renderProduccionCalidadTable([]);
+            renderProduccionCalidadChart([], new Date());
+        } else if (viewKey === 'boxID') {
+            // Se asegura de que el área para arrastrar archivos esté en su estado normal
+            doc('fileDropAreaBoxID').style.borderColor = 'var(--border-color)';
+        }
+    }, 300);
+}
 
         doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
 doc('reporteProduccion20Btn').addEventListener('click', () => switchView('produccion20'));
@@ -1332,11 +1333,12 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
         }
 
         setupFileHandler('fileDropArea901', 'fileInput901', '901');
-        setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
-        setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
-        setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20');
-        setupFileHandler('fileDropAreaProdDaily', 'fileInputProdDaily', 'produccionDaily');
-        setupFileHandler('fileDropAreaProdCalidad', 'fileInputProdCalidad', 'produccionCalidad');
+setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
+setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
+setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20');
+setupFileHandler('fileDropAreaProdDaily', 'fileInputProdDaily', 'produccionDaily');
+setupFileHandler('fileDropAreaProdCalidad', 'fileInputProdCalidad', 'produccionCalidad');
+setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES LA LÍNEA CRÍTICA
 
         function handleFile(file, configKey) {
     if (configKey === '901') {
