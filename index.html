@@ -2890,6 +2890,17 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
     }
+
+    // --- INICIO DE LA MODIFICACIÓN: METAS DINÁMICAS POR HORA ---
+    const goals = Array(12).fill(480); // 1. Se establece la meta por defecto de 480 para todas las horas.
+
+    // 2. Se sobrescriben las metas para las horas específicas. Los índices del array corresponden a las horas del turno:
+    // El índice 0 es la primera hora, el 1 es la segunda, y así sucesivamente.
+    goals[1] = 360; // Meta para la 2ª hora del turno (19:30 - 20:30)
+    goals[5] = 280; // Meta para la 6ª hora del turno (23:30 - 00:30)
+    goals[8] = 360; // Meta para la 9ª hora del turno (02:30 - 03:30)
+    // --- FIN DE LA MODIFICACIÓN ---
+
     const hourlyData = {}; const labels = [];
     const totalSummary = { linea1: { piezas: 0, terminaciones: 0 }, linea2: { piezas: 0, terminaciones: 0 } };
     for (let i = 0; i < 12; i++) {
@@ -2915,7 +2926,8 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         data: {
             labels: labels,
             datasets: [
-                { type: 'line', label: 'Meta', data: Array(12).fill(480), borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 0 },
+                // 3. La línea de la meta ahora usa el array 'goals' para dibujar una línea variable
+                { type: 'line', label: 'Meta', data: goals, borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 0 },
                 { label: 'Línea 1', data: Object.values(hourlyData).map(d => d['Línea 1']), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, order: 1 },
                 { label: 'Línea 2', data: Object.values(hourlyData).map(d => d['Línea 2']), backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1, order: 1 }
             ]
@@ -2933,13 +2945,15 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                             align: 'top',
                             offset: 5,
                             backgroundColor: (ctx) => {
-                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= 480;
+                                // 4. La condición ahora compara el valor de la barra con la meta de esa hora específica
+                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex];
                                 const colorVar = isSuccess ? '--glow-green' : '--glow-red';
                                 const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
                                 return rawColor.replace(/0.9\)$/, '0.4)');
                             },
                             borderColor: (ctx) => {
-                                return ctx.dataset.data[ctx.dataIndex] >= 480 ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
+                                // La condición del borde también se actualiza
+                                return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
                             },
                             borderWidth: 1,
                             borderRadius: 4,
@@ -2955,9 +2969,11 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                                 return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
                             },
                             font: { weight: 'bold', size: 11 },
-                            formatter: (value) => {
-                                if (value <= 0) return '';
-                                const percentage = (value / 480) * 100;
+                            formatter: (value, ctx) => {
+                                // 5. El cálculo del porcentaje también usa la meta de la hora correspondiente
+                                const goalForHour = goals[ctx.dataIndex];
+                                if (value <= 0 || goalForHour === 0) return '';
+                                const percentage = (value / goalForHour) * 100;
                                 return percentage.toFixed(0) + '%';
                             },
                             textStrokeColor: 'rgba(0,0,0,0.6)',
@@ -2970,9 +2986,8 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                 x: { 
                     grid: { color: 'var(--chart-grid-color)' }, 
                     ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
-                    // --- AJUSTE PARA SEPARAR BARRAS ---
-                    categoryPercentage: 0.7, // Controla el espacio entre grupos de barras (ej. entre 18:30 y 19:30)
-                    barPercentage: 0.9       // Controla el espacio entre barras del mismo grupo (ej. entre Línea 1 y Línea 2)
+                    categoryPercentage: 0.7,
+                    barPercentage: 0.9
                 },
                 y: { 
                     beginAtZero: true, 
