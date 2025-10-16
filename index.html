@@ -1910,7 +1910,6 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
     
     showModal('Procesando...', `<p>Cargando ${files.length} archivo(s). Por favor, espere...</p>`);
 
-    // Función auxiliar para procesar un solo archivo y devolver sus BoxIDs
     const processSingleFile = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -1919,10 +1918,16 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
                     const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     const ws = wb.Sheets[wb.SheetNames[0]];
                     const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
-                    const boxIDsInFile = jsonData
-                        .map(row => row[9]) // Columna J
-                        .filter(id => id !== undefined && id !== null && String(id).trim() !== '');
-                    resolve(boxIDsInFile);
+                    
+                    const dataInFile = jsonData
+                        .map(row => ({
+                            boxId: row[9], // Columna J - ¡ESTA YA ESTÁ BIEN!
+                            gr: row[10],      // Columna K (índice 10) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
+                            receivedDate: row[11] // Columna L (índice 11) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
+                        }))
+                        .filter(item => item.boxId !== undefined && item.boxId !== null && String(item.boxId).trim() !== '');
+                    
+                    resolve(dataInFile);
                 } catch (err) {
                     console.error(`Error procesando el archivo ${file.name}:`, err);
                     reject(`No se pudo leer el archivo ${file.name}.`);
@@ -1934,30 +1939,38 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
     };
 
     try {
-        // Usamos Promise.all para procesar todos los archivos en paralelo
         const results = await Promise.all(Array.from(files).map(processSingleFile));
-        
-        // Juntamos todos los BoxIDs de todos los archivos en un solo array
-        const allBoxIDs = results.flat();
+        const allData = results.flat();
 
-        if (allBoxIDs.length === 0) {
+        if (allData.length === 0) {
             showModal('Sin Datos', '<p>No se encontraron BoxIDs válidos en la columna J de los archivos seleccionados.</p>');
             return;
         }
 
         const batch = db.batch();
-        // Usamos un Set para obtener solo los BoxIDs únicos y evitar duplicados
-        const uniqueBoxIDs = [...new Set(allBoxIDs)];
+        // Usamos un Map para quedarnos con el último registro de un BoxID si viniera repetido
+        const uniqueData = new Map();
+        allData.forEach(item => {
+            uniqueData.set(String(item.boxId).trim(), item);
+        });
 
-        uniqueBoxIDs.forEach(boxId => {
-            const docRef = db.collection('boxID_historico').doc(String(boxId).trim());
-            batch.set(docRef, { receivedAt: new Date() }, { merge: true }); // Usamos merge por si ya existía
+        uniqueData.forEach((data, boxId) => {
+            const docRef = db.collection('boxID_historico').doc(boxId);
+            
+            // Si la fecha del Excel es válida, la usamos. Si no, usamos la fecha actual.
+            const receivedAtDate = data.receivedDate ? excelSerialToDateObject(data.receivedDate) : new Date();
+
+            const dataToSave = {
+                gr: data.gr || 'N/A', // Guardamos el GR o 'N/A' si viene vacío
+                receivedAt: receivedAtDate // Guardamos la fecha de recibo
+            };
+            batch.set(docRef, dataToSave, { merge: true });
         });
 
         await batch.commit();
 
         doc('fileDropAreaBoxID').style.borderColor = 'var(--success-color)';
-        showModal('Éxito', `<p>Proceso completado. Se han guardado <strong>${uniqueBoxIDs.length}</strong> BoxIDs únicos de <strong>${files.length}</strong> archivo(s).</p>`);
+        showModal('Éxito', `<p>Proceso completado. Se han guardado/actualizado <strong>${uniqueData.size}</strong> registros únicos de <strong>${files.length}</strong> archivo(s).</p>`);
 
     } catch (err) {
         console.error("Error en el procesamiento de múltiples archivos:", err);
