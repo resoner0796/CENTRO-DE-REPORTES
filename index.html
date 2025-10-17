@@ -1917,13 +1917,19 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
                 try {
                     const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     const ws = wb.Sheets[wb.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                    
+                    // --- ¡AQUÍ ESTÁ EL AJUSTE CLAVE! ---
+                    // Cambia este número. Si tus datos (no el encabezado) empiezan en la fila 2 de Excel, pones 1.
+                    // Si empiezan en la fila 3, pones 2, y así.
+                    const filaDeInicio = 1; // <--- ¡¡¡CAMBIA ESTE NÚMERO!!!
+
+                    const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: filaDeInicio });
                     
                     const dataInFile = jsonData
                         .map(row => ({
-                            boxId: row[9], // Columna J - ¡ESTA YA ESTÁ BIEN!
-                            gr: row[0],      // Columna K (índice 10) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
-                            receivedDate: row[6] // Columna L (índice 11) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
+                            boxId: row[9],  // Columna J
+                            gr: row[0],       // Columna A
+                            receivedDate: row[6] // Columna G
                         }))
                         .filter(item => item.boxId !== undefined && item.boxId !== null && String(item.boxId).trim() !== '');
                     
@@ -1948,7 +1954,6 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
         }
 
         const batch = db.batch();
-        // Usamos un Map para quedarnos con el último registro de un BoxID si viniera repetido
         const uniqueData = new Map();
         allData.forEach(item => {
             uniqueData.set(String(item.boxId).trim(), item);
@@ -1957,12 +1962,11 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
         uniqueData.forEach((data, boxId) => {
             const docRef = db.collection('boxID_historico').doc(boxId);
             
-            // Si la fecha del Excel es válida, la usamos. Si no, usamos la fecha actual.
             const receivedAtDate = data.receivedDate ? excelSerialToDateObject(data.receivedDate) : new Date();
 
             const dataToSave = {
-                gr: data.gr || 'N/A', // Guardamos el GR o 'N/A' si viene vacío
-                receivedAt: receivedAtDate // Guardamos la fecha de recibo
+                gr: data.gr || 'N/A',
+                receivedAt: receivedAtDate 
             };
             batch.set(docRef, dataToSave, { merge: true });
         });
