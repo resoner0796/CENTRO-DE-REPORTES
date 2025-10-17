@@ -717,28 +717,40 @@
         </div>
 
 <div id="viewBoxID" style="display: none; justify-content: center; align-items: center; height: 100vh;">
-    <div class="main-container" style="grid-template-columns: 1fr; max-width: 600px; height: auto;">
-        <main class="main-content animated-startup">
+    <div class="main-container" style="grid-template-columns: 1fr; max-width: 800px; height: auto; gap: 24px;">
+        <main class="main-content animated-startup" style="display: contents;">
             <header class="app-header">
                 <h1 class="app-branding">CORNING</h1>
-                <h2 class="app-title">Reporte de BoxID Recibidos</h2>
+                <h2 class="app-title">Módulo de Trazabilidad Logística</h2>
             </header>
-            <div class="card" style="height: 100%;">
-                <div class="sidebar-header">
-                    <h3>Panel de Control</h3>
-                    <div>
-                        <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
-                        <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
-                            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                            <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                        </button>
+            
+            <div style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+                <div class="card">
+                     <div class="sidebar-header">
+                        <h3>Paso 1: Cargar Reporte de Embarques</h3>
+                        <div>
+                           <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                           <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                               <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                               <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                           </button>
+                        </div>
                     </div>
+                    <div id="fileDropAreaBoxID" class="file-drop-area" style="margin-top: 16px;">
+                        <h4>Archivo de BoxID</h4>
+                        <p>Arrastra el archivo que contiene BoxID (J), GR (A) y Fecha (G).</p>
+                    </div>
+                    <input type="file" id="fileInputBoxID" accept=".xlsx, .xls" multiple style="display: none;">
                 </div>
-                <div id="fileDropAreaBoxID" class="file-drop-area" style="margin-top: 16px;">
-                    <h4>Cargar Archivo de Embarques</h4>
-                    <p>Arrastra un archivo (.xlsx) para registrar los BoxID recibidos</p>
+
+                <div class="card">
+                     <h3>Paso 2: Cargar Reporte de Usuarios</h3>
+                    <div id="fileDropAreaGrUsuarios" class="file-drop-area" style="margin-top: 16px;">
+                        <h4>Archivo "GR USUARIOS"</h4>
+                        <p>Arrastra el archivo con Usuario (I), Orden (F) y GR (B).</p>
+                    </div>
+                    <input type="file" id="fileInputGrUsuarios" accept=".xlsx, .xls" multiple style="display: none;">
                 </div>
-                <input type="file" id="fileInputBoxID" accept=".xlsx, .xls" multiple style="display: none;">
             </div>
         </main>
     </div>
@@ -1353,9 +1365,10 @@ setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20');
 setupFileHandler('fileDropAreaProdDaily', 'fileInputProdDaily', 'produccionDaily');
 setupFileHandler('fileDropAreaProdCalidad', 'fileInputProdCalidad', 'produccionCalidad');
 setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES LA LÍNEA CRÍTICA
+setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
 
         function handleFile(files, configKey) {
-    // Si la función que espera el archivo solo puede manejar uno a la vez
+    // Lista de funciones que solo pueden procesar un archivo a la vez
     const singleFileFunctions = [
         '901', 
         'produccion20', 
@@ -1366,20 +1379,24 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
     ];
 
     if (configKey === 'boxID') {
-        // Esta es la única que sabe manejar múltiples archivos, le pasamos la lista completa
+        // Esta función sí maneja múltiples archivos
         handleBoxIDFile(files);
+    } else if (configKey === 'grUsuarios') {
+        // Esta nueva función también manejará múltiples archivos
+        handleGrUsuariosFile(files);
     } else if (singleFileFunctions.includes(configKey)) {
-        // Para todas las demás, solo pasamos el PRIMER archivo de la lista
+        // Para todas las demás, solo procesamos el PRIMER archivo de la lista
         const file = files[0];
-        if (!file) return; // Si por alguna razón no hay archivo, no hacemos nada
+        if (!file) return; // Si no hay archivo, no hacemos nada
 
-        // Llamamos a la función correspondiente con UN SOLO archivo
+        // Llamamos a la función correcta con UN SOLO archivo
         if (configKey === '901') handle901File(file);
         if (configKey === 'produccion20') handleProduccion20File(file);
         if (configKey === 'produccionDaily') handleProduccionDailyFile(file);
         if (configKey === 'produccionCalidad') handleProduccionCalidadFile(file);
+        
+        // Esta es la lógica original para los archivos de Terminaciones
         if (configKey === 'zpptwc' || configKey === 'coois') {
-             // Esta parte es tu lógica original para terminaciones, la respetamos
             const reader = new FileReader();
             reader.onload = async (e) => {
                 try {
@@ -2004,6 +2021,88 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
         console.error("Error en el procesamiento de múltiples archivos:", err);
         doc('fileDropAreaBoxID').style.borderColor = 'var(--danger-color)';
         showModal('Error de Archivo', `<p>${err}</p>`);
+    }
+}
+        
+        async function handleGrUsuariosFile(files) {
+    if (!files || files.length === 0) return;
+    showModal('Procesando...', `<p>Cargando ${files.length} archivo(s) de usuarios...</p>`);
+
+    const processSingleFile = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    // Los datos empiezan en la fila 2 (índice 1)
+                    const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: 1 }); 
+                    
+                    const dataInFile = jsonData
+                        .map(row => ({
+                            gr: row[1],       // Columna B (índice 1)
+                            orden: row[5],    // Columna F (índice 5)
+                            usuario: row[8]   // Columna I (índice 8)
+                        }))
+                        .filter(item => item.gr && String(item.gr).trim() !== '');
+                    resolve(dataInFile);
+                } catch (err) { reject(`Error al leer ${file.name}.`); }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    try {
+        const results = await Promise.all(Array.from(files).map(processSingleFile));
+        const allData = results.flat();
+
+        if (allData.length === 0) {
+            showModal('Sin Datos', '<p>No se encontró información de GR válida en los archivos seleccionados.</p>');
+            return;
+        }
+
+        // Creamos un mapa de GR -> {usuario, orden} para no tener duplicados
+        const grDataMap = new Map();
+        allData.forEach(item => {
+            grDataMap.set(String(item.gr).trim(), {
+                usuario: item.usuario || 'N/A',
+                orden: item.orden || 'N/A'
+            });
+        });
+
+        const allGRs = Array.from(grDataMap.keys());
+        
+        // Buscamos en la base de datos todos los BoxIDs que tengan alguno de los GRs cargados
+        const querySnapshot = await db.collection('boxID_historico').where('gr', 'in', allGRs).get();
+
+        if (querySnapshot.empty) {
+            showModal('Sin Coincidencias', '<p>Se procesaron los archivos de usuario, pero ningún GR coincidió con los registros de BoxID existentes.</p>');
+            return;
+        }
+
+        const batch = db.batch();
+        let updatedCount = 0;
+        querySnapshot.forEach(doc => {
+            const docData = doc.data();
+            const grInfo = grDataMap.get(docData.gr);
+            if (grInfo) {
+                batch.update(doc.ref, { 
+                    usuario: grInfo.usuario,
+                    orden: grInfo.orden
+                });
+                updatedCount++;
+            }
+        });
+
+        await batch.commit();
+
+        doc('fileDropAreaGrUsuarios').style.borderColor = 'var(--success-color)';
+        showModal('Éxito', `<p>Proceso completado. Se actualizaron <strong>${updatedCount}</strong> registros de BoxID con la información de usuario y orden.</p>`);
+
+    } catch (err) {
+        console.error("Error en el procesamiento de archivos GR Usuarios:", err);
+        doc('fileDropAreaGrUsuarios').style.borderColor = 'var(--danger-color)';
+        showModal('Error', `<p>${err}</p>`);
     }
 }
         
