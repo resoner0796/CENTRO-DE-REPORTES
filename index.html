@@ -2035,8 +2035,7 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
                 try {
                     const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     const ws = wb.Sheets[wb.SheetNames[0]];
-                    // Los datos empiezan en la fila 2 (índice 1)
-                    const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: 1 }); 
+                    const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, range: 1 });
                     
                     const dataInFile = jsonData
                         .map(row => ({
@@ -2061,7 +2060,6 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
             return;
         }
 
-        // Creamos un mapa de GR -> {usuario, orden} para no tener duplicados
         const grDataMap = new Map();
         allData.forEach(item => {
             grDataMap.set(String(item.gr).trim(), {
@@ -2072,17 +2070,35 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
 
         const allGRs = Array.from(grDataMap.keys());
         
-        // Buscamos en la base de datos todos los BoxIDs que tengan alguno de los GRs cargados
-        const querySnapshot = await db.collection('boxID_historico').where('gr', 'in', allGRs).get();
+        // --- ¡AQUÍ ESTÁ LA MAGIA! ---
+        // 1. Partimos el array de GRs en paquetitos de 10
+        const queryChunks = [];
+        for (let i = 0; i < allGRs.length; i += 10) {
+            queryChunks.push(allGRs.slice(i, i + 10));
+        }
 
-        if (querySnapshot.empty) {
+        // 2. Creamos una promesa para cada paquetito de 10
+        const queryPromises = queryChunks.map(chunk => 
+            db.collection('boxID_historico').where('gr', 'in', chunk).get()
+        );
+
+        // 3. Ejecutamos todas las búsquedas en paralelo y esperamos los resultados
+        const querySnapshots = await Promise.all(queryPromises);
+        
+        // 4. Juntamos los resultados de todas las búsquedas en un solo lugar
+        let allMatchingDocs = [];
+        querySnapshots.forEach(snapshot => {
+            allMatchingDocs = allMatchingDocs.concat(snapshot.docs);
+        });
+
+        if (allMatchingDocs.length === 0) {
             showModal('Sin Coincidencias', '<p>Se procesaron los archivos de usuario, pero ningún GR coincidió con los registros de BoxID existentes.</p>');
             return;
         }
 
         const batch = db.batch();
         let updatedCount = 0;
-        querySnapshot.forEach(doc => {
+        allMatchingDocs.forEach(doc => {
             const docData = doc.data();
             const grInfo = grDataMap.get(docData.gr);
             if (grInfo) {
@@ -2102,7 +2118,7 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
     } catch (err) {
         console.error("Error en el procesamiento de archivos GR Usuarios:", err);
         doc('fileDropAreaGrUsuarios').style.borderColor = 'var(--danger-color)';
-        showModal('Error', `<p>${err}</p>`);
+        showModal('Error', `<p>Ocurrió un error: ${err.message || err}</p>`);
     }
 }
         
