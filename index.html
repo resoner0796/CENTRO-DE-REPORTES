@@ -1922,8 +1922,8 @@ setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES
                     const dataInFile = jsonData
                         .map(row => ({
                             boxId: row[9], // Columna J - ¡ESTA YA ESTÁ BIEN!
-                            gr: row[10],      // Columna K (índice 10) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
-                            receivedDate: row[11] // Columna L (índice 11) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
+                            gr: row[0],      // Columna K (índice 10) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
+                            receivedDate: row[6] // Columna L (índice 11) - ¡AJUSTA ESTO CUANDO SEPAS LA CELDA!
                         }))
                         .filter(item => item.boxId !== undefined && item.boxId !== null && String(item.boxId).trim() !== '');
                     
