@@ -1324,13 +1324,27 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
 
 
         function setupFileHandler(dropAreaId, inputId, configKey) {
-            const dropArea = doc(dropAreaId); const input = doc(inputId);
-            if (!dropArea || !input) return;
-            dropArea.addEventListener('click', () => input.click());
-            input.addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0], configKey); e.target.value = ''; });
-            dropArea.addEventListener('dragover', (e) => e.preventDefault());
-            dropArea.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0], configKey); });
+    const dropArea = doc(dropAreaId); 
+    const input = doc(inputId);
+    if (!dropArea || !input) return;
+
+    const handle = (files) => {
+        if (files && files.length) {
+            handleFile(files, configKey);
         }
+    };
+
+    dropArea.addEventListener('click', () => input.click());
+    input.addEventListener('change', (e) => { 
+        handle(e.target.files);
+        e.target.value = ''; // Limpiamos el input para poder cargar el mismo archivo de nuevo
+    });
+    dropArea.addEventListener('dragover', (e) => e.preventDefault());
+    dropArea.addEventListener('drop', (e) => { 
+        e.preventDefault(); 
+        handle(e.dataTransfer.files);
+    });
+}
 
         setupFileHandler('fileDropArea901', 'fileInput901', '901');
 setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
@@ -1340,60 +1354,70 @@ setupFileHandler('fileDropAreaProdDaily', 'fileInputProdDaily', 'produccionDaily
 setupFileHandler('fileDropAreaProdCalidad', 'fileInputProdCalidad', 'produccionCalidad');
 setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES LA LÍNEA CRÍTICA
 
-        function handleFile(files, configKey) { // Cambiamos 'file' por 'files'
+        function handleFile(files, configKey) {
+    // Si la función que espera el archivo solo puede manejar uno a la vez
+    const singleFileFunctions = [
+        '901', 
+        'produccion20', 
+        'produccionDaily', 
+        'produccionCalidad', 
+        'zpptwc', 
+        'coois'
+    ];
+
     if (configKey === 'boxID') {
-        // Ahora pasamos la lista completa de archivos
-        handleBoxIDFile(files); 
-    } else if (configKey === '901') {
-        handle901File(files[0]); // Las otras funciones siguen recibiendo un solo archivo
-    } else if (configKey === 'produccion20') {
-        handleProduccion20File(files[0]);
-    } else if (configKey === 'produccionDaily') {
-        handleProduccionDailyFile(files[0]);
-    } else if (configKey === 'produccionCalidad') {
-        handleProduccionCalidadFile(files[0]);
-    } else {
-        const file = files[0]; // Tomamos el primer archivo para la lógica original
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                // ... (el resto de tu lógica para 'zpptwc' y 'coois' no cambia)
-                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const mapping = (configKey === 'zpptwc') ? params.terminaciones_config.zpptwc_cols : params.terminaciones_config.coois_cols;
-                const sheetData = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: null, range: 1 });
-                const data = sheetData.map(row => {
-                    let rowData = {};
-                    for (const map of mapping) {
-                        if(map.excel_col) {
-                            rowData[map.key] = row[map.excel_col];
+        // Esta es la única que sabe manejar múltiples archivos, le pasamos la lista completa
+        handleBoxIDFile(files);
+    } else if (singleFileFunctions.includes(configKey)) {
+        // Para todas las demás, solo pasamos el PRIMER archivo de la lista
+        const file = files[0];
+        if (!file) return; // Si por alguna razón no hay archivo, no hacemos nada
+
+        // Llamamos a la función correspondiente con UN SOLO archivo
+        if (configKey === '901') handle901File(file);
+        if (configKey === 'produccion20') handleProduccion20File(file);
+        if (configKey === 'produccionDaily') handleProduccionDailyFile(file);
+        if (configKey === 'produccionCalidad') handleProduccionCalidadFile(file);
+        if (configKey === 'zpptwc' || configKey === 'coois') {
+             // Esta parte es tu lógica original para terminaciones, la respetamos
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const mapping = (configKey === 'zpptwc') ? params.terminaciones_config.zpptwc_cols : params.terminaciones_config.coois_cols;
+                    const sheetData = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: null, range: 1 });
+                    const data = sheetData.map(row => {
+                        let rowData = {};
+                        for (const map of mapping) {
+                            if(map.excel_col) rowData[map.key] = row[map.excel_col];
                         }
+                        return rowData;
+                    }).filter(row => row.Orden);
+                    reportData[configKey] = data;
+                    doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
+
+                    if (configKey === 'coois') {
+                        const batch = db.batch();
+                        data.forEach(row => {
+                            const orderId = String(row.Orden || '').replace(/^0+/, '');
+                            if(orderId) {
+                                const docRef = db.collection('coois_historico').doc(orderId);
+                                batch.set(docRef, row, { merge: true });
+                            }
+                        });
+                        await batch.commit();
                     }
-                    return rowData;
-                }).filter(row => row.Orden);
-                reportData[configKey] = data;
-                doc(`fileDropArea${configKey.charAt(0).toUpperCase() + configKey.slice(1)}`).style.borderColor = '#4ade80';
-
-                if (configKey === 'coois') {
-                    const batch = db.batch();
-                    data.forEach(row => {
-                        const orderId = String(row.Orden || '').replace(/^0+/, '');
-                        if(orderId) {
-                            const docRef = db.collection('coois_historico').doc(orderId);
-                            batch.set(docRef, row, { merge: true });
-                        }
-                    });
-                    await batch.commit();
+                    processTerminacionesReport();
+                } catch (err) {
+                    console.error("Error al procesar archivo:", err);
+                    showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo de letras de columna y la conexión a la base de datos.</p>');
                 }
-
-                processTerminacionesReport();
-            } catch (err) {
-                console.error("Error al procesar archivo:", err);
-                showModal('Error de Archivo', '<p>No se pudo procesar el archivo Excel. Verifique el mapeo de letras de columna y la conexión a la base de datos.</p>');
-            }
-        };
-        reader.readAsArrayBuffer(file);
+            };
+            reader.readAsArrayBuffer(file);
+        }
     }
+}
 }
 
         const formulaHelpers = {
