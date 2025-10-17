@@ -2060,6 +2060,8 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
             return;
         }
 
+        const batch = db.batch();
+        // Usamos un Map para quedarnos con el último registro de un GR si viniera repetido
         const grDataMap = new Map();
         allData.forEach(item => {
             grDataMap.set(String(item.gr).trim(), {
@@ -2068,61 +2070,24 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
             });
         });
 
-        const allGRs = Array.from(grDataMap.keys());
-        
-        // --- ¡AQUÍ ESTÁ LA MAGIA! ---
-        // 1. Partimos el array de GRs en paquetitos de 10
-        const queryChunks = [];
-        for (let i = 0; i < allGRs.length; i += 10) {
-            queryChunks.push(allGRs.slice(i, i + 10));
-        }
-
-        // 2. Creamos una promesa para cada paquetito de 10
-        const queryPromises = queryChunks.map(chunk => 
-            db.collection('boxID_historico').where('gr', 'in', chunk).get()
-        );
-
-        // 3. Ejecutamos todas las búsquedas en paralelo y esperamos los resultados
-        const querySnapshots = await Promise.all(queryPromises);
-        
-        // 4. Juntamos los resultados de todas las búsquedas en un solo lugar
-        let allMatchingDocs = [];
-        querySnapshots.forEach(snapshot => {
-            allMatchingDocs = allMatchingDocs.concat(snapshot.docs);
-        });
-
-        if (allMatchingDocs.length === 0) {
-            showModal('Sin Coincidencias', '<p>Se procesaron los archivos de usuario, pero ningún GR coincidió con los registros de BoxID existentes.</p>');
-            return;
-        }
-
-        const batch = db.batch();
-        let updatedCount = 0;
-        allMatchingDocs.forEach(doc => {
-            const docData = doc.data();
-            const grInfo = grDataMap.get(docData.gr);
-            if (grInfo) {
-                batch.update(doc.ref, { 
-                    usuario: grInfo.usuario,
-                    orden: grInfo.orden
-                });
-                updatedCount++;
-            }
+        // AHORA SÍ: Simplemente guardamos cada GR en la nueva colección 'gr_historico'
+        grDataMap.forEach((data, gr) => {
+            const docRef = db.collection('gr_historico').doc(gr);
+            batch.set(docRef, data, { merge: true });
         });
 
         await batch.commit();
 
         doc('fileDropAreaGrUsuarios').style.borderColor = 'var(--success-color)';
-        showModal('Éxito', `<p>Proceso completado. Se actualizaron <strong>${updatedCount}</strong> registros de BoxID con la información de usuario y orden.</p>`);
+        showModal('Éxito', `<p>Proceso completado. Se han guardado <strong>${grDataMap.size}</strong> registros de GR únicos.</p>`);
 
     } catch (err) {
         console.error("Error en el procesamiento de archivos GR Usuarios:", err);
         doc('fileDropAreaGrUsuarios').style.borderColor = 'var(--danger-color)';
-        showModal('Error', `<p>Ocurrió un error: ${err.message || err}</p>`);
+        showModal('Error', `<p>${err.message || err}</p>`);
     }
 }
         
-
         // --- INICIO: LÓGICA DEL REPORTE SEMANAL 20% ---
         function abrirModalReporteSemanal() {
             const modalHTML = `
