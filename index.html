@@ -4103,15 +4103,14 @@ async function consultarTerminacionesConfirmadas() {
     dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>';
     dashboardContainer.style.display = 'block';
 
-    let granTotalTerminaciones = 0;
+    let granTotalTerminaciones = 0; // El total general
     let totalTarimasProcesadas = 0;
     let totalCajasConsultadas = 0;
     let ordenesConsultadas = new Set();
     let ordenesConDatos = new Set();
     let cajasProcesadasConTerminaciones = 0;
-    // --- NUEVO: Objeto para el resumen por Orden/Catálogo ---
-    const summaryByOrderCatalog = {}; // Ej: { "ORD123": { "CAT456": { piezas: 10, terminaciones: 120 } } }
-    // --- FIN NUEVO ---
+    // Objeto para el resumen por Orden/Catálogo (lo mantenemos)
+    const summaryByOrderCatalog = {};
 
     try {
         // 1. Filtrar Tarimas (igual que antes)
@@ -4143,57 +4142,46 @@ async function consultarTerminacionesConfirmadas() {
 
                 if (numeroOrdenLimpio && codigoCajaActual) {
                     let orderData = null;
-                    // Buscar/Consultar Orden (igual que antes)
+                    // Buscar/Consultar Orden (igual que antes, llenando caché)
                     if (orderDataCache.has(numeroOrdenLimpio)) { orderData = orderDataCache.get(numeroOrdenLimpio); }
-                    else { /* ... Consulta Firestore con filtro de área ... */
+                    else {
                         ordenesConsultadas.add(numeroOrdenLimpio);
-                        try { let orderDocRef; if (areaSeleccionada === 'ALL') { /* collectionGroup */ } else { /* ruta directa */ } if (orderDocRef && orderDocRef.exists) { orderData = orderDocRef.data(); if(orderData){ orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); } else { orderDataCache.set(numeroOrdenLimpio, null);}} else { orderDataCache.set(numeroOrdenLimpio, null); } } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); }
+                         try { let orderDocRef; if (areaSeleccionada === 'ALL') { /* collectionGroup */ } else { /* ruta directa */ } if (orderDocRef && orderDocRef.exists) { orderData = orderDocRef.data(); if(orderData){ orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); } else { orderDataCache.set(numeroOrdenLimpio, null);}} else { orderDataCache.set(numeroOrdenLimpio, null); } } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); }
                     }
 
                     // Calcular terminaciones SI tenemos datos válidos
                     if (orderData && orderData.catalogNumber && Array.isArray(orderData.empaqueData)) {
                         const catalogNumber = orderData.catalogNumber;
-                        const fibras = calculateTerminaciones(catalogNumber);
+                        const fibras = calculateTerminaciones(catalogNumber); // Obtener fibras del catálogo
 
                         if (fibras > 0) {
+                            // Buscar la caja específica en empaqueData
                             const empaqueCaja = orderData.empaqueData.find(e => e.boxId === codigoCajaActual);
+
                             if (empaqueCaja && Array.isArray(empaqueCaja.serials)) {
-                                const piezas = empaqueCaja.serials.length;
+                                const piezas = empaqueCaja.serials.length; // Contar piezas (seriales)
                                 if (piezas > 0) {
-                                    const terminacionesCaja = piezas * fibras;
-                                    granTotalTerminaciones += terminacionesCaja;
+                                    const terminacionesCaja = piezas * fibras; // Calcular terminaciones para esta caja
+                                    granTotalTerminaciones += terminacionesCaja; // *** SUMAR AL TOTAL GENERAL *** (Línea clave restaurada/asegurada)
                                     cajasProcesadasConTerminaciones++;
 
-                                    // --- NUEVO: Acumular en el resumen ---
-                                    if (!summaryByOrderCatalog[numeroOrdenLimpio]) {
-                                        summaryByOrderCatalog[numeroOrdenLimpio] = {};
-                                    }
-                                    if (!summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber]) {
-                                        summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber] = { piezas: 0, terminaciones: 0 };
-                                    }
+                                    // Acumular en el resumen (esta parte es adicional)
+                                    if (!summaryByOrderCatalog[numeroOrdenLimpio]) { summaryByOrderCatalog[numeroOrdenLimpio] = {}; }
+                                    if (!summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber]) { summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber] = { piezas: 0, terminaciones: 0 }; }
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].piezas += piezas;
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].terminaciones += terminacionesCaja;
-                                    // --- FIN NUEVO ---
 
-                                }
-                            }
-                        }
-                    }
-                }
+                                } else { /* Warning: serials vacío */ }
+                            } else { /* Warning: caja no encontrada en empaqueData */ }
+                        } else { /* Warning: fibras inválidas */ }
+                    } // Fin if orderData válido
+                } // Fin if numeroOrden y codigoCaja existen
             } // Fin for caja
         } // Fin for tarima
 
-        // 3. Renderizar (Pasando el nuevo resumen)
+        // 3. Renderizar (Pasando el total correcto y el resumen)
         console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}. Órdenes buscadas: ${ordenesConsultadas.size}. Órdenes con datos: ${ordenesConDatos.size}. Cajas sumadas: ${cajasProcesadasConTerminaciones}/${totalCajasConsultadas}.`);
-        renderTerminacionesDashboard(
-            granTotalTerminaciones,
-            totalTarimasProcesadas,
-            totalCajasConsultadas,
-            fechaSeleccionadaStr_render,
-            turnoSeleccionado,
-            areaSeleccionada,
-            summaryByOrderCatalog // <-- Pasar el objeto resumen
-        );
+        renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado, areaSeleccionada, summaryByOrderCatalog);
 
     } catch (e) { /* ... manejo de error igual ... */ }
     finally { /* ... restauración botón igual ... */ }
