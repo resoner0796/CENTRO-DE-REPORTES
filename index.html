@@ -266,20 +266,26 @@
             flex-direction: column-reverse;
             position: relative;
         }
-        .summary-bar {
+     .summary-bar {
             width: 100%;
             border-radius: 6px;
-            /* --- CENTRADO CON FLEXBOX --- */
-            display: flex; 
-            align-items: center; /* Centrado Vertical */
-            justify-content: center; /* Centrado Horizontal */
-            /* --- --- */
-            color: var(--text-primary); 
-            font-weight: bold;
-            font-size: 18px; 
-            position: relative;
+            position: relative; /* Mantenemos posición relativa */
             transition: height 0.5s ease-out;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+            /* Aseguramos que el contenedor sea flex para centrar */
+            display: flex;
+            align-items: center; /* Centrado vertical */
+            justify-content: center; /* Centrado horizontal */
+        }
+
+        /* Estilo específico para el SPAN dentro de .summary-bar */
+        .summary-bar span {
+            color: var(--text-primary); /* Color del tema */
+            font-weight: bold; /* ¡Regresamos el bold! */
+            font-size: 18px; /* Tamaño que definimos */
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4); /* Sombra para contraste */
+            /* Puede que alguna otra regla esté afectando, aseguramos alineación */
+            text-align: center; 
+            width: 100%; /* Asegura que ocupe todo el ancho para centrarse */
         }
 
         .summary-bar-label {
