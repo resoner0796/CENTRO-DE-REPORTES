@@ -267,17 +267,20 @@
             position: relative;
         }
         .summary-bar {
-            width: 100%;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 0.8rem;
-            position: relative;
-            transition: height 0.5s ease-out;
-        }
+            width: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary); /* <-- Usa la variable del tema */
+            font-weight: bold;
+            font-size: 18px; /* <-- Nuevo tamaño (ajusta si lo quieres más grande/pequeño) */
+            position: relative;
+            transition: height 0.5s ease-out;
+            /* Opcional: Sombra para mejor contraste */
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
         .summary-bar-label {
             position: absolute;
             bottom: -20px;
