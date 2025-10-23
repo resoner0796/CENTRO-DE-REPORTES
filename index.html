@@ -1141,7 +1141,7 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
             doc('prodCalidad_turno').value = getAutoCurrentShift();
             renderProduccionCalidadTable([]);
             renderProduccionCalidadChart([], new Date());
-	   else if (viewKey === 'tarimasConfirmadas') { // <-- AJUSTE AQUÍ
+	} else if (viewKey === 'tarimasConfirmadas') { // <-- AJUSTE AQUÍ
                 const today = new Date();
                 const year = today.getFullYear();
                 const month = String(today.getMonth() + 1).padStart(2, '0');
