@@ -477,6 +477,30 @@ body.light-theme .app-branding { color: var(--branding-color); }
         .status-naranja { background-color: #f59e0b; }
         .status-rojo { background-color: var(--danger-color); }
         /* --- Fin Estilos Reporte Tarimas --- */
+
+		/* --- Estilos Adicionales --- */
+.btn-small { /* Para el botón 'Ver' */
+    padding: 5px 10px;
+    font-size: 0.85rem;
+    line-height: 1; /* Ajusta si el SVG descuadra */
+    display: inline-flex; /* Para alinear icono y texto */
+    align-items: center;
+    gap: 5px; /* Espacio entre texto e icono */
+}
+
+/* Estilo para resaltar BXIDs faltantes en el modal */
+.missing-bxid {
+    border-left: 4px solid var(--danger-color) !important; /* Borde rojo a la izquierda */
+    background-color: rgba(239, 68, 68, 0.05) !important; /* Fondo rojo muy sutil */
+}
+.missing-bxid strong { /* Opcional: Resaltar texto también */
+    color: var(--danger-color) !important;
+}
+
+/* Ajustes generales para el modal si es necesario */
+#modalBody ul {
+  padding-right: 10px; /* Espacio para la barra de scroll */
+}
 		
 		@media (max-width: 900px), (max-height: 450px) {
             body { overflow-y: auto; padding: 8px; }
@@ -1690,27 +1714,26 @@ async function consultarTarimas() {
             return;
         }
 
-        let tarimasParaProcesar = []; // Renombrado para claridad
+        let tarimasParaProcesar = [];
         let docsProcesados = 0;
 
         palletsSnapshot.docs.forEach(docSnap => {
+            // ... (validaciones de datos igual que antes) ...
             docsProcesados++;
             const docId = docSnap.id;
             const palletData = docSnap.data();
             console.log(`[Tarimas] Procesando Doc ID: ${docId}`);
 
-            // Validar campos raíz: fecha(Timestamp), folio(string), gafete(string), cajas(array no vacío)
             if (!palletData || typeof palletData !== 'object' ||
                 !palletData.fecha || typeof palletData.fecha.toDate !== 'function' ||
                 !palletData.folio || typeof palletData.folio !== 'string' ||
-                !palletData.gafete || typeof palletData.gafete !== 'string' || // <-- Validación añadida para gafete
+                !palletData.gafete || typeof palletData.gafete !== 'string' ||
                 !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) {
-
-                console.warn(`[Tarimas] Doc ID ${docId}: Faltan campos raíz (fecha, folio, gafete) o 'cajas' inválido. Saltando.`);
+                console.warn(`[Tarimas] Doc ID ${docId}: Campos raíz inválidos o 'cajas' vacío. Saltando.`);
                 return;
             }
 
-            let palletDate = null;
+            let palletDate = null; // Guardaremos el objeto Date completo
             try {
                 palletDate = palletData.fecha.toDate();
             } catch (dateError) {
@@ -1721,42 +1744,41 @@ async function consultarTarimas() {
             const palletDateStr = palletDate.toLocaleDateString('es-ES', {
                 day: '2-digit', month: '2-digit', year: 'numeric'
             });
-            console.log(`[Tarimas] Doc ID ${docId}: Fecha ${palletDateStr}, Folio ${palletData.folio}, Gafete ${palletData.gafete}`);
+             console.log(`[Tarimas] Doc ID ${docId}: Fecha ${palletDateStr}, Folio ${palletData.folio}, Gafete ${palletData.gafete}`);
 
-            // *** ÚNICO FILTRO AQUÍ: LA FECHA ***
             if (palletDateStr === fechaSeleccionadaStr) {
-                console.log(`[Tarimas] --> COINCIDE Fecha! Añadiendo Doc ID ${docId} para procesar BXIDs.`);
+                 console.log(`[Tarimas] --> COINCIDE Fecha! Añadiendo Doc ID ${docId}`);
                 tarimasParaProcesar.push({
                     id: docId,
                     cajas: palletData.cajas,
                     folio: palletData.folio,
-                    gafete: palletData.gafete // <-- Usamos gafete aquí
+                    gafete: palletData.gafete,
+                    confirmationDate: palletDate // <-- Guardamos el objeto Date de confirmación
                 });
             }
         });
 
-        console.log(`[Tarimas] Documentos totales procesados: ${docsProcesados}. Tarimas encontradas para la fecha: ${tarimasParaProcesar.length}`);
+        console.log(`[Tarimas] Documentos procesados: ${docsProcesados}. Tarimas para la fecha: ${tarimasParaProcesar.length}`);
 
         if (tarimasParaProcesar.length === 0) {
-            // Ya no se llama 'tarimasFiltradas', se llama 'tarimasParaProcesar'
             showModal('Sin Datos', '<p>No se encontraron tarimas creadas en la fecha seleccionada.</p>');
             renderTarimasTable([]);
             return;
         }
 
-        // --- Procesamiento de BXID (No filtra, solo calcula status) ---
+        // --- Procesamiento de BXID ---
         const palletPromises = tarimasParaProcesar.map(async (tarima) => {
+            // ... (obtención de bxidList igual que antes) ...
             const totalCajas = tarima.cajas.length;
             const bxidList = tarima.cajas
                 .map(box => box.codigoCaja ? String(box.codigoCaja).trim() : null)
                 .filter(bxid => bxid && bxid !== '');
-
-            console.log(`[Tarimas] Folio ${tarima.folio} (Doc ID ${tarima.id}): Buscando ${bxidList.length} BXIDs.`);
+            console.log(`[Tarimas] Folio ${tarima.folio}: Buscando ${bxidList.length} BXIDs.`);
 
             let receivedCount = 0;
-            let bxidDetailsMap = new Map(); // Mapa para almacenar resultados de búsqueda
+            let bxidDetailsMap = new Map();
+            let latestReceivedAt = null; // <-- Variable para guardar la última fecha de recepción
 
-            // Solo buscar si hay BXIDs válidos
             if (bxidList.length > 0) {
                 try {
                     const readPromises = bxidList.map(bxid => db.collection('boxID_historico').doc(bxid).get());
@@ -1767,72 +1789,72 @@ async function consultarTarimas() {
                         if (snap.exists) {
                             receivedCount++;
                             const bxData = snap.data();
+                            const receivedDate = bxData.receivedAt && typeof bxData.receivedAt.toDate === 'function' ? bxData.receivedAt.toDate() : null;
                             bxidDetailsMap.set(searchedBxid, {
                                 found: true,
                                 gr: bxData.gr || 'N/A',
-                                receivedAt: bxData.receivedAt && typeof bxData.receivedAt.toDate === 'function' ? bxData.receivedAt.toDate() : null
+                                receivedAt: receivedDate // Guardamos el objeto Date o null
                             });
+                            // Actualizar la última fecha de recepción
+                            if (receivedDate && (!latestReceivedAt || receivedDate > latestReceivedAt)) {
+                                latestReceivedAt = receivedDate;
+                            }
                         } else {
                             bxidDetailsMap.set(searchedBxid, { found: false, gr: 'N/A', receivedAt: null });
                         }
                     });
                 } catch (bxidError) {
-                    console.error(`[Tarimas] Folio ${tarima.folio} (Doc ID ${tarima.id}): Error al buscar BXIDs:`, bxidError);
-                    // Si falla la búsqueda de BXIDs, continuamos pero marcamos como no recibida
-                    receivedCount = 0; // Reiniciar por si acaso
-                    bxidDetailsMap = new Map(); // Limpiar resultados parciales
+                     console.error(`[Tarimas] Folio ${tarima.folio}: Error buscando BXIDs:`, bxidError);
+                     receivedCount = 0;
+                     bxidDetailsMap = new Map();
+                     latestReceivedAt = null; // Reiniciar en caso de error
                 }
             } else {
-                console.warn(`[Tarimas] Folio ${tarima.folio} (Doc ID ${tarima.id}): No hay BXIDs válidos en el array 'cajas'.`);
+                console.warn(`[Tarimas] Folio ${tarima.folio}: Sin BXIDs válidos.`);
             }
 
-            // Construir el detalle final iterando sobre TODAS las cajas originales
-            const finalBxidDetails = tarima.cajas.map(boxInfo => {
-                const bxid = boxInfo.codigoCaja ? String(boxInfo.codigoCaja).trim() : null;
-                const lookupResult = bxid ? (bxidDetailsMap.get(bxid) || { found: false, gr: 'N/A', receivedAt: null }) : { found: false, gr: 'N/A', receivedAt: null };
-                return {
-                    bxid: boxInfo.codigoCaja || 'N/A',
-                    orden: boxInfo.numeroOrden || 'N/A',
-                    gr: lookupResult.gr,
-                    receivedAt: lookupResult.receivedAt
-                };
-            });
+            // ... (construcción de finalBxidDetails igual que antes) ...
+             const finalBxidDetails = tarima.cajas.map(boxInfo => {
+                 const bxid = boxInfo.codigoCaja ? String(boxInfo.codigoCaja).trim() : null;
+                 const lookupResult = bxid ? (bxidDetailsMap.get(bxid) || { found: false, gr: 'N/A', receivedAt: null }) : { found: false, gr: 'N/A', receivedAt: null };
+                 return {
+                     bxid: boxInfo.codigoCaja || 'N/A',
+                     orden: boxInfo.numeroOrden || 'N/A',
+                     gr: lookupResult.gr,
+                     receivedAt: lookupResult.receivedAt // <-- Pasamos el objeto Date o null
+                 };
+             });
 
-            // Determinar Status basado en los BXIDs VÁLIDOS que se buscaron
+
+            // ... (lógica de status igual que antes) ...
             let status = 'status-rojo';
             let statusText = 'No Recibida';
-            const validBxidCount = bxidList.length; // Número de BXIDs que intentamos buscar
+            const validBxidCount = bxidList.length;
 
-            if (validBxidCount === 0 && totalCajas > 0) {
-                statusText = 'Sin BXIDs Válidos';
-            } else if (receivedCount > 0 && receivedCount < validBxidCount) {
-                status = 'status-naranja';
-                statusText = 'Recibida Parcial';
-            } else if (receivedCount === validBxidCount && validBxidCount > 0) { // Solo completa si se recibieron todos los BXIDs válidos
-                status = 'status-verde';
-                statusText = 'Recibida Completa';
-            }
-            // Si receivedCount es 0 y validBxidCount > 0, se queda como 'No Recibida'
+            if (validBxidCount === 0 && totalCajas > 0) { statusText = 'Sin BXIDs Válidos'; }
+            else if (receivedCount > 0 && receivedCount < validBxidCount) { status = 'status-naranja'; statusText = 'Recibida Parcial'; }
+            else if (receivedCount === validBxidCount && validBxidCount > 0) { status = 'status-verde'; statusText = 'Recibida Completa'; }
 
-            // Devolvemos el objeto con 'user' usando 'gafete'
+            // Devolvemos el objeto con las nuevas fechas/horas
             return {
                 folio: tarima.folio,
-                user: tarima.gafete, // <-- CAMBIO A GAFETE
+                user: tarima.gafete,
                 totalCajas: totalCajas,
                 statusClass: status,
                 statusText: statusText,
+                confirmationDate: tarima.confirmationDate, // <-- Objeto Date de confirmación
+                latestReceivedAt: latestReceivedAt,        // <-- Objeto Date de última recepción (o null)
                 bxidDetails: finalBxidDetails
             };
         });
 
-        // Esperamos a que todas las búsquedas de BXIDs terminen
         const processedPallets = await Promise.all(palletPromises);
         console.log("[Tarimas] Datos finales procesados:", processedPallets);
-        renderTarimasTable(processedPallets); // Renderizamos TODAS las tarimas encontradas
+        renderTarimasTable(processedPallets);
 
     } catch (e) {
-        console.error("[Tarimas] Error GENERAL consultando tarimas:", e);
-        showModal('Error Crítico', `<p>Ocurrió un error inesperado al procesar las tarimas. Revisa la consola.</p><p>${e.message}</p>`);
+        console.error("[Tarimas] Error GENERAL:", e);
+        showModal('Error Crítico', `<p>Error inesperado. Revisa la consola.</p><p>${e.message}</p>`);
         renderTarimasTable([]);
     } finally {
         btn.disabled = false;
@@ -1847,68 +1869,93 @@ function renderTarimasTable(pallets) {
         return;
     }
 
-    // Cambiamos el último header a "Detalles"
-    const headers = ['Folio (Tarima)', 'Usuario', 'Estatus', 'Total Cajas', 'Detalles'];
+    // Añadimos las nuevas columnas
+    const headers = ['Folio', 'Usuario', 'Hora Confirmación', 'Recibido Logística (Último)', 'Estatus', 'Cajas', 'Detalles'];
     let headerHtml = '<thead><tr>';
-    // Añadimos padding y alineación a los headers
     headers.forEach((h, index) => {
-        let styles = 'padding: 12px 15px; text-align: left;';
-        if (index >= 2) styles += ' text-align: center;'; // Centrar Estatus, Total y botón Detalles
+        let styles = 'padding: 12px 10px; text-align: left; white-space: nowrap;'; // nowrap para evitar saltos de línea
+        // Centrar columnas específicas
+        if (['Hora Confirmación', 'Recibido Logística (Último)', 'Estatus', 'Cajas', 'Detalles'].includes(h)) {
+            styles += ' text-align: center;';
+        }
         headerHtml += `<th style="${styles}"><span>${h}</span></th>`;
     });
     headerHtml += '</tr></thead>';
 
     let bodyHtml = '<tbody>';
-    pallets.sort((a, b) => (a.folio || '').localeCompare(b.folio || '')); // Ordenar por folio
+    pallets.sort((a, b) => (a.folio || '').localeCompare(b.folio || ''));
 
-    pallets.forEach((pallet, rowIndex) => {
-        // --- NUEVA ESTRUCTURA PARA DETALLES COLAPSABLES ---
-        let detalleHtml = `<details class="tarima-details" id="details-${rowIndex}">`;
-        detalleHtml += `<summary class="details-summary">Ver Cajas <span class="arrow">▼</span></summary>`; // Texto del botón/summary
-        detalleHtml += `<div class="details-content"><ul>`; // Contenido que se oculta/muestra
+    pallets.forEach((pallet, index) => {
+        // Formatear Hora Confirmación (HH:MM)
+        const confirmationTime = pallet.confirmationDate
+            ? pallet.confirmationDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+            : 'N/A';
 
-        pallet.bxidDetails.forEach(bx => {
-            const recDate = bx.receivedAt ? formatShortDateTime(bx.receivedAt) : 'Pendiente';
-            const statusClassDot = bx.receivedAt ? 'status-verde' : 'status-rojo';
-            // Estilo más limpio para cada item de la lista
-            detalleHtml += `<li style="margin-bottom: 5px; padding: 3px 0; border-bottom: 1px dashed var(--border-color);">
-                              <span class="status-dot ${statusClassDot}"></span>
-                              <strong>BXID:</strong> ${bx.bxid} |
-                              <strong>Orden:</strong> ${bx.orden} |
-                              <strong>GR:</strong> ${bx.gr} |
-                              <strong>Recibido:</strong> ${recDate}
-                           </li>`;
-        });
-        detalleHtml += `</ul></div></details>`;
-        // --- FIN NUEVA ESTRUCTURA ---
+        // Formatear Última Recepción (DD/MM HH:MM o 'Pendiente')
+        const latestReceivedFormatted = pallet.latestReceivedAt
+            ? formatShortDateTime(pallet.latestReceivedAt) // Usamos la función existente
+            : 'Pendiente';
 
-        // Añadimos padding y alineación a las celdas del cuerpo
+        // Botón para abrir modal en lugar de <details>
+        // Usamos JSON.stringify para pasar los datos al atributo onclick de forma segura
+        const detailsDataString = JSON.stringify(pallet.bxidDetails).replace(/'/g, "&apos;"); // Escapar apóstrofes
+        const detailsButtonHtml = `<button class="btn btn-glass btn-small" onclick='showBoxDetailsModal(${detailsDataString}, "${pallet.statusText}", "${pallet.folio}")'>
+                                     Ver <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                   </button>`;
+
         bodyHtml += `<tr style="border-bottom: 1px solid var(--border-color);">`;
-        bodyHtml += `<td style="padding: 10px 15px; font-weight: bold;">${pallet.folio}</td>`;
-        bodyHtml += `<td style="padding: 10px 15px;">${pallet.user}</td>`;
-        bodyHtml += `<td style="padding: 10px 15px; text-align: center;"><span class="status-dot ${pallet.statusClass}"></span> ${pallet.statusText}</td>`;
-        bodyHtml += `<td style="padding: 10px 15px; text-align: center; font-weight: bold;">${pallet.totalCajas}</td>`;
-        // La última celda ahora contiene el <details>
-        bodyHtml += `<td style="padding: 10px 15px; text-align: center;">${detalleHtml}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px; font-weight: bold;">${pallet.folio}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px;">${pallet.user}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px; text-align: center;">${confirmationTime}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px; text-align: center;">${latestReceivedFormatted}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px; text-align: center;"><span class="status-dot ${pallet.statusClass}"></span> ${pallet.statusText}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px; text-align: center; font-weight: bold;">${pallet.totalCajas}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px; text-align: center;">${detailsButtonHtml}</td>`; // Celda con el botón
         bodyHtml += `</tr>`;
     });
 
     bodyHtml += '</tbody>';
     table.innerHTML = headerHtml + bodyHtml;
 
-    // Opcional: Cerrar otros <details> cuando uno se abre
-    table.querySelectorAll('.tarima-details').forEach(detailsElement => {
-        detailsElement.addEventListener('toggle', event => {
-            if (detailsElement.open) {
-                table.querySelectorAll('.tarima-details').forEach(otherDetails => {
-                    if (otherDetails !== detailsElement && otherDetails.open) {
-                        otherDetails.removeAttribute('open');
-                    }
-                });
-            }
-        });
-    });
+    // Ya no necesitamos el listener de 'toggle' para <details>
 }
+
+// --- NUEVA FUNCIÓN PARA MOSTRAR EL MODAL ---
+function showBoxDetailsModal(bxidDetails, statusText, folio) {
+    // Convertir Timestamps de Firestore (si vienen serializados) a objetos Date
+    // Es crucial porque JSON.stringify convierte Timestamps a un formato que no es Date
+     const detailsWithDates = bxidDetails.map(bx => ({
+        ...bx,
+        receivedAt: bx.receivedAt ? new Date(bx.receivedAt) : null // Intenta convertir a Date
+     }));
+
+
+    let modalContentHtml = `<p style="text-align:center; font-size:0.9em; color: var(--text-secondary);">Mostrando ${detailsWithDates.length} cajas para Tarima: <strong>${folio}</strong></p>`;
+    modalContentHtml += `<ul style="list-style-type: none; padding: 0; max-height: 60vh; overflow-y: auto;">`; // Lista sin viñetas y scroll
+
+    detailsWithDates.forEach(bx => {
+        const isMissing = statusText === 'Recibida Parcial' && !bx.receivedAt; // Condición para resaltar
+        const itemClass = isMissing ? 'missing-bxid' : ''; // Clase CSS si falta
+        const receivedFormatted = bx.receivedAt && !isNaN(bx.receivedAt) ? formatShortDateTime(bx.receivedAt) : 'Pendiente'; // Valida la fecha
+        const statusClassDot = bx.receivedAt && !isNaN(bx.receivedAt) ? 'status-verde' : 'status-rojo';
+
+        modalContentHtml += `<li class="${itemClass}" style="margin-bottom: 8px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background-color: var(--surface-color); display: flex; align-items: center; gap: 8px;">
+                              <span class="status-dot ${statusClassDot}" style="flex-shrink: 0;"></span>
+                              <div style="flex-grow: 1; font-size: 0.9em;">
+                                <strong style="color: var(--text-primary);">BXID:</strong> ${bx.bxid}<br>
+                                <strong>Orden:</strong> ${bx.orden} |
+                                <strong>GR:</strong> ${bx.gr} |
+                                <strong>Recibido:</strong> ${receivedFormatted}
+                              </div>
+                           </li>`;
+    });
+
+    modalContentHtml += `</ul>`;
+
+    // Usar el folio en el título del modal
+    showModal(`Detalle de Cajas - Tarima ${folio}`, modalContentHtml);
+}
+		
 		
         // =======================================================================================
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
