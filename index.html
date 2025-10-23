@@ -2199,92 +2199,113 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
         }
 
         function renderGraficaSemanalProduccion(datos, labels) {
-            const ctx = doc('produccionSemanalChart').getContext('2d');
-            if (weeklyProductionChart) {
-                weeklyProductionChart.destroy();
-            }
+    const ctx = doc('produccionSemanalChart').getContext('2d');
+    if (weeklyProductionChart) {
+        weeklyProductionChart.destroy();
+    }
 
-            const meta = 5280;
+    const meta = 5280;
 
-            weeklyProductionChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels.map(f => new Date(f + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })),
-                    datasets: [
-                        {
-                            label: 'Línea 1',
-                            data: labels.map(fecha => datos[fecha]['Línea 1'].term),
-                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                        },
-                        {
-                            label: 'Línea 2',
-                            data: labels.map(fecha => datos[fecha]['Línea 2'].term),
-                            backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                        },
-                        {
-                            type: 'line',
-                            label: 'Meta',
-                            data: Array(labels.length).fill(meta),
-                            borderColor: 'var(--success-color)',
-                            borderWidth: 2,
-                            // borderDash: [5, 5], // <--- LÍNEA ELIMINADA para que sea sólida
-                            pointRadius: 0,
-                            fill: false,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } },
-                        x: { ticks: { color: 'var(--chart-tick-color)' }, grid: { color: 'var(--chart-grid-color)' } }
-                    },
-                    plugins: {
-                        legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
-                        datalabels: {
-                            display: true,
-                            labels: {
-                                terminaciones: {
-                                    anchor: 'end',
-                                    align: 'top',
-                                    formatter: (value) => value > 0 ? value.toLocaleString('es-MX') : '',
-                                    color: 'var(--text-primary)',
-                                    font: { weight: 'bold' }
-                                },
-                                eficiencia: {
-                                    anchor: 'center',
-                                    align: 'center',
-                                    formatter: (value) => {
-                                        if (value === 0) return '';
-                                        const percentage = ((value / meta) * 100).toFixed(0) + '%';
-                                        return percentage;
-                                    },
-                                    // --- INICIO DEL CAMBIO DE COLOR Y TAMAÑO ---
-                                    color: (context) => {
-                                        const isLightTheme = document.body.classList.contains('light-theme');
-                                        const barHeight = context.chart.getDatasetMeta(context.datasetIndex).data[context.dataIndex].height;
-                                        // Si la barra es muy pequeña, oculta el porcentaje
-                                        if (barHeight < 20) return 'transparent'; 
-                                        return isLightTheme ? '#111827' : 'rgba(255, 255, 255, 0.9)'; // Negro en claro, blanco en oscuro
-                                    },
-                                    font: { weight: 'bold', size: 14 }, // Aumentamos el tamaño a 14
-                                    textStrokeColor: (context) => {
-                                        const isLightTheme = document.body.classList.contains('light-theme');
-                                        // Agrega un borde claro en tema claro, oscuro en tema oscuro para contraste
-                                        return isLightTheme ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)';
-                                    },
-                                    textStrokeWidth: 2
-                                    // --- FIN DEL CAMBIO DE COLOR Y TAMAÑO ---
-                                }
-                            }
-                        }
-                    }
-                },
-                plugins: [ChartDataLabels]
-            });
-            updateChartTheme();
-        }
+    weeklyProductionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.map(f =>
+                new Date(f + 'T00:00:00').toLocaleDateString('es-MX', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                })
+            ),
+            datasets: [
+                {
+                    label: 'Línea 1',
+                    data: labels.map(fecha => datos[fecha]['Línea 1'].term),
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                },
+                {
+                    label: 'Línea 2',
+                    data: labels.map(fecha => datos[fecha]['Línea 2'].term),
+                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                },
+                {
+                    type: 'line',
+                    label: 'Meta',
+                    data: Array(labels.length).fill(meta),
+                    borderColor: 'var(--success-color)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    datalabels: { display: false } // 👈 DESACTIVAMOS LAS ETIQUETAS SOLO PARA LA META
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: 'var(--chart-tick-color)' },
+                    grid: { color: 'var(--chart-grid-color)' }
+                },
+                x: {
+                    ticks: { color: 'var(--chart-tick-color)' },
+                    grid: { color: 'var(--chart-grid-color)' }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { color: 'var(--text-primary)' }
+                },
+                datalabels: {
+                    display: true,
+                    labels: {
+                        terminaciones: {
+                            anchor: 'end',
+                            align: 'top',
+                            formatter: (value) =>
+                                value > 0 ? value.toLocaleString('es-MX') : '',
+                            color: 'var(--text-primary)',
+                            font: { weight: 'bold' }
+                        },
+                        eficiencia: {
+                            anchor: 'center',
+                            align: 'center',
+                            formatter: (value) => {
+                                if (value === 0) return '';
+                                const percentage = ((value / meta) * 100).toFixed(0) + '%';
+                                return percentage;
+                            },
+                            color: (context) => {
+                                const isLightTheme = document.body.classList.contains('light-theme');
+                                const barHeight =
+                                    context.chart
+                                        .getDatasetMeta(context.datasetIndex)
+                                        .data[context.dataIndex].height;
+                                if (barHeight < 20) return 'transparent';
+                                return isLightTheme
+                                    ? '#111827'
+                                    : 'rgba(255, 255, 255, 0.9)';
+                            },
+                            font: { weight: 'bold', size: 14 },
+                            textStrokeColor: (context) => {
+                                const isLightTheme = document.body.classList.contains('light-theme');
+                                return isLightTheme
+                                    ? 'rgba(255,255,255,0.6)'
+                                    : 'rgba(0,0,0,0.6)';
+                            },
+                            textStrokeWidth: 2
+                        }
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    updateChartTheme();
+}
         
         function getWorkShiftAndDate(date) {
             const hour = date.getHours();
