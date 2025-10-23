@@ -341,8 +341,43 @@
         #packerList li { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: center; padding: 8px; border-radius: 6px; }
         #packerList li:nth-child(odd) { background-color: var(--surface-hover-color); }
 
-
-        @media (max-width: 900px), (max-height: 450px) {
+/* --- Estilos para Reporte Tarimas --- */
+        #dataTableTarimas {
+            table-layout: auto; /* Dejamos que el navegador ajuste las columnas */
+        }
+        #dataTableTarimas th,
+        #dataTableTarimas td {
+            white-space: normal;
+            word-wrap: break-word;
+            vertical-align: top;
+            text-align: left;
+        }
+        #dataTableTarimas .detalle-cell {
+            padding: 5px;
+            background-color: var(--surface-hover-color);
+        }
+        #dataTableTarimas .detalle-cell ul {
+            margin: 0;
+            padding-left: 20px;
+            list-style-type: square;
+        }
+        #dataTableTarimas .detalle-cell li {
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-verde { background-color: var(--success-color); }
+        .status-naranja { background-color: #f59e0b; }
+        .status-rojo { background-color: var(--danger-color); }
+        /* --- Fin Estilos Reporte Tarimas --- */
+		
+		@media (max-width: 900px), (max-height: 450px) {
             body { overflow-y: auto; padding: 8px; }
             .app-header { margin-bottom: 16px; }
             .app-branding { font-size: 2rem; }
@@ -374,14 +409,15 @@
                 <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Centro de Reportes</h2></header>
                 <main class="card animated-startup" style="animation-delay: 0.1s;">
                     <div class="menu-container">
-    <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
-    <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
-    <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
-    <button id="reporteProduccionCalidadBtn" class="btn">Reporte de Producción Calidad</button>
-    <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
-    <button id="view901Btn" class="btn">Reporte 901</button>
-    <button id="reporteBoxIDBtn" class="btn">Reporte BoxID</button>
-</div>
+                        <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
+                        <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
+                        <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
+                        <button id="reporteProduccionCalidadBtn" class="btn">Reporte de Producción Calidad</button>
+                        <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
+                        <button id="view901Btn" class="btn">Reporte 901</button> 
+                        <button id="reporteTarimasBtn" class="btn">Reporte de Tarimas Confirmadas</button>
+                        <button id="reporteBoxIDBtn" class="btn">Reporte BoxID</button>
+                    </div>
                 </main>
             </div>
         </div>
@@ -765,6 +801,44 @@
     </div>
 </div>
 
+<div id="viewTarimasConfirmadas" style="display: none;">
+            <div class="main-container">
+                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+                    <div class="card" style="height: 100%; display:flex; flex-direction: column;">
+                        <div class="sidebar-header">
+                            <h3>Panel de Control</h3>
+                            <div>
+                                <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                                <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                                    <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                                </button>
+                                <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+                            </div>
+                        </div>
+                        <div style="padding: 0 10px; flex-grow: 1; display: flex; flex-direction: column;">
+                           <div class="control-group">
+                                <label for="prodTarimas_fecha">Fecha de Creación</label>
+                                <input type="date" id="prodTarimas_fecha">
+                            </div>
+                            <button id="consultarTarimasBtn" class="btn" style="width: 100%;">Consultar Tarimas</button>
+                                                    </div>
+                    </div>
+                </aside>
+                <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+                    <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Tarimas Confirmadas</h2></header>
+                    <div class="card table-container">
+                        <div class="table-wrapper">
+                            <table id="dataTableTarimas">
+                                <thead><tr><th>Seleccione una fecha y consulte para ver las tarimas.</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+		
         <div id="viewTerminaciones">
             <div class="main-container">
                 <aside class="sidebar animated-startup" style="animation-delay: 0.1s;"><div class="card" style="height: 100%; display: flex; flex-direction: column;"><div class="sidebar-header"><h3>Panel de Control</h3><div>
@@ -807,15 +881,16 @@
     document.addEventListener('DOMContentLoaded', () => {
         const doc = (id) => document.getElementById(id);
         const views = {
-    menu: doc('menuView'),
-    '901': doc('view901'),
-    terminaciones: doc('viewTerminaciones'),
-    produccionHora: doc('viewProduccionHora'),
-    produccion20: doc('viewProduccion20'),
-    produccionDaily: doc('viewProduccionDaily'),
-    produccionCalidad: doc('viewProduccionCalidad'),
-    boxID: doc('viewBoxID') // <-- LÍNEA NUEVA
-};
+            menu: doc('menuView'),
+            '901': doc('view901'),
+            terminaciones: doc('viewTerminaciones'),
+            produccionHora: doc('viewProduccionHora'),
+            produccion20: doc('viewProduccion20'),
+            produccionDaily: doc('viewProduccionDaily'),
+            produccionCalidad: doc('viewProduccionCalidad'),
+            tarimasConfirmadas: doc('viewTarimasConfirmadas'), // <-- AÑADE ESTA
+            boxID: doc('viewBoxID')
+        };
         let session = { isMaster: false };
         let activeView = 'menu';
         let params = {
@@ -924,7 +999,14 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
             doc('prodCalidad_turno').value = getAutoCurrentShift();
             renderProduccionCalidadTable([]);
             renderProduccionCalidadChart([], new Date());
-        } else if (viewKey === 'boxID') {
+	    } else if (viewKey === 'tarimasConfirmadas') { // <-- AÑADE ESTE BLOQUE
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                doc('prodTarimas_fecha').value = `${year}-${month}-${day}`;
+                renderTarimasTable([]); // Renderiza la tabla vacía
+            } else if (viewKey === 'boxID') {
             // Se asegura de que el área para arrastrar archivos esté en su estado normal
             doc('fileDropAreaBoxID').style.borderColor = 'var(--border-color)';
         }
@@ -938,7 +1020,8 @@ doc('reporteProduccionCalidadBtn').addEventListener('click', () => switchView('p
 doc('view901Btn').addEventListener('click', () => switchView('901'));
 doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
 doc('abrirModalSemanalBtn').addEventListener('click', abrirModalReporteSemanal);
-doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
+		doc('reporteTarimasBtn').addEventListener('click', () => switchView('tarimasConfirmadas'));
+		doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
 document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => switchView('menu')));
 
         let currentTheme = localStorage.getItem('theme') || 'dark';
@@ -1479,7 +1562,168 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
             const minute = String(date.getMinutes()).padStart(2, '0');
             return `${day}/${month}/${year} ${hour}:${minute}`; // Formato: 14/10/25 08:00
         }
-        
+
+
+        // --- INICIO: LÓGICA REPORTE TARIMAS CONFIRMADAS ---
+        
+async function consultarTarimas() {
+    const fechaInput = doc('prodTarimas_fecha').value;
+    if (!fechaInput) {
+        showModal('Fecha Requerida', '<p>Por favor, seleccione una fecha de creación.</p>');
+        return;
+    }
+
+    const btn = doc('consultarTarimasBtn');
+    btn.disabled = true;
+    btn.textContent = 'Consultando...';
+
+    // Convertimos la fecha de "YYYY-MM-DD" a "DD/MM/AAAA" para comparar con el texto
+    const parts = fechaInput.split('-');
+    const fechaSeleccionadaStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+
+    try {
+        // 1. Obtenemos TODAS las tarimas
+        const palletsSnapshot = await db.collection('tarimas_confirmadas').get();
+
+        if (palletsSnapshot.empty) {
+            showModal('Sin Datos', '<p>No se encontraron tarimas en la colección.</p>');
+            renderTarimasTable([]);
+            return;
+        }
+
+        let tarimasFiltradas = [];
+
+        // 2. Filtramos manualmente por fecha
+        palletsSnapshot.docs.forEach(docSnap => {
+            const palletData = docSnap.data(); // mapa de cajas
+            const boxes = Object.values(palletData);
+
+            if (boxes.length > 0) {
+                const palletDate = boxes[0].fecha.toDate();
+                const palletDateStr = palletDate.toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+
+                if (palletDateStr === fechaSeleccionadaStr) {
+                    tarimasFiltradas.push(boxes);
+                }
+            }
+        });
+
+        if (tarimasFiltradas.length === 0) {
+            showModal('Sin Datos', '<p>No se encontraron tarimas creadas en la fecha seleccionada.</p>');
+            renderTarimasTable([]);
+            return;
+        }
+
+        // 3. Procesar cada tarima filtrada
+        const palletPromises = tarimasFiltradas.map(async (boxes) => {
+            const firstBox = boxes[0];
+            const totalCajas = boxes.length;
+
+            // 4. Buscar cada BXID en boxID_historico
+            const bxidList = boxes.map(box => box.codigoCaja);
+            const readPromises = bxidList.map(bxid => db.collection('boxID_historico').doc(bxid).get());
+            const bxidSnapshots = await Promise.all(readPromises);
+
+            let receivedCount = 0;
+            const bxidDetails = [];
+
+            bxidSnapshots.forEach((snap, index) => {
+                const boxInfo = boxes[index];
+                if (snap.exists) {
+                    receivedCount++;
+                    const bxData = snap.data();
+                    bxidDetails.push({
+                        bxid: boxInfo.codigoCaja,
+                        orden: boxInfo.numeroOrden,
+                        gr: bxData.gr,
+                        receivedAt: bxData.receivedAt ? bxData.receivedAt.toDate() : null
+                    });
+                } else {
+                    bxidDetails.push({
+                        bxid: boxInfo.codigoCaja,
+                        orden: boxInfo.numeroOrden,
+                        gr: 'N/A',
+                        receivedAt: null
+                    });
+                }
+            });
+
+            // 5. Determinar el estatus
+            let status = 'status-rojo';
+            let statusText = 'No Recibida';
+            if (receivedCount > 0 && receivedCount < totalCajas) {
+                status = 'status-naranja';
+                statusText = 'Recibida Parcial';
+            } else if (receivedCount === totalCajas) {
+                status = 'status-verde';
+                statusText = 'Recibida Completa';
+            }
+
+            // 6. Retornar el objeto procesado
+            return {
+                folio: firstBox.folio,
+                user: firstBox.usuario,
+                totalCajas: totalCajas,
+                statusClass: status,
+                statusText: statusText,
+                bxidDetails: bxidDetails
+            };
+        });
+
+        const processedPallets = await Promise.all(palletPromises);
+        renderTarimasTable(processedPallets);
+
+    } catch (e) {
+        console.error("Error consultando tarimas:", e);
+        showModal('Error', `<p>No se pudo completar la consulta. Revisa la consola para más detalles.</p>`);
+        renderTarimasTable([]);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Consultar Tarimas';
+    }
+}
+
+function renderTarimasTable(pallets) {
+    const table = doc('dataTableTarimas');
+    if (!pallets || pallets.length === 0) {
+        table.innerHTML = `<thead><tr><th>No se encontraron tarimas para esta fecha.</th></tr></thead><tbody></tbody>`;
+        return;
+    }
+
+    const headers = ['Folio (Tarima)', 'Usuario', 'Estatus', 'Total Cajas', 'Detalle de Cajas (BXID | Orden | GR | Recibido)'];
+    let headerHtml = '<thead><tr>';
+    headers.forEach(h => headerHtml += `<th><span>${h}</span></th>`);
+    headerHtml += '</tr></thead>';
+
+    let bodyHtml = '<tbody>';
+    pallets.sort((a, b) => (a.folio || '').localeCompare(b.folio || ''));
+
+    pallets.forEach(pallet => {
+        let detalleHtml = '<ul>';
+        pallet.bxidDetails.forEach(bx => {
+            const recDate = bx.receivedAt ? formatShortDateTime(bx.receivedAt) : 'Pendiente';
+            const statusClass = bx.receivedAt ? 'status-verde' : 'status-rojo';
+            detalleHtml += `<li><span class="status-dot ${statusClass}"></span><strong>${bx.bxid}</strong> | <strong>Orden:</strong> ${bx.orden} | <strong>GR:</strong> ${bx.gr} | <strong>Recibido:</strong> ${recDate}</li>`;
+        });
+        detalleHtml += '</ul>';
+
+        bodyHtml += `<tr>`;
+        bodyHtml += `<td><strong>${pallet.folio}</strong></td>`;
+        bodyHtml += `<td>${pallet.user}</td>`;
+        bodyHtml += `<td><span class="status-dot ${pallet.statusClass}"></span> ${pallet.statusText}</td>`;
+        bodyHtml += `<td style="text-align: center; font-weight: bold;">${pallet.totalCajas}</td>`;
+        bodyHtml += `<td class="detalle-cell">${detalleHtml}</td>`;
+        bodyHtml += `</tr>`;
+    });
+
+    bodyHtml += '</tbody>';
+    table.innerHTML = headerHtml + bodyHtml;
+}
+		
         // =======================================================================================
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
         // =======================================================================================
