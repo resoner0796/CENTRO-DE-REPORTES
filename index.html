@@ -927,61 +927,47 @@ body.light-theme .app-branding { color: var(--branding-color); }
 <div id="viewTarimasConfirmadas" style="display: none;">
     <div class="main-container">
         <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
-            <div class="card" style="height: 100%; display:flex; flex-direction: column;">
-                <div class="sidebar-header">
-                    <h3>Panel de Control</h3>
-                    <div>
-                        <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
-                        <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
-                            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                            <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                        </button>
-                        <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
-                    </div>
-                </div>
-                <div style="padding: 0 10px; flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto;"> 
-                    <div class="control-group">
-                        <label for="prodTarimas_fecha">Fecha de Creación</label>
-                        <input type="date" id="prodTarimas_fecha">
-                    </div>
-                    <div class="control-group">
-                        <label for="prodTarimas_turno">Turno</label>
-                        <select id="prodTarimas_turno">
-                            <option value="T45">T45 (L-M, Día)</option>
-                            <option value="T46">T46 (L-M, Noche)</option>
-                            <option value="T47">T47 (J-D, Día)</option>
-                            <option value="T48">T48 (J-D, Noche)</option>
-                            {/* <option value="TODOS">Todos los Turnos</option> */}
-                        </select>
-                    </div>
-                    <button id="consultarTarimasBtn" class="btn" style="width: 100%; margin-top: 5px;">Consultar Tarimas</button>
-
-                    <hr style="border-color: var(--border-color); margin: 20px 0;">
-                    <button id="calcularTerminacionesDiaBtn" class="btn btn-glass" style="width: 100%;">Calcular Terminaciones del Turno</button>
-                    <div style="min-height: 20px;"></div>
-                </div>
+    <div class="card" style="height: 100%; display:flex; flex-direction: column;">
+        <div class="sidebar-header">
+            <h3>Panel de Control</h3>
+            <div>
+                                <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                                <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                                    <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                                </button>
+                                <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+                            </div>
+                        </div>
+        <div style="padding: 0 10px; flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto;">
+            <div class="control-group">
+                <label for="prodTarimas_fecha">Fecha de Creación</label>
+                <input type="date" id="prodTarimas_fecha">
             </div>
-        </aside>
-
-        <main class="main-content animated-startup" style="animation-delay: 0.2s;">
-            <header class="app-header">
-                <h1 class="app-branding">CORNING</h1>
-                <h2 class="app-title">Reporte de Tarimas Confirmadas</h2>
-            </header>
-            <div id="terminacionesDashboardContainer" class="card animated-startup" style="display: none; margin-bottom: 16px; animation-delay: 0.3s;">
+            <div class="control-group">
+                <label for="prodTarimas_turno">Turno</label>
+                <select id="prodTarimas_turno">
+                    <option value="T45">T45 (L-M, Día)</option>
+                    <option value="T46">T46 (L-M, Noche)</option>
+                    <option value="T47">T47 (J-D, Día)</option>
+                    <option value="T48">T48 (J-D, Noche)</option>
+                    {/* <option value="TODOS">Todos los Turnos</option> */}
+                </select>
             </div>
-
-            <div class="card table-container">
-                <div class="table-wrapper">
-                    <table id="dataTableTarimas">
-                        <thead><tr><th>Seleccione fecha y turno, luego consulte.</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+            <div class="control-group">
+                <label for="prodTarimas_area">Área</label>
+                <select id="prodTarimas_area">
+                    <option value="" disabled selected>Cargando áreas...</option>
+                    <option value="ALL">Todas las Áreas</option>
+                </select>
             </div>
-        </main>
+            <button id="consultarTarimasBtn" class="btn" style="width: 100%; margin-top: 5px;">Consultar Tarimas</button>
+            <hr style="border-color: var(--border-color); margin: 20px 0;">
+            <button id="calcularTerminacionesDiaBtn" class="btn btn-glass" style="width: 100%;">Calcular Terminaciones del Turno</button>
+            <div style="min-height: 20px;"></div>
+        </div>
     </div>
-</div>
+</aside>
 		
 		<div id="viewTerminaciones">
             <div class="main-container">
@@ -1150,7 +1136,8 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                 const day = String(today.getDate()).padStart(2, '0');
                 doc('prodTarimas_fecha').value = `${year}-${month}-${day}`;
                 doc('prodTarimas_turno').value = getAutoCurrentShift(); // Establece el turno
-                renderTarimasTable([]); // Limpia tabla
+			loadAreasForTarimasReport();
+			renderTarimasTable([]); // Limpia tabla
                 doc('terminacionesDashboardContainer').style.display = 'none'; // Oculta dashboard
                 doc('terminacionesDashboardContainer').innerHTML = ''; // Limpia dashboard
             } else if (viewKey === 'boxID') {
@@ -1712,8 +1699,44 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
             return `${day}/${month}/${year} ${hour}:${minute}`; // Formato: 14/10/25 08:00
         }
 
+async function loadAreasForTarimasReport() {
+    try {
+        const areasSnapshot = await db.collection('areas').get();
+        const areaSelect = doc('prodTarimas_area');
+        // Guardar selección actual si existe, si no, seleccionar vacío
+        const currentVal = areaSelect.value || "";
+        // Limpiar opciones excepto la de "Cargando..." y "Todas"
+        areaSelect.innerHTML = '<option value="" disabled>Seleccione área...</option><option value="ALL">Todas las Áreas</option>';
 
-       
+        let areas = [];
+        areasSnapshot.forEach(doc => {
+            if (doc.id !== 'CONFIG') { // Excluir documentos de configuración si los tienes
+                areas.push(doc.id);
+            }
+        });
+        areas.sort(); // Ordenar alfabéticamente
+
+        areas.forEach(areaId => {
+            const option = document.createElement('option');
+            option.value = areaId;
+            option.textContent = areaId;
+            areaSelect.appendChild(option);
+        });
+
+        // Restaurar selección anterior o dejar "Seleccione área..."
+        if (areaSelect.querySelector(`option[value="${currentVal}"]`)) {
+             areaSelect.value = currentVal;
+        } else {
+             areaSelect.value = ""; // Forzar el placeholder si la opción ya no existe o era inválida
+        }
+
+    } catch (e) {
+        console.error("[Áreas Tarimas] Error cargando áreas:", e);
+        // Poner mensaje de error en el select
+        const areaSelect = doc('prodTarimas_area');
+        areaSelect.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
+    }
+}       
         // =======================================================================================
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
         // =======================================================================================
@@ -3975,88 +3998,53 @@ function showBoxDetailsModal(bxidDetails, statusText, folio) {
 async function consultarTerminacionesConfirmadas() {
     const fechaInput = doc('prodTarimas_fecha').value;
     const turnoSeleccionado = doc('prodTarimas_turno').value;
+    // --- LEER ÁREA SELECCIONADA ---
+    const areaSeleccionada = doc('prodTarimas_area').value;
 
-    if (!fechaInput || !turnoSeleccionado) {
-        showModal('Datos Requeridos', '<p>Por favor, seleccione fecha y turno.</p>');
+    if (!fechaInput || !turnoSeleccionado || !areaSeleccionada) { // Validar los tres
+        showModal('Datos Requeridos', '<p>Por favor, seleccione fecha, turno y área.</p>');
         return;
     }
 
     const btn = doc('calcularTerminacionesDiaBtn');
     btn.disabled = true;
     btn.textContent = `Calculando ${turnoSeleccionado}...`;
-    orderCatalogCache.clear(); // Limpiar caché siempre
+    orderDataCache.clear(); // Limpiar caché de datos de órdenes
 
-    const parts = fechaInput.split('-'); // YYYY-MM-DD
-    const fechaSeleccionadaStr_render = `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
-    const fechaSeleccionadaStr_compare = `${parts[0]}-${parts[1]}-${parts[2]}`; // YYYY-MM-DD
-    console.log(`[TermConf] Calculando terminaciones para fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}`);
+    const parts = fechaInput.split('-');
+    const fechaSeleccionadaStr_render = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    const fechaSeleccionadaStr_compare = `${parts[0]}-${parts[1]}-${parts[2]}`;
+    console.log(`[TermConf] Calculando para Fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}, Área: ${areaSeleccionada}`);
 
     const dashboardContainer = doc('terminacionesDashboardContainer');
     dashboardContainer.style.display = 'none';
-    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando órdenes y tarimas...</p>'; // Mensaje inicial
-    dashboardContainer.style.display = 'block'; // Mostrar mensaje
+    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>';
+    dashboardContainer.style.display = 'block';
 
     let granTotalTerminaciones = 0;
     let totalTarimasProcesadas = 0;
     let totalCajasConsultadas = 0;
+    let ordenesConsultadas = new Set(); // Para llevar cuenta de cuántas órdenes únicas se buscan
 
     try {
-        // --- PASO 1: Pre-cargar Catálogos para Órdenes del Día ---
-        // Definir un rango de tiempo amplio para buscar órdenes (ej. todo el día laboral)
-        const dayStart = new Date(`${fechaSeleccionadaStr_compare}T06:30:00`);
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayEnd.getDate() + 1); // Va hasta las 06:29:59 del día siguiente
-
-        console.log(`[TermConf Cache] Pre-cargando catálogos para órdenes entre ${dayStart.toISOString()} y ${dayEnd.toISOString()}`);
-        // ¡OJO! Esta consulta puede ser pesada si hay MUCHAS órdenes.
-        // Podríamos optimizarla si supiéramos las áreas, pero por ahora usamos collectionGroup.
-        // Si tienes un campo 'fechaCreacion' o similar en 'orders', sería MEJOR filtrar por eso.
-        // Asumiremos que no y traeremos un lote grande (LIMITAR si es necesario)
-        const ordersSnapshot = await db.collectionGroup('orders')
-                                        // Idealmente filtrar por un campo de fecha aquí si existe
-                                        // .where('fechaCreacion', '>=', dayStart)
-                                        // .where('fechaCreacion', '<', dayEnd)
-                                        // .limit(5000) // Limita por si acaso
-                                        .get();
-
-        let ordersFound = 0;
-        ordersSnapshot.forEach(orderDoc => {
-            const orderId = orderDoc.id;
-            const orderData = orderDoc.data();
-            if (orderData.catalogNumber) {
-                orderCatalogCache.set(orderId.replace(/^0+/, ''), orderData.catalogNumber);
-                ordersFound++;
-            }
-        });
-        console.log(`[TermConf Cache] ${ordersFound} catálogos pre-cargados en caché.`);
-        dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>'; // Actualizar mensaje
-
-        // --- PASO 2: Filtrar Tarimas por Fecha y Turno ---
+        // 1. Filtrar Tarimas por Fecha y Turno (NO por área aquí)
         const palletsSnapshot = await db.collection('tarimas_confirmadas').get();
         if (palletsSnapshot.empty) throw new Error("Colección 'tarimas_confirmadas' vacía.");
 
         let tarimasDelTurno = [];
         palletsSnapshot.docs.forEach(docSnap => {
             const palletData = docSnap.data();
-             if (!palletData || typeof palletData !== 'object' ||
-                !palletData.fecha || typeof palletData.fecha.toDate !== 'function' ||
-                !palletData.folio || !palletData.gafete ||
-                !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) {
-                return;
-            }
+            if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
             try {
-                 const palletConfirmationDate = palletData.fecha.toDate(); // Fecha/Hora de confirmación de la tarima
-                 const { shift, dateKey } = getWorkShiftAndDate(palletConfirmationDate); // Calcular turno basado en la confirmación
-
-                 // Comparar día laboral (YYYY-MM-DD) y turno calculado con los seleccionados
-                 if (dateKey === fechaSeleccionadaStr_compare && shift === turnoSeleccionado) {
-                    console.log(`[TermConf] --> COINCIDE Fecha y Turno! Doc ID ${docSnap.id}`);
+                const palletConfirmationDate = palletData.fecha.toDate();
+                const { shift, dateKey } = getWorkShiftAndDate(palletConfirmationDate);
+                if (dateKey === fechaSeleccionadaStr_compare && shift === turnoSeleccionado) {
                     tarimasDelTurno.push({
                         folio: palletData.folio,
-                        cajas: palletData.cajas
+                        cajas: palletData.cajas // Guardamos solo las cajas
                     });
-                 }
-            } catch (e) { console.error(`[TermConf] Error procesando fecha/turno Tarima ID ${docSnap.id}:`, e); }
+                }
+            } catch { /* Ignorar error de fecha */ }
         });
 
         if (tarimasDelTurno.length === 0) {
@@ -4064,29 +4052,87 @@ async function consultarTerminacionesConfirmadas() {
         }
         totalTarimasProcesadas = tarimasDelTurno.length;
         console.log(`[TermConf] ${totalTarimasProcesadas} tarimas encontradas para procesar.`);
-        dashboardContainer.innerHTML = `<p style="text-align:center;">Calculando terminaciones para ${totalTarimasProcesadas} tarimas...</p>`;
+        dashboardContainer.innerHTML = `<p style="text-align:center;">Consultando datos de órdenes para ${totalTarimasProcesadas} tarimas...</p>`;
 
-        // --- PASO 3: Calcular Terminaciones (usando caché) ---
+        // 2. Procesar Cajas, Consultar Órdenes (con filtro de área) y Calcular
         for (const tarima of tarimasDelTurno) {
             // console.log(`[TermConf] Procesando Tarima Folio: ${tarima.folio}`); // Log opcional
             for (const caja of tarima.cajas) {
                 totalCajasConsultadas++;
-                if (caja.numeroOrden) {
-                    // Usa la función que ahora SOLO busca en caché
-                    const catalogNumber = await getCatalogNumberForOrder(caja.numeroOrden);
-                    if (catalogNumber) {
-                        const terminacionesCaja = calculateTerminaciones(catalogNumber);
-                        granTotalTerminaciones += terminacionesCaja;
-                    } else {
-                        // El warning ya lo da getCatalogNumberForOrder si no está en caché
-                    }
-                }
-            }
-        }
+                const numeroOrdenLimpio = caja.numeroOrden ? String(caja.numeroOrden).replace(/^0+/, '') : null;
+                const codigoCajaActual = caja.codigoCaja ? String(caja.codigoCaja).trim() : null;
 
-        // --- PASO 4: Renderizar ---
-        console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}`);
-        renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado);
+                if (numeroOrdenLimpio && codigoCajaActual) {
+                    let orderData = null;
+
+                    // Buscar en caché primero
+                    if (orderDataCache.has(numeroOrdenLimpio)) {
+                        orderData = orderDataCache.get(numeroOrdenLimpio);
+                    } else {
+                        // Si no está en caché, consultar Firestore CON FILTRO DE ÁREA
+                        ordenesConsultadas.add(numeroOrdenLimpio); // Contar consulta
+                        try {
+                            let orderDocRef;
+                            // Si se seleccionó "Todas las Áreas", necesitamos buscar en todas
+                            if (areaSeleccionada === 'ALL') {
+                                // Usar collectionGroup (menos eficiente pero necesario)
+                                const orderQuery = await db.collectionGroup('orders')
+                                    .where(firebase.firestore.FieldPath.documentId(), '==', numeroOrdenLimpio)
+                                    .limit(1)
+                                    .get();
+                                if (!orderQuery.empty) {
+                                     orderDocRef = orderQuery.docs[0]; // Ya es la referencia al documento
+                                }
+                            } else {
+                                // Consultar directamente en el área seleccionada
+                                 orderDocRef = await db.collection('areas').doc(areaSeleccionada).collection('orders').doc(numeroOrdenLimpio).get();
+                            }
+
+                            if (orderDocRef && orderDocRef.exists) { // Verificar si existe el documento
+                                orderData = orderDocRef.data();
+                                orderDataCache.set(numeroOrdenLimpio, orderData); // Guardar en caché
+                            } else {
+                                console.warn(`[TermConf] Orden ${numeroOrdenLimpio} no encontrada en área ${areaSeleccionada} (o en todas).`);
+                                orderDataCache.set(numeroOrdenLimpio, null); // Marcar como no encontrada
+                            }
+                        } catch (error) {
+                            console.error(`[TermConf] Error buscando orden ${numeroOrdenLimpio} en área ${areaSeleccionada}:`, error);
+                            orderDataCache.set(numeroOrdenLimpio, null); // Marcar error
+                        }
+                    } // Fin consulta Firestore
+
+                    // Si tenemos datos de la orden
+                    if (orderData && orderData.catalogNumber && Array.isArray(orderData.empaqueData)) {
+                        const catalogNumber = orderData.catalogNumber;
+                        const fibras = calculateTerminaciones(catalogNumber); // Reutilizamos función
+
+                        // Buscar la caja específica en empaqueData
+                        const empaqueCaja = orderData.empaqueData.find(e => e.boxId === codigoCajaActual);
+
+                        if (empaqueCaja && Array.isArray(empaqueCaja.serials)) {
+                            const piezas = empaqueCaja.serials.length; // Contar seriales
+                            const terminacionesCaja = piezas * fibras;
+                            granTotalTerminaciones += terminacionesCaja;
+                             // console.log(`[TermConf]   - Caja ${codigoCajaActual}, Orden ${numeroOrdenLimpio}, Cat ${catalogNumber}, Fibras ${fibras}, Piezas ${piezas} => Term: ${terminacionesCaja}`); // Log opcional
+                        } else {
+                             console.warn(`[TermConf]   - Caja ${codigoCajaActual} (Orden ${numeroOrdenLimpio}): No encontrada en empaqueData o sin serials.`);
+                        }
+                    } else if (orderData === null) {
+                         // Ya se mostró warning de que no se encontró la orden
+                    } else if (orderData) {
+                         console.warn(`[TermConf]   - Orden ${numeroOrdenLimpio}: Faltan datos (catalogNumber o empaqueData).`);
+                    }
+
+                } else {
+                     console.warn(`[TermConf]   - Caja sin numeroOrden o codigoCaja en tarima ${tarima.folio}.`);
+                }
+            } // Fin for caja
+        } // Fin for tarima
+
+        // 3. Renderizar
+        console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}. Órdenes únicas consultadas: ${ordenesConsultadas.size}`);
+        // Pasar el área seleccionada al dashboard
+        renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado, areaSeleccionada);
 
     } catch (e) {
         console.error("[TermConf] Error:", e);
@@ -4099,16 +4145,18 @@ async function consultarTerminacionesConfirmadas() {
 }
 
 // --- NUEVA FUNCIÓN PARA RENDERIZAR EL DASHBOARD ---
-function renderTerminacionesDashboard(totalTerminaciones, numTarimas, numCajas, fecha) {
+function renderTerminacionesDashboard(totalTerminaciones, numTarimas, numCajas, fecha, turno, area) { // <-- Añadido area
     const container = doc('terminacionesDashboardContainer');
+    const areaTexto = area === 'ALL' ? 'Todas las Áreas' : `Área ${area}`; // Texto para mostrar
 
-    // Estilo tipo "tarjeta" o "widget"
     container.innerHTML = `
         <h4 style="margin-top: 0; margin-bottom: 15px; text-align: center; color: var(--text-primary);">
-            Resumen de Terminaciones Confirmadas (${fecha})
+            Resumen Terminaciones (${fecha} - Turno ${turno} - ${areaTexto}) {/* <-- Mostrar Área */}
         </h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; text-align: center;">
-            <div style="background-color: var(--surface-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+            {/* Las 3 tarjetas de datos igual */}
+            {/* ... (Tarjeta Terminaciones Totales) ... */}
+             <div style="background-color: var(--surface-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
                 <span style="font-size: 1.8em; font-weight: bold; color: var(--primary-color); display: block;">
                     ${totalTerminaciones.toLocaleString()}
                 </span>
@@ -4116,6 +4164,7 @@ function renderTerminacionesDashboard(totalTerminaciones, numTarimas, numCajas, 
                     Terminaciones Totales
                 </span>
             </div>
+            {/* ... (Tarjeta Tarimas Confirmadas) ... */}
             <div style="background-color: var(--surface-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
                 <span style="font-size: 1.8em; font-weight: bold; color: var(--text-primary); display: block;">
                     ${numTarimas.toLocaleString()}
@@ -4124,6 +4173,7 @@ function renderTerminacionesDashboard(totalTerminaciones, numTarimas, numCajas, 
                     Tarimas Confirmadas
                 </span>
             </div>
+            {/* ... (Tarjeta Cajas Registradas) ... */}
              <div style="background-color: var(--surface-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
                 <span style="font-size: 1.8em; font-weight: bold; color: var(--text-primary); display: block;">
                     ${numCajas.toLocaleString()}
@@ -4134,11 +4184,12 @@ function renderTerminacionesDashboard(totalTerminaciones, numTarimas, numCajas, 
             </div>
         </div>
     `;
-    container.style.display = 'block'; // Mostrar el contenedor
+    container.style.display = 'block';
 }
-
+		
 // Mapa para cachear catálogos por número de orden
 const orderCatalogCache = new Map();
+const orderDataCache = new Map();
 
 // Función para obtener catálogo (requiere acceso global a db y orderCatalogCache)
 // --- FUERA DEL DOMContentLoaded ---
