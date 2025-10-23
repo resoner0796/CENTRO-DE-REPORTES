@@ -77,14 +77,50 @@
             background-attachment: fixed; padding: 16px; box-sizing: border-box; overflow-x: hidden;
         }
         .app-container { width: 100%; }
-        #menuView, #view901, #viewTerminaciones, #viewProduccionHora, #viewProduccion20, #viewProduccionDaily { transition: opacity 0.3s ease-in-out, display 0.3s; }
-        #menuView { display: flex; align-items: center; justify-content: center; height: 100%; }
-        .menu-wrapper { width: 100%; max-width: 600px; text-align: center; }
-        .animated-startup { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
-        .app-header { text-align: center; margin-bottom: 24px; }
-        .app-branding { font-family: 'Tinos', 'Times New Roman', serif; font-weight: 400; font-size: 2.5rem; color: var(--text-primary); letter-spacing: 2px; margin: 0; transition: color 0.3s ease-in-out; }
-        body.light-theme .app-branding { color: var(--branding-color); }
-        .app-title { font-size: 1.25rem; font-weight: 600; color: var(--text-secondary); margin: 4px 0 0; }
+#menuView, #view901, #viewTerminaciones, #viewProduccionHora, #viewProduccion20, #viewProduccionDaily, #viewProduccionCalidad, #viewTarimasConfirmadas, #viewBoxID { /* Incluye todas las vistas aquí */
+    transition: opacity 0.3s ease-in-out, display 0.3s;
+}
+/* --- AJUSTES A #menuView --- */
+#menuView {
+    display: flex;
+    flex-direction: column; /* Cambiado para centrar mejor el wrapper */
+    align-items: center; /* Centra horizontalmente el wrapper */
+    justify-content: center; /* Centra verticalmente si hay espacio */
+    min-height: 100vh; /* Ocupa al menos toda la altura de la pantalla */
+    padding: 32px 16px; /* Añade padding vertical y horizontal */
+    box-sizing: border-box; /* Asegura que el padding no desborde */
+    /* Se eliminó height: 100% */
+}
+/* -------------------------- */
+.menu-wrapper {
+    width: 100%;
+    max-width: 500px; /* Reducido un poco para pantallas medianas */
+    text-align: center;
+}
+.animated-startup {
+    animation: fadeInUp 0.5s ease-out forwards;
+    opacity: 0;
+}
+.app-header {
+    text-align: center;
+    margin-bottom: 32px; /* Aumentado ligeramente para más espacio */
+}
+.app-branding {
+    font-family: 'Tinos', 'Times New Roman', serif;
+    font-weight: 400;
+    font-size: 2.5rem;
+    color: var(--text-primary);
+    letter-spacing: 2px;
+    margin: 0;
+    transition: color 0.3s ease-in-out;
+}
+body.light-theme .app-branding { color: var(--branding-color); }
+.app-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 4px 0 0;
+}
 
         .card, .modal-content {
             background-color: var(--surface-color); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -1576,70 +1612,79 @@ async function consultarTarimas() {
     btn.disabled = true;
     btn.textContent = 'Consultando...';
 
-    // Convertimos la fecha de "YYYY-MM-DD" a "DD/MM/AAAA" para comparar con el texto
     const parts = fechaInput.split('-');
+    // Aseguramos formato DD/MM/YYYY para comparación
     const fechaSeleccionadaStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
 
     try {
-        // 1. Obtenemos TODAS las tarimas
         const palletsSnapshot = await db.collection('tarimas_confirmadas').get();
 
         if (palletsSnapshot.empty) {
             showModal('Sin Datos', '<p>No se encontraron tarimas en la colección.</p>');
             renderTarimasTable([]);
-            return;
+            return; // Salimos temprano si no hay tarimas
         }
 
         let tarimasFiltradas = [];
 
-        // 2. Filtramos manualmente por fecha
         palletsSnapshot.docs.forEach(docSnap => {
-            const palletData = docSnap.data(); // mapa de cajas
-            const boxes = Object.values(palletData);
+            const palletData = docSnap.data();
+            // Validamos que palletData sea un objeto y no esté vacío
+            if (palletData && typeof palletData === 'object' && Object.keys(palletData).length > 0) {
+                 // Obtenemos las cajas (values del objeto)
+                 const boxes = Object.values(palletData);
 
-            if (boxes.length > 0) {
-                const palletDate = boxes[0].fecha.toDate();
-                const palletDateStr = palletDate.toLocaleDateString('es-ES', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                });
+                 // Validamos que haya cajas y que la primera caja tenga la propiedad 'fecha'
+                 // y que 'fecha' sea un objeto con el método 'toDate' (indicativo de Timestamp)
+                 if (boxes.length > 0 && boxes[0] && boxes[0].fecha && typeof boxes[0].fecha.toDate === 'function') {
+                    const palletDate = boxes[0].fecha.toDate(); // Ahora es seguro llamar a toDate()
+                    const palletDateStr = palletDate.toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
 
-                if (palletDateStr === fechaSeleccionadaStr) {
-                    tarimasFiltradas.push(boxes);
-                }
+                    if (palletDateStr === fechaSeleccionadaStr) {
+                        tarimasFiltradas.push({ id: docSnap.id, boxes: boxes }); // Guardamos ID y cajas
+                    }
+                 } else {
+                     // Si falta la fecha o no es Timestamp, lo informamos (opcional)
+                     console.warn(`Tarima con ID ${docSnap.id} omitida: falta la fecha o no es un Timestamp válido.`);
+                 }
+            } else {
+                 console.warn(`Tarima con ID ${docSnap.id} omitida: datos inválidos o vacíos.`);
             }
         });
 
+
         if (tarimasFiltradas.length === 0) {
-            showModal('Sin Datos', '<p>No se encontraron tarimas creadas en la fecha seleccionada.</p>');
+            showModal('Sin Datos', '<p>No se encontraron tarimas válidas creadas en la fecha seleccionada.</p>');
             renderTarimasTable([]);
-            return;
+            return; // Salimos si no hay tarimas que coincidan con la fecha
         }
 
-        // 3. Procesar cada tarima filtrada
-        const palletPromises = tarimasFiltradas.map(async (boxes) => {
-            const firstBox = boxes[0];
-            const totalCajas = boxes.length;
+        // El resto del procesamiento es igual, pero ahora usamos tarima.boxes
+        const palletPromises = tarimasFiltradas.map(async (tarima) => {
+            const firstBox = tarima.boxes[0];
+            const totalCajas = tarima.boxes.length;
+            const bxidList = tarima.boxes.map(box => box.codigoCaja);
 
-            // 4. Buscar cada BXID en boxID_historico
-            const bxidList = boxes.map(box => box.codigoCaja);
-            const readPromises = bxidList.map(bxid => db.collection('boxID_historico').doc(bxid).get());
+            const readPromises = bxidList.map(bxid => db.collection('boxID_historico').doc(String(bxid)).get()); // Asegurar que bxid sea string
             const bxidSnapshots = await Promise.all(readPromises);
 
             let receivedCount = 0;
             const bxidDetails = [];
 
             bxidSnapshots.forEach((snap, index) => {
-                const boxInfo = boxes[index];
+                const boxInfo = tarima.boxes[index];
                 if (snap.exists) {
                     receivedCount++;
                     const bxData = snap.data();
                     bxidDetails.push({
                         bxid: boxInfo.codigoCaja,
                         orden: boxInfo.numeroOrden,
-                        gr: bxData.gr,
-                        receivedAt: bxData.receivedAt ? bxData.receivedAt.toDate() : null
+                        gr: bxData.gr || 'N/A', // Asegurar valor por defecto
+                        receivedAt: bxData.receivedAt && typeof bxData.receivedAt.toDate === 'function' ? bxData.receivedAt.toDate() : null // Validar receivedAt también
                     });
                 } else {
                     bxidDetails.push({
@@ -1651,7 +1696,6 @@ async function consultarTarimas() {
                 }
             });
 
-            // 5. Determinar el estatus
             let status = 'status-rojo';
             let statusText = 'No Recibida';
             if (receivedCount > 0 && receivedCount < totalCajas) {
@@ -1662,10 +1706,9 @@ async function consultarTarimas() {
                 statusText = 'Recibida Completa';
             }
 
-            // 6. Retornar el objeto procesado
             return {
-                folio: firstBox.folio,
-                user: firstBox.usuario,
+                folio: firstBox.folio, // Usamos el folio de la primera caja
+                user: firstBox.usuario, // Usamos el usuario de la primera caja
                 totalCajas: totalCajas,
                 statusClass: status,
                 statusText: statusText,
@@ -1677,9 +1720,9 @@ async function consultarTarimas() {
         renderTarimasTable(processedPallets);
 
     } catch (e) {
-        console.error("Error consultando tarimas:", e);
-        showModal('Error', `<p>No se pudo completar la consulta. Revisa la consola para más detalles.</p>`);
-        renderTarimasTable([]);
+        console.error("Error consultando tarimas:", e); // Mantenemos el log detallado
+        showModal('Error', `<p>No se pudo completar la consulta. Revisa la consola para más detalles técnicos.</p>`);
+        renderTarimasTable([]); // Limpiamos la tabla en caso de error
     } finally {
         btn.disabled = false;
         btn.textContent = 'Consultar Tarimas';
