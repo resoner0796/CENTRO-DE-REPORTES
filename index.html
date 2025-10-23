@@ -149,37 +149,19 @@ body.light-theme .app-branding { color: var(--branding-color); }
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
         .icon-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
         .icon-btn:hover { color: var(--text-primary); background-color: var(--surface-hover-color); }
-        .main-content {
-    display: flex;
-    flex-direction: column; /* Mantiene la dirección vertical */
-    gap: 16px;
-    min-height: 0; /* Permite que los hijos flex se encojan */
-    min-width: 0;
-    flex-grow: 1; /* Hace que el main-content intente ocupar el espacio disponible en main-container */
-    overflow: hidden; /* Evita que el contenedor principal se desborde */
-}
-
-/* --- AÑADE esta nueva regla --- */
-/* Estilos específicos para los hijos directos de main-content DENTRO de viewTarimasConfirmadas */
-#viewTarimasConfirmadas .main-content > .card {
-    flex-shrink: 1; /* Permite que los elementos se encojan si no hay espacio */
-    flex-grow: 0; /* Por defecto, no crecen más allá de su contenido */
-    min-height: 0; /* Importante para que el encogimiento funcione bien */
-}
-
-/* El contenedor del dashboard (si está visible) */
-#viewTarimasConfirmadas .main-content > #terminacionesDashboardContainer {
-    flex-basis: auto; /* Altura basada en contenido inicialmente */
-    flex-grow: 0; /* No crece inicialmente */
-    /* Puedes darle un max-height si quieres limitar cuánto espacio puede ocupar */
-    /* max-height: 40%; */
-}
-
-/* El contenedor de la tabla principal de tarimas */
-#viewTarimasConfirmadas .main-content > .card.table-container {
-    flex-basis: 50%; /* Intenta ocupar al menos el 50% del espacio sobrante */
-    flex-grow: 1; /* Permite que crezca para llenar el espacio restante */
-    /* display: flex; flex-direction: column; ya lo tenía, se mantiene */
+     .main-content {
+    display: flex; /* Mantenemos flex para gap y dirección */
+    flex-direction: column; /* Elementos uno debajo del otro */
+    gap: 16px; /* Espacio entre tarjetas */
+    min-width: 0; /* Necesario para flexbox */
+    /* --- CAMBIOS IMPORTANTES --- */
+    min-height: auto; /* Ya no forzamos min-height: 0 */
+    flex-grow: 1; /* Aún puede crecer si main-container tiene espacio extra, pero no es crucial ahora */
+    overflow-y: auto; /* <-- ACTIVAR SCROLL VERTICAL SI EL CONTENIDO ES MÁS ALTO */
+    overflow-x: hidden; /* Prevenir scroll horizontal accidental */
+    padding-bottom: 16px; /* Añadir un poco de espacio al final del scroll */
+    box-sizing: border-box;
+    /* --- FIN CAMBIOS --- */
 }
         #summaryContainer { flex-shrink: 0; padding: 16px; }
         .summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
