@@ -268,17 +268,25 @@
         }
 		
      .summary-bar {
-            width: 100%;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white; /* <-- Color fijo */
-            font-weight: bold;
-            font-size: 16px; /* <-- Tamaño actual */
-            position: relative;
-            transition: height 0.5s ease-out;
-        }
+    width: 100%;
+    border-radius: 6px;
+    position: relative;
+    transition: height 0.5s ease-out;
+    /* Aseguramos flex para centrar el span */
+    display: flex;
+    align-items: center; /* Centrado vertical */
+    justify-content: center; /* Centrado horizontal */
+}
+
+/* Estilo específico para el SPAN dentro de .summary-bar */
+.summary-bar span {
+    color: var(--text-primary); /* Color del tema */
+    font-weight: bold; /* ¡Letra bold! */
+    font-size: 18px; /* ¡Tamaño 18px! */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4); /* ¡LÍNEA CORREGIDA! */
+    text-align: center;
+    width: 100%;
+}
            .summary-bar-label {
             position: absolute;
             bottom: -20px;
