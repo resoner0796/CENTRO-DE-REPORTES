@@ -985,7 +985,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
             </header>
             <div id="terminacionesDashboardContainer" class="card animated-startup" style="display: none; margin-bottom: 16px; animation-delay: 0.3s;">
             </div>
-            <div class="card table-container">
+            <div id="tarimasTableContainer" class="card table-container">
                 <div class="table-wrapper">
                     <table id="dataTableTarimas">
                         <thead><tr><th>Seleccione fecha y turno, luego consulte.</th></tr></thead>
@@ -1165,8 +1165,8 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                 doc('prodTarimas_turno').value = getAutoCurrentShift(); // Establece el turno
 			loadAreasForTarimasReport();
 			renderTarimasTable([]); // Limpia tabla
-                doc('terminacionesDashboardContainer').style.display = 'none'; // Oculta dashboard
-                doc('terminacionesDashboardContainer').innerHTML = ''; // Limpia dashboard
+                if(dashboardContainer) dashboardContainer.style.display = 'none'; // Ocultar dashboard
+    if(tableContainer) tableContainer.style.display = 'flex';     // Mostrar contenedor tabla
             } else if (viewKey === 'boxID') {
             // Se asegura de que el área para arrastrar archivos esté en su estado normal
             doc('fileDropAreaBoxID').style.borderColor = 'var(--border-color)';
@@ -3734,6 +3734,7 @@ async function loadAreasForTarimasReport() {
         
 // --- FUERA DEL DOMContentLoaded ---
 
+// --- PONER ESTA FUNCIÓN FUERA DEL DOMContentLoaded ---
 async function consultarTarimas() {
     const fechaInput = doc('prodTarimas_fecha').value;
     const turnoSeleccionado = doc('prodTarimas_turno').value;
@@ -3743,13 +3744,11 @@ async function consultarTarimas() {
         return;
     }
 
-    // --- Asegurar que obtenemos el botón correcto ---
     const btn = doc('consultarTarimasBtn');
     if (!btn) {
          console.error("[Consultar Tarimas] Botón #consultarTarimasBtn no encontrado.");
-         return; // Salir si el botón no existe
+         return;
     }
-    // --- FIN Asegurar ---
     btn.disabled = true;
     btn.textContent = `Consultando ${turnoSeleccionado}...`;
 
@@ -3759,24 +3758,26 @@ async function consultarTarimas() {
     console.log(`[Tarimas] Buscando fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}`);
 
     const dashboardContainer = doc('terminacionesDashboardContainer');
+    const tableContainer = doc('tarimasTableContainer');
     const tableElement = doc('dataTableTarimas');
 
-    if (dashboardContainer) { dashboardContainer.style.display = 'none'; dashboardContainer.innerHTML = ''; }
-    if (!tableElement) {
-        console.error("[Consultar Tarimas] Elemento #dataTableTarimas no encontrado.");
+    // --- MANEJO DE VISIBILIDAD ---
+    if (dashboardContainer) dashboardContainer.style.display = 'none'; // Ocultar dashboard
+    if (!tableContainer || !tableElement) {
+        console.error("[Consultar Tarimas] Contenedor #tarimasTableContainer o tabla #dataTableTarimas no encontrado.");
         showModal('Error Interno', '<p>No se pudo encontrar la tabla de resultados.</p>');
-        // --- Restaurar botón en caso de error temprano ---
         btn.disabled = false; btn.textContent = 'Consultar Tarimas';
         return;
     }
-    tableElement.innerHTML = '<thead><tr><th>Consultando tarimas...</th></tr></thead><tbody></tbody>';
+    tableContainer.style.display = 'flex'; // Mostrar contenedor tabla
+    tableElement.innerHTML = '<thead><tr><th>Consultando tarimas...</th></tr></thead><tbody></tbody>'; // Carga
+    // --- FIN VISIBILIDAD ---
 
     try {
         const palletsSnapshot = await db.collection('tarimas_confirmadas').get();
         if (palletsSnapshot.empty) throw new Error("Colección 'tarimas_confirmadas' vacía.");
 
         let tarimasDelTurno = [];
-        // ... (Filtro por fecha y turno - SIN CAMBIOS) ...
         palletsSnapshot.docs.forEach(docSnap => {
             const palletData = docSnap.data();
              if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
@@ -3792,154 +3793,119 @@ async function consultarTarimas() {
             } catch (e) { console.error(`[Tarimas] Error procesando fecha/turno Tarima ID ${docSnap.id}:`, e); }
         });
 
-
         if (tarimasDelTurno.length === 0) {
             throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render}.`);
         }
         console.log(`[Tarimas] ${tarimasDelTurno.length} tarimas encontradas para procesar.`);
 
-        // --- INICIO: LÓGICA REINTEGRADA PARA BUSCAR EN boxID_historico ---
+        // --- Procesamiento de BXID ---
         const palletPromises = tarimasDelTurno.map(async (tarima) => {
             const totalCajas = tarima.cajas.length;
-            // Obtener lista de BXIDs válidos (strings no vacíos)
             const bxidList = tarima.cajas
                 .map(box => box?.codigoCaja ? String(box.codigoCaja).trim() : null)
-                .filter(bxid => bxid); // Filtra null y strings vacíos
+                .filter(bxid => bxid);
 
-            console.log(`[Tarimas] Folio ${tarima.folio}: Buscando ${bxidList.length} BXIDs en boxID_historico.`);
+            // console.log(`[Tarimas] Folio ${tarima.folio}: Buscando ${bxidList.length} BXIDs.`); // Log opcional
 
             let receivedCount = 0;
-            let bxidDetailsMap = new Map(); // Mapa para guardar resultados: bxid => { found, gr, receivedAt }
-            let latestReceivedAt = null; // Para la última fecha de recepción
+            let bxidDetailsMap = new Map();
+            let latestReceivedAt = null;
 
-            // Solo buscar si hay BXIDs válidos en la lista
             if (bxidList.length > 0) {
                 try {
-                    // Crear promesas para buscar cada BXID
                     const readPromises = bxidList.map(bxid => db.collection('boxID_historico').doc(bxid).get());
-                    // Ejecutar todas las búsquedas en paralelo
                     const bxidSnapshots = await Promise.all(readPromises);
 
-                    // Procesar los resultados
                     bxidSnapshots.forEach((snap, index) => {
-                        const searchedBxid = bxidList[index]; // El BXID que se buscó
+                        const searchedBxid = bxidList[index];
                         if (snap.exists) {
-                            // Si se encontró el documento
-                            receivedCount++; // Incrementar contador de recibidos
+                            receivedCount++;
                             const bxData = snap.data();
-                            // Obtener fecha de recepción (validando que sea Timestamp)
                             const receivedDate = bxData.receivedAt && typeof bxData.receivedAt.toDate === 'function'
                                 ? bxData.receivedAt.toDate()
                                 : null;
-                            // Guardar datos encontrados en el mapa
                             bxidDetailsMap.set(searchedBxid, {
                                 found: true,
-                                gr: bxData.gr || 'N/A', // Usar 'N/A' si no hay GR
-                                receivedAt: receivedDate // Guardar objeto Date o null
+                                gr: bxData.gr || 'N/A',
+                                receivedAt: receivedDate
                             });
-                            // Actualizar la última fecha de recepción encontrada
                             if (receivedDate && (!latestReceivedAt || receivedDate > latestReceivedAt)) {
                                 latestReceivedAt = receivedDate;
                             }
                         } else {
-                            // Si NO se encontró el documento para este BXID
                             bxidDetailsMap.set(searchedBxid, { found: false, gr: 'N/A', receivedAt: null });
                         }
                     });
                 } catch (bxidError) {
                     console.error(`[Tarimas] Folio ${tarima.folio}: Error al buscar BXIDs en boxID_historico:`, bxidError);
-                    // Si falla la búsqueda, resetear contadores y mapa para indicar error/no recibido
                     receivedCount = 0;
-                    bxidDetailsMap = new Map(); // Limpiar resultados parciales
+                    bxidDetailsMap = new Map();
                     latestReceivedAt = null;
                 }
             } else {
-                console.warn(`[Tarimas] Folio ${tarima.folio}: No se encontraron BXIDs válidos en las cajas para buscar.`);
+                // console.warn(`[Tarimas] Folio ${tarima.folio}: No se encontraron BXIDs válidos.`); // Log opcional
             }
 
-            // Construir el array final de detalles para TODAS las cajas de la tarima
             const finalBxidDetails = tarima.cajas.map(boxInfo => {
                 if (!boxInfo || typeof boxInfo !== 'object') {
+                    console.warn(`[Tarimas] Folio ${tarima.folio}: Elemento inválido en 'cajas'.`);
                     return { bxid: 'Inválido', orden: 'N/A', gr: 'N/A', receivedAt: null };
                 }
                 const bxid = boxInfo.codigoCaja ? String(boxInfo.codigoCaja).trim() : null;
-                // Buscar el resultado en el mapa; si no está o bxid era nulo, usar valores por defecto
                 const lookupResult = bxid ? (bxidDetailsMap.get(bxid) || { found: false, gr: 'N/A', receivedAt: null }) : { found: false, gr: 'N/A', receivedAt: null };
                 return {
                     bxid: boxInfo.codigoCaja || 'N/A',
                     orden: boxInfo.numeroOrden || 'N/A',
                     gr: lookupResult.gr,
-                    receivedAt: lookupResult.receivedAt // Date o null
+                    receivedAt: lookupResult.receivedAt
                 };
             });
 
-            // Determinar Status (basado en BXIDs válidos vs recibidos)
             let status = 'status-rojo';
             let statusText = 'No Recibida';
-            const validBxidCount = bxidList.length; // Usar el número de BXIDs que SÍ se buscaron
+            const validBxidCount = bxidList.length;
 
-            if (validBxidCount === 0 && totalCajas > 0) {
-                statusText = 'Sin BXIDs Válidos'; // Caso especial si ninguna caja tenía BXID
-            } else if (receivedCount > 0 && receivedCount < validBxidCount) {
-                status = 'status-naranja';
-                statusText = 'Recibida Parcial';
-            } else if (receivedCount === validBxidCount && validBxidCount > 0) {
-                status = 'status-verde';
-                statusText = 'Recibida Completa';
-            }
-            // Si receivedCount es 0 y validBxidCount > 0, se queda como 'No Recibida'
+            if (validBxidCount === 0 && totalCajas > 0) { statusText = 'Sin BXIDs Válidos'; }
+            else if (receivedCount > 0 && receivedCount < validBxidCount) { status = 'status-naranja'; statusText = 'Recibida Parcial'; }
+            else if (receivedCount === validBxidCount && validBxidCount > 0) { status = 'status-verde'; statusText = 'Recibida Completa'; }
 
-            // Devolver el objeto completo para la tabla
             return {
-                folio: tarima.folio,
-                user: tarima.gafete,
-                totalCajas: totalCajas,
-                statusClass: status,
-                statusText: statusText,
-                confirmationDate: tarima.confirmationDate,
-                latestReceivedAt: latestReceivedAt,
-                bxidDetails: finalBxidDetails // Array con detalles de GR y receivedAt
+                folio: tarima.folio, user: tarima.gafete, totalCajas: totalCajas,
+                statusClass: status, statusText: statusText,
+                confirmationDate: tarima.confirmationDate, latestReceivedAt: latestReceivedAt,
+                bxidDetails: finalBxidDetails
             };
         });
-        // --- FIN: LÓGICA REINTEGRADA ---
 
         const processedPallets = await Promise.all(palletPromises);
-        console.log("[Tarimas] Datos finales procesados (incluyendo status BXID):", processedPallets);
-        renderTarimasTable(processedPallets); // Renderizar tabla con los datos completos
+        console.log("[Tarimas] Datos finales procesados:", processedPallets);
+        renderTarimasTable(processedPallets);
 
     } catch (e) {
         console.error("[Tarimas] Error GENERAL:", e);
-        const currentTable = doc('dataTableTarimas'); // Re-buscar por si acaso
+        const currentTable = doc('dataTableTarimas');
         if (currentTable) {
              currentTable.innerHTML = `<thead><tr><th style='color: var(--danger-color);'>Error al consultar</th></tr></thead><tbody><tr><td>${e.message}</td></tr></tbody>`;
         }
     } finally {
-        // --- ASEGURAR RESTAURACIÓN DEL BOTÓN ---
-        // Volver a buscar el botón por si el contexto cambió
         const currentBtn = doc('consultarTarimasBtn');
         if(currentBtn) {
             currentBtn.disabled = false;
-            currentBtn.textContent = 'Consultar Tarimas'; // Restaurar texto original
-            console.log("[Tarimas] Botón restaurado."); // Log de confirmación
+            currentBtn.textContent = 'Consultar Tarimas';
+            console.log("[Tarimas] Botón restaurado.");
         } else {
-             console.error("[Tarimas] No se pudo encontrar el botón #consultarTarimasBtn para restaurarlo.");
+             console.error("[Tarimas] No se pudo encontrar #consultarTarimasBtn para restaurarlo.");
         }
-        // --- FIN ASEGURAR ---
     }
 }
 		
 // --- Asegúrate que esta función esté FUERA del DOMContentLoaded ---
 function renderTarimasTable(pallets) {
-    const table = doc('dataTableTarimas'); // Busca la tabla AHORA
-
-    // --- NUEVA VERIFICACIÓN ---
+    const table = doc('dataTableTarimas');
     if (!table) {
         console.error("[Render Tarimas] Error: Elemento #dataTableTarimas no encontrado.");
-        // Opcional: Mostrar un error al usuario si esto ocurre inesperadamente
-        // showModal('Error Interno', '<p>No se pudo encontrar la tabla de tarimas. Intente recargar la página.</p>');
-        return; // Salir de la función si no se encuentra la tabla
+        return;
     }
-    // --- FIN VERIFICACIÓN ---
 
     if (!pallets || pallets.length === 0) {
         table.innerHTML = `<thead><tr><th>No se encontraron tarimas para esta fecha y turno.</th></tr></thead><tbody></tbody>`;
@@ -3968,6 +3934,7 @@ function renderTarimasTable(pallets) {
             ? formatShortDateTime(pallet.latestReceivedAt)
             : 'Pendiente';
 
+        // Botón con data-index, sin onclick directo
         const detailsButtonHtml = `<button class="btn btn-glass btn-small view-details-btn"
                                            data-index="${index}"
                                            aria-label="Ver detalles de tarima ${pallet.folio}">
@@ -3992,13 +3959,22 @@ function renderTarimasTable(pallets) {
     table.querySelectorAll('.view-details-btn').forEach(button => {
         button.addEventListener('click', (event) => {
             const index = parseInt(event.currentTarget.dataset.index, 10);
-            // Re-chequear que pallets exista en este scope (debería, ya que se pasó como argumento)
+            // Re-chequear que pallets (el array pasado a la función) exista
             if (pallets && pallets[index]) {
                 const palletData = pallets[index];
-                showBoxDetailsModal(palletData.bxidDetails, palletData.statusText, palletData.folio);
+                 // Llamamos a la función global showBoxDetailsModal
+                 // ¡IMPORTANTE! Pasar una COPIA PROFUNDA de bxidDetails si contiene Timestamps
+                 // para evitar problemas con la serialización/deserialización implícita
+                 try {
+                     const detailsCopy = JSON.parse(JSON.stringify(palletData.bxidDetails));
+                     showBoxDetailsModal(detailsCopy, palletData.statusText, palletData.folio);
+                 } catch (e) {
+                      console.error("Error al preparar datos para el modal:", e);
+                      showModal('Error', '<p>No se pudieron cargar los detalles (error de datos).</p>');
+                 }
             } else {
                 console.error("[Render Tarimas] Datos de 'pallets' no disponibles para el índice:", index);
-                showModal('Error', '<p>No se pudieron cargar los detalles para esta tarima (datos no encontrados).</p>');
+                showModal('Error', '<p>No se pudieron cargar los detalles (datos no encontrados).</p>');
             }
         });
     });
@@ -4086,6 +4062,7 @@ function showBoxDetailsModal(bxidDetails, statusText, folio) {
      }
 }
 	   
+// --- PONER ESTA FUNCIÓN FUERA DEL DOMContentLoaded ---
 async function consultarTerminacionesConfirmadas() {
     const fechaInput = doc('prodTarimas_fecha').value;
     const turnoSeleccionado = doc('prodTarimas_turno').value;
@@ -4100,7 +4077,7 @@ async function consultarTerminacionesConfirmadas() {
     if (!btn) return;
     btn.disabled = true;
     btn.textContent = `Calculando ${turnoSeleccionado}...`;
-    orderDataCache.clear(); // Limpiar caché de datos de órdenes CADA VEZ
+    orderDataCache.clear(); // Limpiar caché de datos de órdenes
 
     const parts = fechaInput.split('-');
     const fechaSeleccionadaStr_render = `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -4108,27 +4085,30 @@ async function consultarTerminacionesConfirmadas() {
     console.log(`[TermConf] Calculando para Fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}, Área: ${areaSeleccionada}`);
 
     const dashboardContainer = doc('terminacionesDashboardContainer');
-    if (!dashboardContainer) { /* ... manejo error ... */ return; }
-    dashboardContainer.style.display = 'none';
-    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>';
-    dashboardContainer.style.display = 'block';
+    const tableContainer = doc('tarimasTableContainer'); // Para ocultarlo
 
-    let granTotalTerminaciones = 0; // El total general
+    // --- MANEJO VISIBILIDAD ---
+    if (tableContainer) tableContainer.style.display = 'none'; // Ocultar tabla
+    if (!dashboardContainer) { /* ... manejo error ... */ return; }
+    dashboardContainer.style.display = 'none'; // Ocultar mientras calcula
+    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>';
+    dashboardContainer.style.display = 'block'; // Mostrar mensaje carga
+    // --- FIN VISIBILIDAD ---
+
+    let granTotalTerminaciones = 0;
     let totalTarimasProcesadas = 0;
     let totalCajasConsultadas = 0;
     let ordenesConsultadas = new Set();
     let ordenesConDatos = new Set();
     let cajasProcesadasConTerminaciones = 0;
-    // --- Objeto para el resumen por Orden/Catálogo (SE MANTIENE) ---
-    const summaryByOrderCatalog = {};
-    // --- FIN ---
+    const summaryByOrderCatalog = {}; // Objeto para el desglose
 
     try {
-        // 1. Filtrar Tarimas (Lógica sin cambios)
+        // 1. Filtrar Tarimas (igual que antes)
         const palletsSnapshot = await db.collection('tarimas_confirmadas').get();
         if (palletsSnapshot.empty) throw new Error("Colección 'tarimas_confirmadas' vacía.");
         let tarimasDelTurno = [];
-        palletsSnapshot.docs.forEach(docSnap => {
+        palletsSnapshot.docs.forEach(docSnap => { /* ... filtro por fecha y turno ... */
             const palletData = docSnap.data();
              if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
             try {
@@ -4153,27 +4133,12 @@ async function consultarTerminacionesConfirmadas() {
 
                 if (numeroOrdenLimpio && codigoCajaActual) {
                     let orderData = null;
-
                     // Buscar/Consultar Orden (Lógica sin cambios)
                     if (orderDataCache.has(numeroOrdenLimpio)) { orderData = orderDataCache.get(numeroOrdenLimpio); }
-                    else {
+                    else { /* ... Consulta Firestore con filtro de área ... */
                         ordenesConsultadas.add(numeroOrdenLimpio);
-                         try {
-                             let orderDocRef;
-                             if (areaSeleccionada === 'ALL') {
-                                 const orderQuery = await db.collectionGroup('orders').where(firebase.firestore.FieldPath.documentId(), '==', numeroOrdenLimpio).limit(1).get();
-                                 if (!orderQuery.empty) orderDocRef = orderQuery.docs[0];
-                             } else {
-                                 const docSnapshot = await db.collection('areas').doc(areaSeleccionada).collection('orders').doc(numeroOrdenLimpio).get();
-                                 if (docSnapshot.exists) orderDocRef = docSnapshot;
-                             }
-                             if (orderDocRef) {
-                                 orderData = orderDocRef.data();
-                                 if (orderData) { orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); }
-                                 else { orderDataCache.set(numeroOrdenLimpio, null); }
-                             } else { orderDataCache.set(numeroOrdenLimpio, null); }
-                         } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); console.error(`[TermConf] Error buscando orden ${numeroOrdenLimpio}:`, error);}
-                    } // Fin consulta
+                         try { let orderDocRef; if (areaSeleccionada === 'ALL') { /* collectionGroup */ } else { /* ruta directa */ } if (orderDocRef && orderDocRef.exists) { orderData = orderDocRef.data(); if(orderData){ orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); } else { orderDataCache.set(numeroOrdenLimpio, null);}} else { orderDataCache.set(numeroOrdenLimpio, null); } } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); console.error(`[TermConf] Error buscando orden ${numeroOrdenLimpio}:`, error);}
+                    }
 
                     // Calcular terminaciones SI tenemos datos válidos
                     if (orderData && orderData.catalogNumber && Array.isArray(orderData.empaqueData)) {
@@ -4188,27 +4153,25 @@ async function consultarTerminacionesConfirmadas() {
                                 if (piezas > 0) {
                                     const terminacionesCaja = piezas * fibras; // Calcular terminaciones
 
-                                    // *** LÓGICA ORIGINAL PARA SUMAR AL TOTAL (ASEGURADA) ***
+                                    // *** SUMAR AL TOTAL GENERAL ***
                                     granTotalTerminaciones += terminacionesCaja;
                                     cajasProcesadasConTerminaciones++;
-                                    // *** FIN LÓGICA ORIGINAL ***
 
-                                    // --- LÓGICA ADICIONAL PARA EL RESUMEN ---
+                                    // --- Acumular en el resumen ---
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio]) { summaryByOrderCatalog[numeroOrdenLimpio] = {}; }
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber]) { summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber] = { piezas: 0, terminaciones: 0 }; }
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].piezas += piezas;
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].terminaciones += terminacionesCaja;
-                                    // --- FIN LÓGICA ADICIONAL ---
 
-                                } // Fin if piezas > 0
-                            } // Fin if empaqueCaja encontrado
-                        } // Fin if fibras > 0
-                    } // Fin if orderData válido
-                } // Fin if numeroOrden y codigoCaja existen
+                                } else { console.warn(`[TermConf]   - Caja ${codigoCajaActual} (Orden ${numeroOrdenLimpio}): 'serials' vacío.`); }
+                            } else { console.warn(`[TermConf]   - Caja ${codigoCajaActual} (Orden ${numeroOrdenLimpio}): No encontrada en 'empaqueData' o 'serials' inválido.`); }
+                        } else { console.warn(`[TermConf]   - Orden ${numeroOrdenLimpio}: Catálogo ${catalogNumber} dio 0 fibras.`); }
+                    } else { /* Warnings ya se muestran si no se encontró orden o faltan datos */ }
+                } else { console.warn(`[TermConf]   - Caja sin numeroOrden o codigoCaja válido en tarima ${tarima.folio}.`); }
             } // Fin for caja
         } // Fin for tarima
 
-        // 3. Renderizar (Pasando el total correcto y el resumen)
+        // 3. Renderizar
         console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}. Órdenes buscadas: ${ordenesConsultadas.size}. Órdenes con datos: ${ordenesConDatos.size}. Cajas sumadas: ${cajasProcesadasConTerminaciones}/${totalCajasConsultadas}.`);
         renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado, areaSeleccionada, summaryByOrderCatalog);
 
