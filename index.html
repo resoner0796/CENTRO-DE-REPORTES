@@ -269,16 +269,17 @@
         .summary-bar {
             width: 100%;
             border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-primary); /* <-- Usa la variable del tema */
+            /* --- CENTRADO CON FLEXBOX --- */
+            display: flex; 
+            align-items: center; /* Centrado Vertical */
+            justify-content: center; /* Centrado Horizontal */
+            /* --- --- */
+            color: var(--text-primary); 
             font-weight: bold;
-            font-size: 18px; /* <-- Nuevo tamaño (ajusta si lo quieres más grande/pequeño) */
+            font-size: 18px; 
             position: relative;
             transition: height 0.5s ease-out;
-            /* Opcional: Sombra para mejor contraste */
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
         }
 
         .summary-bar-label {
