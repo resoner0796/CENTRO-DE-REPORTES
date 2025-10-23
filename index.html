@@ -4090,7 +4090,7 @@ async function consultarTerminacionesConfirmadas() {
     if (!btn) return;
     btn.disabled = true;
     btn.textContent = `Calculando ${turnoSeleccionado}...`;
-    orderDataCache.clear(); // Limpiar caché de datos de órdenes
+    orderDataCache.clear(); // Limpiar caché de datos de órdenes CADA VEZ
 
     const parts = fechaInput.split('-');
     const fechaSeleccionadaStr_render = `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -4109,15 +4109,16 @@ async function consultarTerminacionesConfirmadas() {
     let ordenesConsultadas = new Set();
     let ordenesConDatos = new Set();
     let cajasProcesadasConTerminaciones = 0;
-    // Objeto para el resumen por Orden/Catálogo (lo mantenemos)
+    // --- Objeto para el resumen por Orden/Catálogo (SE MANTIENE) ---
     const summaryByOrderCatalog = {};
+    // --- FIN ---
 
     try {
-        // 1. Filtrar Tarimas (igual que antes)
+        // 1. Filtrar Tarimas (Lógica sin cambios)
         const palletsSnapshot = await db.collection('tarimas_confirmadas').get();
         if (palletsSnapshot.empty) throw new Error("Colección 'tarimas_confirmadas' vacía.");
         let tarimasDelTurno = [];
-        palletsSnapshot.docs.forEach(docSnap => { /* ... filtro por fecha y turno igual ... */
+        palletsSnapshot.docs.forEach(docSnap => {
             const palletData = docSnap.data();
              if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
             try {
@@ -4142,38 +4143,56 @@ async function consultarTerminacionesConfirmadas() {
 
                 if (numeroOrdenLimpio && codigoCajaActual) {
                     let orderData = null;
-                    // Buscar/Consultar Orden (igual que antes, llenando caché)
+
+                    // Buscar/Consultar Orden (Lógica sin cambios)
                     if (orderDataCache.has(numeroOrdenLimpio)) { orderData = orderDataCache.get(numeroOrdenLimpio); }
                     else {
                         ordenesConsultadas.add(numeroOrdenLimpio);
-                         try { let orderDocRef; if (areaSeleccionada === 'ALL') { /* collectionGroup */ } else { /* ruta directa */ } if (orderDocRef && orderDocRef.exists) { orderData = orderDocRef.data(); if(orderData){ orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); } else { orderDataCache.set(numeroOrdenLimpio, null);}} else { orderDataCache.set(numeroOrdenLimpio, null); } } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); }
-                    }
+                         try {
+                             let orderDocRef;
+                             if (areaSeleccionada === 'ALL') {
+                                 const orderQuery = await db.collectionGroup('orders').where(firebase.firestore.FieldPath.documentId(), '==', numeroOrdenLimpio).limit(1).get();
+                                 if (!orderQuery.empty) orderDocRef = orderQuery.docs[0];
+                             } else {
+                                 const docSnapshot = await db.collection('areas').doc(areaSeleccionada).collection('orders').doc(numeroOrdenLimpio).get();
+                                 if (docSnapshot.exists) orderDocRef = docSnapshot;
+                             }
+                             if (orderDocRef) {
+                                 orderData = orderDocRef.data();
+                                 if (orderData) { orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); }
+                                 else { orderDataCache.set(numeroOrdenLimpio, null); }
+                             } else { orderDataCache.set(numeroOrdenLimpio, null); }
+                         } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); console.error(`[TermConf] Error buscando orden ${numeroOrdenLimpio}:`, error);}
+                    } // Fin consulta
 
                     // Calcular terminaciones SI tenemos datos válidos
                     if (orderData && orderData.catalogNumber && Array.isArray(orderData.empaqueData)) {
                         const catalogNumber = orderData.catalogNumber;
-                        const fibras = calculateTerminaciones(catalogNumber); // Obtener fibras del catálogo
+                        const fibras = calculateTerminaciones(catalogNumber); // Obtener fibras
 
                         if (fibras > 0) {
-                            // Buscar la caja específica en empaqueData
-                            const empaqueCaja = orderData.empaqueData.find(e => e.boxId === codigoCajaActual);
+                            const empaqueCaja = orderData.empaqueData.find(e => e.boxId === codigoCajaActual); // Buscar la caja
 
                             if (empaqueCaja && Array.isArray(empaqueCaja.serials)) {
-                                const piezas = empaqueCaja.serials.length; // Contar piezas (seriales)
+                                const piezas = empaqueCaja.serials.length; // Contar piezas
                                 if (piezas > 0) {
-                                    const terminacionesCaja = piezas * fibras; // Calcular terminaciones para esta caja
-                                    granTotalTerminaciones += terminacionesCaja; // *** SUMAR AL TOTAL GENERAL *** (Línea clave restaurada/asegurada)
-                                    cajasProcesadasConTerminaciones++;
+                                    const terminacionesCaja = piezas * fibras; // Calcular terminaciones
 
-                                    // Acumular en el resumen (esta parte es adicional)
+                                    // *** LÓGICA ORIGINAL PARA SUMAR AL TOTAL (ASEGURADA) ***
+                                    granTotalTerminaciones += terminacionesCaja;
+                                    cajasProcesadasConTerminaciones++;
+                                    // *** FIN LÓGICA ORIGINAL ***
+
+                                    // --- LÓGICA ADICIONAL PARA EL RESUMEN ---
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio]) { summaryByOrderCatalog[numeroOrdenLimpio] = {}; }
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber]) { summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber] = { piezas: 0, terminaciones: 0 }; }
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].piezas += piezas;
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].terminaciones += terminacionesCaja;
+                                    // --- FIN LÓGICA ADICIONAL ---
 
-                                } else { /* Warning: serials vacío */ }
-                            } else { /* Warning: caja no encontrada en empaqueData */ }
-                        } else { /* Warning: fibras inválidas */ }
+                                } // Fin if piezas > 0
+                            } // Fin if empaqueCaja encontrado
+                        } // Fin if fibras > 0
                     } // Fin if orderData válido
                 } // Fin if numeroOrden y codigoCaja existen
             } // Fin for caja
@@ -4183,8 +4202,14 @@ async function consultarTerminacionesConfirmadas() {
         console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}. Órdenes buscadas: ${ordenesConsultadas.size}. Órdenes con datos: ${ordenesConDatos.size}. Cajas sumadas: ${cajasProcesadasConTerminaciones}/${totalCajasConsultadas}.`);
         renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado, areaSeleccionada, summaryByOrderCatalog);
 
-    } catch (e) { /* ... manejo de error igual ... */ }
-    finally { /* ... restauración botón igual ... */ }
+    } catch (e) { /* ... manejo de error igual ... */
+         console.error("[TermConf] Error:", e);
+         const currentDashboard = doc('terminacionesDashboardContainer');
+         if(currentDashboard) { currentDashboard.innerHTML = `<h4 style='color: var(--danger-color); text-align: center;'>Error</h4><p style='text-align: center;'>${e.message}</p>`; currentDashboard.style.display = 'block'; }
+    } finally { /* ... restauración botón igual ... */
+         const currentBtn = doc('calcularTerminacionesDiaBtn');
+         if (currentBtn) { currentBtn.disabled = false; currentBtn.textContent = 'Calcular Terminaciones del Turno'; }
+    }
 }
 
 // --- NUEVA FUNCIÓN PARA RENDERIZAR EL DASHBOARD ---
