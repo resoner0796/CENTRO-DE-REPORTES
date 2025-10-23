@@ -4086,10 +4086,17 @@ async function consultarTerminacionesConfirmadas() {
     const fechaSeleccionadaStr_compare = `${parts[0]}-${parts[1]}-${parts[2]}`;
     console.log(`[TermConf] Calculando para Fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}, Área: ${areaSeleccionada}`);
 
-    const dashboardContainer = doc('terminacionesDashboardContainer');
-    if (!dashboardContainer) { /* ... manejo error ... */ return; }
-    dashboardContainer.style.display = 'none';
-    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>';
+   const dashboardContainer = doc('terminacionesDashboardContainer');
+    const tableContainer = doc('tarimasTableContainer'); // Usamos el nuevo ID
+
+    if (tableContainer) tableContainer.style.display = 'none'; // Ocultar contenedor de tabla
+    if (!dashboardContainer) {
+        console.error("[TermConf] Elemento #terminacionesDashboardContainer no encontrado.");
+        showModal('Error Interno', '<p>No se pudo encontrar el contenedor del dashboard.</p>');
+        btn.disabled = false; btn.textContent = 'Calcular Terminaciones del Turno';
+        return;
+    }
+    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>'; // Mensaje carga
     dashboardContainer.style.display = 'block';
 
     let granTotalTerminaciones = 0; // El total general
@@ -4191,13 +4198,16 @@ async function consultarTerminacionesConfirmadas() {
         console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}. Órdenes buscadas: ${ordenesConsultadas.size}. Órdenes con datos: ${ordenesConDatos.size}. Cajas sumadas: ${cajasProcesadasConTerminaciones}/${totalCajasConsultadas}.`);
         renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado, areaSeleccionada, summaryByOrderCatalog);
 
-    } catch (e) { /* ... manejo de error igual ... */
-         console.error("[TermConf] Error:", e);
-         const currentDashboard = doc('terminacionesDashboardContainer');
-         if(currentDashboard) { currentDashboard.innerHTML = `<h4 style='color: var(--danger-color); text-align: center;'>Error</h4><p style='text-align: center;'>${e.message}</p>`; currentDashboard.style.display = 'block'; }
-    } finally { /* ... restauración botón igual ... */
-         const currentBtn = doc('calcularTerminacionesDiaBtn');
-         if (currentBtn) { currentBtn.disabled = false; currentBtn.textContent = 'Calcular Terminaciones del Turno'; }
+    } catch (e) {
+        console.error("[TermConf] Error:", e);
+        const currentDashboard = doc('terminacionesDashboardContainer');
+        if (currentDashboard) {
+            currentDashboard.innerHTML = `<h4 style='color: var(--danger-color); text-align: center;'>Error</h4><p style='text-align: center;'>${e.message}</p>`;
+            currentDashboard.style.display = 'block'; // Asegurar visibilidad para mostrar error
+        }
+    } finally {
+        const currentBtn = doc('calcularTerminacionesDiaBtn');
+        if (currentBtn) { /* ... restaurar botón ... */ }
     }
 }
 
