@@ -2235,7 +2235,7 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
                     borderWidth: 2,
                     pointRadius: 0,
                     fill: false,
-                    datalabels: { display: false } // 👈 DESACTIVAMOS LAS ETIQUETAS SOLO PARA LA META
+                    datalabels: { display: false } // refuerzo local
                 }
             ]
         },
@@ -2259,7 +2259,7 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
                     labels: { color: 'var(--text-primary)' }
                 },
                 datalabels: {
-                    display: true,
+                    display: (context) => context.dataset.type !== 'line', // 👈 solo mostrar en barras
                     labels: {
                         terminaciones: {
                             anchor: 'end',
@@ -2272,8 +2272,8 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
                         eficiencia: {
                             anchor: 'center',
                             align: 'center',
-                            formatter: (value) => {
-                                if (value === 0) return '';
+                            formatter: (value, context) => {
+                                if (context.dataset.type === 'line' || value === 0) return '';
                                 const percentage = ((value / meta) * 100).toFixed(0) + '%';
                                 return percentage;
                             },
