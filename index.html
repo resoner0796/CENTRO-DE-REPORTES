@@ -4205,9 +4205,9 @@ async function consultarTerminacionesConfirmadas() {
             currentDashboard.innerHTML = `<h4 style='color: var(--danger-color); text-align: center;'>Error</h4><p style='text-align: center;'>${e.message}</p>`;
             currentDashboard.style.display = 'block'; // Asegurar visibilidad para mostrar error
         }
-    } finally {
-        const currentBtn = doc('calcularTerminacionesDiaBtn');
-        if (currentBtn) { /* ... restaurar botón ... */ }
+   } finally { /* ... restauración botón igual ... */
+         const currentBtn = doc('calcularTerminacionesDiaBtn');
+         if (currentBtn) { currentBtn.disabled = false; currentBtn.textContent = 'Calcular Terminaciones del Turno'; }
     }
 }
 
