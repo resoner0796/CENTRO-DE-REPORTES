@@ -94,7 +94,7 @@
 /* -------------------------- */
 .menu-wrapper {
     width: 100%;
-    max-width: 500px; /* Reducido un poco para pantallas medianas */
+    max-width: 700px; /* Puedes ajustar este valor si quieres más o menos ancho total */
     text-align: center;
 }
 .animated-startup {
@@ -132,7 +132,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
             border-bottom: 2px solid rgba(0, 0, 0, 0.1); border-right: 2px solid rgba(0, 0, 0, 0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.1);
         }
         
-        .menu-container { display: flex; flex-direction: column; gap: 16px; }
+        .menu-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
         .btn { padding: 16px 24px; border-radius: 12px; cursor: pointer; background-color: var(--primary-color); border: none; color: var(--primary-text-color); font-weight: 700; font-size: 1.1rem; text-align: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -540,22 +540,25 @@ body.light-theme .app-branding { color: var(--branding-color); }
 
     <div class="app-container">
         <div id="menuView">
-            <div class="menu-wrapper">
-                <header class="app-header animated-startup"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Centro de Reportes</h2></header>
-                <main class="card animated-startup" style="animation-delay: 0.1s;">
-                    <div class="menu-container">
-                        <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
-                        <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
-                        <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
-                        <button id="reporteProduccionCalidadBtn" class="btn">Reporte de Producción Calidad</button>
-                        <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
-                        <button id="view901Btn" class="btn">Reporte 901</button> 
-                        <button id="reporteTarimasBtn" class="btn">Reporte de Tarimas Confirmadas</button>
-                        <button id="reporteBoxIDBtn" class="btn">Reporte BoxID</button>
-                    </div>
-                </main>
+    <div class="menu-wrapper">
+        <header class="app-header animated-startup">
+            <h1 class="app-branding">CORNING</h1>
+            <h2 class="app-title">Centro de Reportes</h2>
+        </header>
+        <main class="card animated-startup" style="animation-delay: 0.1s;">
+            <div class="menu-container">
+                <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
+                <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
+                <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
+                <button id="reporteProduccionCalidadBtn" class="btn">Reporte de Producción Calidad</button>
+                <button id="reporteTarimasBtn" class="btn">Reporte de Tarimas Confirmadas</button>
+                <button id="reporteTerminacionesBtn" class="btn">Reporte de Terminaciones</button>
+                <button id="view901Btn" class="btn">Reporte 901</button>
+                <button id="reporteBoxIDBtn" class="btn">Reporte BoxID</button>
             </div>
-        </div>
+        </main>
+    </div>
+</div>
 
         <div id="viewProduccionHora">
             <div class="main-container">
