@@ -2233,9 +2233,10 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
                     data: Array(labels.length).fill(meta),
                     borderColor: 'var(--success-color)',
                     borderWidth: 2,
+                    // borderDash: [5, 5], // Si la quieres punteada, descomenta esta línea
                     pointRadius: 0,
                     fill: false,
-                    datalabels: { display: false } // refuerzo local
+                    datalabels: { display: false } // 👈 Sin texto sobre la línea
                 }
             ]
         },
@@ -2259,13 +2260,13 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
                     labels: { color: 'var(--text-primary)' }
                 },
                 datalabels: {
-                    display: (context) => context.dataset.type !== 'line', // 👈 solo mostrar en barras
+                    // --- Solo mostrar etiquetas en las barras, no en la línea ---
+                    display: (context) => context.dataset.type !== 'line',
                     labels: {
                         terminaciones: {
                             anchor: 'end',
                             align: 'top',
-                            formatter: (value) =>
-                                value > 0 ? value.toLocaleString('es-MX') : '',
+                            formatter: (value) => value > 0 ? value.toLocaleString('es-MX') : '',
                             color: 'var(--text-primary)',
                             font: { weight: 'bold' }
                         },
@@ -2277,12 +2278,12 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
                                 const percentage = ((value / meta) * 100).toFixed(0) + '%';
                                 return percentage;
                             },
+                            // Colores y estilo adaptativos
                             color: (context) => {
                                 const isLightTheme = document.body.classList.contains('light-theme');
-                                const barHeight =
-                                    context.chart
-                                        .getDatasetMeta(context.datasetIndex)
-                                        .data[context.dataIndex].height;
+                                const barHeight = context.chart
+                                    .getDatasetMeta(context.datasetIndex)
+                                    .data[context.dataIndex].height;
                                 if (barHeight < 20) return 'transparent';
                                 return isLightTheme
                                     ? '#111827'
