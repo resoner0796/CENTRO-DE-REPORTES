@@ -1160,56 +1160,17 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
             doc('prodCalidad_turno').value = getAutoCurrentShift();
             renderProduccionCalidadTable([]);
             renderProduccionCalidadChart([], new Date());
-	} else if (viewKey === 'tarimasConfirmadas') {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    doc('prodTarimas_fecha').value = `${year}-${month}-${day}`;
-
-    // Verificar si existe la función antes de llamarla
-    if (typeof getAutoCurrentShift === 'function') {
-        doc('prodTarimas_turno').value = getAutoCurrentShift(); // Establece el turno
-    } else {
-        console.error("Función getAutoCurrentShift no encontrada al cambiar de vista.");
-    }
-    // Verificar si existe la función antes de llamarla
-    if (typeof loadAreasForTarimasReport === 'function') {
-        loadAreasForTarimasReport(); // Carga las opciones del select de área
-    } else {
-         console.error("Función loadAreasForTarimasReport no encontrada al cambiar de vista.");
-    }
-
-    // --- CORRECCIÓN: Definir ANTES de usar ---
-    const dashboardContainer = doc('terminacionesDashboardContainer');
-    const tableContainer = doc('tarimasTableContainer');
-    // --- FIN CORRECCIÓN ---
-
-    // Limpiar tabla (solo si la función existe)
-    if (typeof renderTarimasTable === 'function') {
-        renderTarimasTable([]); // Limpia tabla
-    } else {
-        console.error("Función renderTarimasTable no encontrada al cambiar de vista.");
-        // Intenta limpiar la tabla directamente si la función falta
-        const tableElement = doc('dataTableTarimas');
-        if (tableElement) {
-             tableElement.innerHTML = '<thead><tr><th>Seleccione fecha y turno, luego consulte.</th></tr></thead><tbody></tbody>';
-        }
-    }
-
-    // --- ASEGURAR VISIBILIDAD INICIAL ---
-    // Ahora las variables YA ESTÁN DEFINIDAS aquí
-    if (dashboardContainer) {
-        dashboardContainer.style.display = 'none'; // Ocultar dashboard
-        dashboardContainer.innerHTML = ''; // Limpiar contenido
-    } else {
-        console.warn("Elemento #terminacionesDashboardContainer no encontrado al cambiar de vista.");
-    }
-    if (tableContainer) {
-        tableContainer.style.display = 'flex'; // Mostrar contenedor tabla
-    } else {
-        console.warn("Elemento #tarimasTableContainer no encontrado al cambiar de vista.");
-    }
+	} else if (viewKey === 'tarimasConfirmadas') { // <-- AJUSTE AQUÍ
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                doc('prodTarimas_fecha').value = `${year}-${month}-${day}`;
+                doc('prodTarimas_turno').value = getAutoCurrentShift(); // Establece el turno
+                loadAreasForTarimasReport();
+                renderTarimasTable([]); // Limpia tabla
+              if(dashboardContainer) dashboardContainer.style.display = 'none'; // Ocultar dashboard
+              if(tableContainer) tableContainer.style.display = 'flex';     // Mostrar contenedor tabla
             } else if (viewKey === 'boxID') {
             // Se asegura de que el área para arrastrar archivos esté en su estado normal
             doc('fileDropAreaBoxID').style.borderColor = 'var(--border-color)';
