@@ -4359,49 +4359,50 @@ async function getCatalogNumberForOrder(orderNumber) {
 }
 
 // Función para calcular terminaciones (requiere acceso global)
-// --- AJUSTE: calculateTerminaciones AHORA ACEPTA UN ÁREA ---
+// --- AJUSTE: calculateTerminaciones AHORA ACEPTA UN ÁREA Y USA LONGITUD ---
 function calculateTerminaciones(catalogNumber, area = 'Default') {
     if (!catalogNumber || typeof catalogNumber !== 'string' || catalogNumber.length < 4) return 0;
 
     const config = params.terminaciones_areas_config || {};
-    // Obtener reglas para el área específica, o para 'Default' si no hay
-    // Usamos 'Default' como un fallback global si el área no tiene reglas
     const rules = config[area] || config['Default'] || []; 
-    const catalogUpper = catalogNumber.toUpperCase(); // Convertir a mayúsculas una vez
+    const catalogUpper = catalogNumber.toUpperCase();
 
-    // 1. Buscar regla por prefijo
-    // Ordenamos por longitud de prefijo (de más largo a más corto) para que gane la regla más específica
     const sortedRules = rules.sort((a, b) => b.prefijo.length - a.prefijo.length);
     
     for (const rule of sortedRules) {
         if (rule.prefijo && catalogUpper.startsWith(rule.prefijo)) {
-            // ¡Encontramos una regla!
-            // La posición es 1-based, el substring es 0-based
-            const digit = (catalogNumber.substring(rule.posicion - 1, rule.posicion) || '').toUpperCase();
+            // --- ¡AQUÍ ESTÁ EL AJUSTE! ---
+            const longitud = rule.longitud || 1; // Default a 1 si no está definido
+            const start = rule.posicion - 1;   // Posición 5 en UI es índice 4 en JS
+            const end = start + longitud;      // Índice 4 + longitud 2 = extrae 4 y 5
+            const digit = (catalogNumber.substring(start, end) || '').toUpperCase();
+            // --- FIN DEL AJUSTE ---
             
             if (rule.t_es_12 && digit === 'T') {
-                // console.log(`[Calc] Regla '${area}': Prefijo '${rule.prefijo}', 'T' es 12. -> 12`);
                 return 12;
             }
             
             const num = parseInt(digit, 10);
             const result = isNaN(num) ? 0 : num;
-            // console.log(`[Calc] Regla '${area}': Prefijo '${rule.prefijo}', Pos ${rule.posicion} ('${digit}'). -> ${result}`);
             return result;
         }
     }
 
-    // 2. Si no hay regla con prefijo, buscar una regla "comodín" (prefijo vacío)
     const wildcardRule = rules.find(r => r.prefijo === '');
     if (wildcardRule) {
-        const digit = (catalogNumber.substring(wildcardRule.posicion - 1, wildcardRule.posicion) || '').toUpperCase();
+        // --- ¡AQUÍ ESTÁ EL AJUSTE! ---
+        const longitud = wildcardRule.longitud || 1;
+        const start = wildcardRule.posicion - 1;
+        const end = start + longitud;
+        const digit = (catalogNumber.substring(start, end) || '').toUpperCase();
+        // --- FIN DEL AJUSTE ---
+
         if (wildcardRule.t_es_12 && digit === 'T') return 12;
         const num = parseInt(digit, 10);
         return isNaN(num) ? 0 : num;
     }
 
-    // 3. Si no hay ninguna regla, usar la lógica original como fallback
-    // console.log(`[Calc] Sin regla para '${area}' o prefijo. Usando fallback (4to dígito).`);
+    // 3. Fallback (lógica original si no hay reglas)
     const digit = catalogNumber.substring(3, 4).toUpperCase();
     if (digit === 'T') return 12;
     const num = parseInt(digit, 10);
@@ -4948,9 +4949,10 @@ function renderAreaRules(areaKey) {
 // --- ¡NUEVA FUNCIÓN! Helper para el modal de áreas ---
 function createAreaRuleHTML(rule) {
     return `
-    <li class="param-item" style="grid-template-columns: 2fr 1fr auto auto; gap: 12px;">
-        <input type="text" class="rule-prefix" placeholder="Prefijo (ej: 123-) (Vacío para comodín)" value="${rule.prefijo || ''}">
-        <input type="number" class="rule-pos" placeholder="Pos. Dígito" value="${rule.posicion || 4}" min="1" style="text-align: center;">
+    <li class="param-item" style="grid-template-columns: 2fr 1fr 1fr auto auto; gap: 12px;">
+        <input type="text" class="rule-prefix" placeholder="Prefijo (ej: 123-)" value="${rule.prefijo || ''}">
+        <input type="number" class="rule-pos" placeholder="Pos. Inicio" value="${rule.posicion || 4}" min="1" style="text-align: center;">
+        <input type="number" class="rule-length" placeholder="Cant. Dígitos" value="${rule.longitud || 1}" min="1" style="text-align: center;">
         <label style="display: flex; align-items: center; gap: 5px; font-size: 0.9em; justify-content: center; color: var(--text-secondary); cursor: pointer;">
             <input type="checkbox" class="rule-t" ${rule.t_es_12 ? 'checked' : ''}> 'T' es 12
         </label>
@@ -4958,7 +4960,6 @@ function createAreaRuleHTML(rule) {
     </li>
     `;
 }
-
 // --- ¡NUEVA FUNCIÓN! Guardar la configuración de áreas ---
 async function saveAreaConfig() {
     const modalBody = doc('modalBody');
@@ -4971,6 +4972,7 @@ async function saveAreaConfig() {
     const rules = Array.from(modalBody.querySelectorAll('#areaRulesList .param-item')).map(item => ({
         prefijo: item.querySelector('.rule-prefix').value.trim().toUpperCase(),
         posicion: parseInt(item.querySelector('.rule-pos').value, 10) || 4,
+        longitud: parseInt(item.querySelector('.rule-length').value, 10) || 1, // <-- ¡AQUÍ ESTÁ EL CAMBIO!
         t_es_12: item.querySelector('.rule-t').checked
     }));
 
