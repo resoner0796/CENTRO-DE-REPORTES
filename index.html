@@ -1220,26 +1220,28 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
 
         // --- INICIO: LÓGICA DE MODALES DE CONFIGURACIÓN ---
         function showParamsModal() {
-            if (activeView === '901') {
-                const config = params['901_config'];
-                const filterText = (config.userFilter || []).join(', ');
-                const paramsHTML = `<ul class="param-list param-list-901">${(config.columns || []).map(p => createParamItem901(p.key, p.startCell)).join('')}</ul>`;
-                const content = `<div class="user-filter-container"><label for="userFilterInput">Filtrar por Usuarios (separados por coma)</label><textarea id="userFilterInput" placeholder="PINTORA2, LUNAU2... (dejar vacío para incluir a todos)">${filterText}</textarea></div><hr style="border-color: var(--border-color); margin: 16px 0;"><p style="text-align:center;">Define los nombres de columna y la celda de inicio de cada una (ej. A2).</p>${paramsHTML}<button id="addParam901Btn" class="btn" style="width: auto; padding: 8px 16px;">Añadir Columna</button><button id="saveParams901Btn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Mapeo y Filtros</button>`;
-                showModal('Configurar Mapeo y Filtros de 901', content);
-                doc('addParam901Btn').addEventListener('click', () => doc('modalBody').querySelector('.param-list-901').insertAdjacentHTML('beforeend', createParamItem901('', '')));
-                doc('saveParams901Btn').addEventListener('click', saveParams901);
-            } else if (activeView === 'terminaciones') {
-                showTerminacionesConfigModal();
-            } else if (activeView === 'produccionHora') {
-                showProduccionHoraConfigModal();
-            } else if (activeView === 'produccion20') {
-                showProduccion20ConfigModal();
-            } else if (activeView === 'produccionDaily') {
-                showProduccionDailyConfigModal();
-            } else if (activeView === 'produccionCalidad') { // <-- ESTA ES LA LÍNEA NUEVA
-                showProduccionCalidadConfigModal();
-            }
-        }
+    if (activeView === '901') {
+        const config = params['901_config'];
+        const filterText = (config.userFilter || []).join(', ');
+        const paramsHTML = `<ul class="param-list param-list-901">${(config.columns || []).map(p => createParamItem901(p.key, p.startCell)).join('')}</ul>`;
+        const content = `<div class="user-filter-container"><label for="userFilterInput">Filtrar por Usuarios (separados por coma)</label><textarea id="userFilterInput" placeholder="PINTORA2, LUNAU2... (dejar vacío para incluir a todos)">${filterText}</textarea></div><hr style="border-color: var(--border-color); margin: 16px 0;"><p style="text-align:center;">Define los nombres de columna y la celda de inicio de cada una (ej. A2).</p>${paramsHTML}<button id="addParam901Btn" class="btn" style="width: auto; padding: 8px 16px;">Añadir Columna</button><button id="saveParams901Btn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Mapeo y Filtros</button>`;
+        showModal('Configurar Mapeo y Filtros de 901', content);
+        doc('addParam901Btn').addEventListener('click', () => doc('modalBody').querySelector('.param-list-901').insertAdjacentHTML('beforeend', createParamItem901('', '')));
+        doc('saveParams901Btn').addEventListener('click', saveParams901);
+    } else if (activeView === 'terminaciones') {
+        showTerminacionesConfigModal();
+    } else if (activeView === 'produccionHora') {
+        showProduccionHoraConfigModal();
+    } else if (activeView === 'produccion20') {
+        showProduccion20ConfigModal();
+    } else if (activeView === 'produccionDaily') {
+        showProduccionDailyConfigModal();
+    } else if (activeView === 'produccionCalidad') { 
+        showProduccionCalidadConfigModal();
+    } else if (activeView === 'tarimasConfirmadas') { // <-- ¡AQUÍ ESTÁ EL AJUSTE!
+        showAreaConfigModal();
+    }
+}
 
         function showProduccionHoraConfigModal() {
             const config = params.produccion_hora_config;
@@ -1536,34 +1538,36 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
 
         // --- INICIO: CARGA DE DATOS (PARAMS Y ARCHIVOS) ---
         async function loadParams(configKey) {
-            const docIdMap = {
-                '901_config': '901_params',
-                'terminaciones_config': 'terminaciones_params_v2',
-                'produccion_hora_config': 'produccion_hora_params',
-                'produccion_20_config': 'produccion_20_params',
-                'produccion_daily_config': 'produccion_daily_params',
-                'produccion_calidad_config': 'produccion_calidad_params' 
-            };
-            const docId = docIdMap[configKey];
-            if (!docId) return;
+    const docIdMap = {
+        '901_config': '901_params',
+        'terminaciones_config': 'terminaciones_params_v2',
+        'produccion_hora_config': 'produccion_hora_params',
+        'produccion_20_config': 'produccion_20_params',
+        'produccion_daily_config': 'produccion_daily_params',
+        'produccion_calidad_config': 'produccion_calidad_params',
+        'terminaciones_areas_config': 'terminaciones_areas_params' // <-- ¡AQUÍ ESTÁ EL AJUSTE!
+    };
+    const docId = docIdMap[configKey];
+    if (!docId) return;
 
-            try {
-                const docRef = await db.collection('report_configs').doc(docId).get();
-                if (docRef.exists) {
-                    const data = docRef.data();
-                    if (configKey === 'produccion_20_config' || configKey === 'produccion_daily_config') {
-                        params[configKey] = { ...params[configKey], ...data };
-                    } else if (configKey === '901_config') {
-                        params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
-                    } else if (configKey === 'terminaciones_config') {
-                        params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
-                    } else if (configKey === 'produccion_hora_config') {
-                        params.produccion_hora_config = { packers: [], ...data };
-                        applyProduccionHoraConfig();
-                    }
-                }
-            } catch(e) { console.error(`Error al cargar ${configKey}:`, e); }
+    try {
+        const docRef = await db.collection('report_configs').doc(docId).get();
+        if (docRef.exists) {
+            const data = docRef.data();
+            // ¡AQUÍ ESTÁ EL AJUSTE!
+            if (configKey === 'produccion_20_config' || configKey === 'produccion_daily_config' || configKey === 'produccion_calidad_config' || configKey === 'terminaciones_areas_config') {
+                params[configKey] = { ...params[configKey], ...data };
+            } else if (configKey === '901_config') {
+                params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
+            } else if (configKey === 'terminaciones_config') {
+                params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
+            } else if (configKey === 'produccion_hora_config') {
+                params.produccion_hora_config = { packers: [], ...data };
+                applyProduccionHoraConfig();
+            }
         }
+    } catch(e) { console.error(`Error al cargar ${configKey}:`, e); }
+}
 
         function applyProduccionHoraConfig() {
             populatePackerSelects();
@@ -3926,11 +3930,13 @@ function renderTarimasTable(pallets) {
         return;
     }
 
-    const headers = ['Folio', 'Usuario', 'Hora Confirmación', 'Recibido Logística (Último)', 'Estatus', 'Cajas', 'Detalles'];
+    // --- AJUSTE: AÑADIMOS 'ÁREA' AL HEADER ---
+    const headers = ['Folio', 'Usuario', 'Área', 'Hora Confirmación', 'Recibido Logística (Último)', 'Estatus', 'Cajas', 'Detalles'];
     let headerHtml = '<thead><tr>';
     headers.forEach((h, index) => {
         let styles = 'padding: 12px 10px; text-align: left; white-space: nowrap;';
-        if (['Hora Confirmación', 'Recibido Logística (Último)', 'Estatus', 'Cajas', 'Detalles'].includes(h)) {
+        // --- AJUSTE: Añadimos 'Área' al centrado ---
+        if (['Área', 'Hora Confirmación', 'Recibido Logística (Último)', 'Estatus', 'Cajas', 'Detalles'].includes(h)) {
             styles += ' text-align: center;';
         }
         headerHtml += `<th style="${styles}"><span>${h}</span></th>`;
@@ -3948,16 +3954,16 @@ function renderTarimasTable(pallets) {
             ? formatShortDateTime(pallet.latestReceivedAt)
             : 'Pendiente';
 
-        // Botón con data-index, sin onclick directo
         const detailsButtonHtml = `<button class="btn btn-glass btn-small view-details-btn"
                                            data-index="${index}"
                                            aria-label="Ver detalles de tarima ${pallet.folio}">
-                                     Ver <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                       Ver <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                    </button>`;
 
         bodyHtml += `<tr style="border-bottom: 1px solid var(--border-color);">`;
         bodyHtml += `<td style="padding: 10px 10px; font-weight: bold;">${pallet.folio}</td>`;
         bodyHtml += `<td style="padding: 10px 10px;">${pallet.user}</td>`;
+        bodyHtml += `<td style="padding: 10px 10px; text-align: center;">${pallet.area}</td>`; // <-- ¡NUEVA CELDA!
         bodyHtml += `<td style="padding: 10px 10px; text-align: center;">${confirmationTime}</td>`;
         bodyHtml += `<td style="padding: 10px 10px; text-align: center;">${latestReceivedFormatted}</td>`;
         bodyHtml += `<td style="padding: 10px 10px; text-align: center;"><span class="status-dot ${pallet.statusClass}"></span> ${pallet.statusText}</td>`;
@@ -3969,23 +3975,18 @@ function renderTarimasTable(pallets) {
     bodyHtml += '</tbody>';
     table.innerHTML = headerHtml + bodyHtml;
 
-    // Añadir listeners DESPUÉS de crear la tabla
     table.querySelectorAll('.view-details-btn').forEach(button => {
         button.addEventListener('click', (event) => {
             const index = parseInt(event.currentTarget.dataset.index, 10);
-            // Re-chequear que pallets (el array pasado a la función) exista
             if (pallets && pallets[index]) {
                 const palletData = pallets[index];
-                 // Llamamos a la función global showBoxDetailsModal
-                 // ¡IMPORTANTE! Pasar una COPIA PROFUNDA de bxidDetails si contiene Timestamps
-                 // para evitar problemas con la serialización/deserialización implícita
-                 try {
-                     const detailsCopy = JSON.parse(JSON.stringify(palletData.bxidDetails));
-                     showBoxDetailsModal(detailsCopy, palletData.statusText, palletData.folio);
-                 } catch (e) {
-                      console.error("Error al preparar datos para el modal:", e);
-                      showModal('Error', '<p>No se pudieron cargar los detalles (error de datos).</p>');
-                 }
+                try {
+                    const detailsCopy = JSON.parse(JSON.stringify(palletData.bxidDetails));
+                    showBoxDetailsModal(detailsCopy, palletData.statusText, palletData.folio);
+                } catch (e) {
+                     console.error("Error al preparar datos para el modal:", e);
+                     showModal('Error', '<p>No se pudieron cargar los detalles (error de datos).</p>');
+                }
             } else {
                 console.error("[Render Tarimas] Datos de 'pallets' no disponibles para el índice:", index);
                 showModal('Error', '<p>No se pudieron cargar los detalles (datos no encontrados).</p>');
@@ -4079,6 +4080,9 @@ function showBoxDetailsModal(bxidDetails, statusText, folio) {
 // --- PONER ESTA FUNCIÓN FUERA DEL DOMContentLoaded ---
 // --- FUERA DEL DOMContentLoaded ---
 
+// --- FUERA DEL DOMContentLoaded ---
+
+// --- AJUSTE: Función consultarTerminacionesConfirmadas con FILTRO DE ÁREA en la consulta ---
 async function consultarTerminacionesConfirmadas() {
     const fechaInput = doc('prodTarimas_fecha').value;
     const turnoSeleccionado = doc('prodTarimas_turno').value;
@@ -4092,60 +4096,92 @@ async function consultarTerminacionesConfirmadas() {
     const btn = doc('calcularTerminacionesDiaBtn');
     if (!btn) return;
     btn.disabled = true;
-    btn.textContent = `Calculando ${turnoSeleccionado}...`;
-    orderDataCache.clear(); // Limpiar caché de datos de órdenes CADA VEZ
+    btn.textContent = `Calculando ${turnoSeleccionado} (${areaSeleccionada === 'ALL' ? 'Todas' : areaSeleccionada})...`;
+    orderDataCache.clear(); 
 
     const parts = fechaInput.split('-');
     const fechaSeleccionadaStr_render = `${parts[2]}/${parts[1]}/${parts[0]}`;
     const fechaSeleccionadaStr_compare = `${parts[0]}-${parts[1]}-${parts[2]}`;
     console.log(`[TermConf] Calculando para Fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}, Área: ${areaSeleccionada}`);
 
-   const dashboardContainer = doc('terminacionesDashboardContainer');
-    const tableContainer = doc('tarimasTableContainer'); // Usamos el nuevo ID
+    const dashboardContainer = doc('terminacionesDashboardContainer');
+    const tableContainer = doc('tarimasTableContainer'); 
 
-    if (tableContainer) tableContainer.style.display = 'none'; // Ocultar contenedor de tabla
+    if (tableContainer) tableContainer.style.display = 'none'; 
     if (!dashboardContainer) {
         console.error("[TermConf] Elemento #terminacionesDashboardContainer no encontrado.");
         showModal('Error Interno', '<p>No se pudo encontrar el contenedor del dashboard.</p>');
         btn.disabled = false; btn.textContent = 'Calcular Terminaciones del Turno';
         return;
     }
-    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>'; // Mensaje carga
+    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>'; 
     dashboardContainer.style.display = 'block';
 
-    let granTotalTerminaciones = 0; // El total general
+    let granTotalTerminaciones = 0; 
     let totalTarimasProcesadas = 0;
     let totalCajasConsultadas = 0;
     let ordenesConsultadas = new Set();
     let ordenesConDatos = new Set();
     let cajasProcesadasConTerminaciones = 0;
-    // --- Objeto para el resumen por Orden/Catálogo (SE MANTIENE) ---
     const summaryByOrderCatalog = {};
-    // --- FIN ---
 
     try {
-        // 1. Filtrar Tarimas (Lógica sin cambios)
-        const palletsSnapshot = await db.collection('tarimas_confirmadas').get();
-        if (palletsSnapshot.empty) throw new Error("Colección 'tarimas_confirmadas' vacía.");
+        // --- ¡AQUÍ ESTÁ EL AJUSTE! ---
+        // 1. Construir la consulta base
+        let query = db.collection('tarimas_confirmadas');
+
+        // 2. Aplicar filtro de área SI NO es "Todas"
+        if (areaSeleccionada !== 'ALL') {
+            query = query.where('area', '==', areaSeleccionada);
+            console.log(`[TermConf] Aplicando filtro de área en consulta: ${areaSeleccionada}`);
+        } else {
+            console.log(`[TermConf] Consultando tarimas de todas las áreas.`);
+        }
+        
+        // 3. Aplicar filtros de fecha/hora para optimizar
+        const { startTime, endTime } = getShiftDateRange(fechaInput, turnoSeleccionado);
+        query = query.where('fecha', '>=', startTime).where('fecha', '<=', endTime);
+        // --- FIN DEL AJUSTE ---
+
+        // 4. Ejecutar la consulta (ahora potencialmente filtrada por área)
+        const palletsSnapshot = await query.get();
+
+        if (palletsSnapshot.empty) {
+            throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render}${areaSeleccionada !== 'ALL' ? ' en el área ' + areaSeleccionada : ''}.`);
+        }
+
         let tarimasDelTurno = [];
         palletsSnapshot.docs.forEach(docSnap => {
             const palletData = docSnap.data();
-             if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
+            if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
             try {
-                 const palletConfirmationDate = palletData.fecha.toDate();
-                 const { shift, dateKey } = getWorkShiftAndDate(palletConfirmationDate);
-                 if (dateKey === fechaSeleccionadaStr_compare && shift === turnoSeleccionado) {
-                    tarimasDelTurno.push({ folio: palletData.folio, cajas: palletData.cajas });
-                 }
+                const palletConfirmationDate = palletData.fecha.toDate();
+                const { shift, dateKey } = getWorkShiftAndDate(palletConfirmationDate);
+                
+                // 5. Doble verificación de turno/fecha
+                if (dateKey === fechaSeleccionadaStr_compare && shift === turnoSeleccionado) {
+                    tarimasDelTurno.push({
+                        folio: palletData.folio,
+                        cajas: palletData.cajas,
+                        // ¡Importante! Guardamos el área de la tarima para la lógica de cálculo
+                        area: palletData.area || (areaSeleccionada !== 'ALL' ? areaSeleccionada : 'Indefinida') 
+                    });
+                }
             } catch { /* Ignorar */ }
         });
-        if (tarimasDelTurno.length === 0) throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render}.`);
+
+        if (tarimasDelTurno.length === 0) {
+             throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render}${areaSeleccionada !== 'ALL' ? ' en el área ' + areaSeleccionada : ''} (verificación post-consulta).`);
+        }
         totalTarimasProcesadas = tarimasDelTurno.length;
-        console.log(`[TermConf] ${totalTarimasProcesadas} tarimas encontradas.`);
+        console.log(`[TermConf] ${totalTarimasProcesadas} tarimas encontradas (después de filtrar por área en consulta).`);
         dashboardContainer.innerHTML = `<p style="text-align:center;">Consultando datos de órdenes para ${totalTarimasProcesadas} tarimas...</p>`;
 
-        // 2. Procesar Cajas y Órdenes
+        // 6. Procesar Cajas y Órdenes
         for (const tarima of tarimasDelTurno) {
+            // ¡Importante! Usamos el área de la tarima actual.
+            const areaDeLaTarima = tarima.area; 
+
             for (const caja of tarima.cajas) {
                 totalCajasConsultadas++;
                 const numeroOrdenLimpio = caja.numeroOrden ? String(caja.numeroOrden).replace(/^0+/, '') : null;
@@ -4153,62 +4189,56 @@ async function consultarTerminacionesConfirmadas() {
 
                 if (numeroOrdenLimpio && codigoCajaActual) {
                     let orderData = null;
-
-                    // Buscar/Consultar Orden (Lógica sin cambios)
-                    if (orderDataCache.has(numeroOrdenLimpio)) { orderData = orderDataCache.get(numeroOrdenLimpio); }
-                    else {
+                    if (orderDataCache.has(numeroOrdenLimpio)) { 
+                        orderData = orderDataCache.get(numeroOrdenLimpio); 
+                    } else {
                         ordenesConsultadas.add(numeroOrdenLimpio);
                          try {
                              let orderDocRef;
-                             if (areaSeleccionada === 'ALL') {
+                             // ¡IMPORTANTE! La búsqueda de órdenes AHORA USA el 'areaDeLaTarima'
+                             if (areaDeLaTarima === 'ALL' || areaDeLaTarima === 'Indefinida' || areaDeLaTarima === 'Desconocida') {
                                  const orderQuery = await db.collectionGroup('orders').where(firebase.firestore.FieldPath.documentId(), '==', numeroOrdenLimpio).limit(1).get();
                                  if (!orderQuery.empty) orderDocRef = orderQuery.docs[0];
                              } else {
-                                 const docSnapshot = await db.collection('areas').doc(areaSeleccionada).collection('orders').doc(numeroOrdenLimpio).get();
+                                 const docSnapshot = await db.collection('areas').doc(areaDeLaTarima).collection('orders').doc(numeroOrdenLimpio).get();
                                  if (docSnapshot.exists) orderDocRef = docSnapshot;
                              }
+                             
                              if (orderDocRef) {
                                  orderData = orderDocRef.data();
                                  if (orderData) { orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); }
                                  else { orderDataCache.set(numeroOrdenLimpio, null); }
                              } else { orderDataCache.set(numeroOrdenLimpio, null); }
                          } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); console.error(`[TermConf] Error buscando orden ${numeroOrdenLimpio}:`, error);}
-                    } // Fin consulta
+                    } 
 
-                    // Calcular terminaciones SI tenemos datos válidos
                     if (orderData && orderData.catalogNumber && Array.isArray(orderData.empaqueData)) {
                         const catalogNumber = orderData.catalogNumber;
-                        const fibras = calculateTerminaciones(catalogNumber); // Obtener fibras
+                        
+                        // 7. ¡AQUÍ USAMOS EL ÁREA DE LA TARIMA PARA EL CÁLCULO!
+                        const fibras = calculateTerminaciones(catalogNumber, areaDeLaTarima); 
 
                         if (fibras > 0) {
-                            const empaqueCaja = orderData.empaqueData.find(e => e.boxId === codigoCajaActual); // Buscar la caja
-
+                            const empaqueCaja = orderData.empaqueData.find(e => e.boxId === codigoCajaActual);
                             if (empaqueCaja && Array.isArray(empaqueCaja.serials)) {
-                                const piezas = empaqueCaja.serials.length; // Contar piezas
+                                const piezas = empaqueCaja.serials.length;
                                 if (piezas > 0) {
-                                    const terminacionesCaja = piezas * fibras; // Calcular terminaciones
-
-                                    // *** LÓGICA ORIGINAL PARA SUMAR AL TOTAL (ASEGURADA) ***
+                                    const terminacionesCaja = piezas * fibras;
                                     granTotalTerminaciones += terminacionesCaja;
                                     cajasProcesadasConTerminaciones++;
-                                    // *** FIN LÓGICA ORIGINAL ***
-
-                                    // --- LÓGICA ADICIONAL PARA EL RESUMEN ---
+                                    
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio]) { summaryByOrderCatalog[numeroOrdenLimpio] = {}; }
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber]) { summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber] = { piezas: 0, terminaciones: 0 }; }
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].piezas += piezas;
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].terminaciones += terminacionesCaja;
-                                    // --- FIN LÓGICA ADICIONAL ---
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-                                } // Fin if piezas > 0
-                            } // Fin if empaqueCaja encontrado
-                        } // Fin if fibras > 0
-                    } // Fin if orderData válido
-                } // Fin if numeroOrden y codigoCaja existen
-            } // Fin for caja
-        } // Fin for tarima
-
-        // 3. Renderizar (Pasando el total correcto y el resumen)
         console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}. Órdenes buscadas: ${ordenesConsultadas.size}. Órdenes con datos: ${ordenesConDatos.size}. Cajas sumadas: ${cajasProcesadasConTerminaciones}/${totalCajasConsultadas}.`);
         renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado, areaSeleccionada, summaryByOrderCatalog);
 
@@ -4217,9 +4247,9 @@ async function consultarTerminacionesConfirmadas() {
         const currentDashboard = doc('terminacionesDashboardContainer');
         if (currentDashboard) {
             currentDashboard.innerHTML = `<h4 style='color: var(--danger-color); text-align: center;'>Error</h4><p style='text-align: center;'>${e.message}</p>`;
-            currentDashboard.style.display = 'block'; // Asegurar visibilidad para mostrar error
+            currentDashboard.style.display = 'block';
         }
-   } finally { /* ... restauración botón igual ... */
+    } finally {
          const currentBtn = doc('calcularTerminacionesDiaBtn');
          if (currentBtn) { currentBtn.disabled = false; currentBtn.textContent = 'Calcular Terminaciones del Turno'; }
     }
@@ -4329,15 +4359,54 @@ async function getCatalogNumberForOrder(orderNumber) {
 }
 
 // Función para calcular terminaciones (requiere acceso global)
-function calculateTerminaciones(catalogNumber) {
+// --- AJUSTE: calculateTerminaciones AHORA ACEPTA UN ÁREA ---
+function calculateTerminaciones(catalogNumber, area = 'Default') {
     if (!catalogNumber || typeof catalogNumber !== 'string' || catalogNumber.length < 4) return 0;
+
+    const config = params.terminaciones_areas_config || {};
+    // Obtener reglas para el área específica, o para 'Default' si no hay
+    // Usamos 'Default' como un fallback global si el área no tiene reglas
+    const rules = config[area] || config['Default'] || []; 
+    const catalogUpper = catalogNumber.toUpperCase(); // Convertir a mayúsculas una vez
+
+    // 1. Buscar regla por prefijo
+    // Ordenamos por longitud de prefijo (de más largo a más corto) para que gane la regla más específica
+    const sortedRules = rules.sort((a, b) => b.prefijo.length - a.prefijo.length);
+    
+    for (const rule of sortedRules) {
+        if (rule.prefijo && catalogUpper.startsWith(rule.prefijo)) {
+            // ¡Encontramos una regla!
+            // La posición es 1-based, el substring es 0-based
+            const digit = (catalogNumber.substring(rule.posicion - 1, rule.posicion) || '').toUpperCase();
+            
+            if (rule.t_es_12 && digit === 'T') {
+                // console.log(`[Calc] Regla '${area}': Prefijo '${rule.prefijo}', 'T' es 12. -> 12`);
+                return 12;
+            }
+            
+            const num = parseInt(digit, 10);
+            const result = isNaN(num) ? 0 : num;
+            // console.log(`[Calc] Regla '${area}': Prefijo '${rule.prefijo}', Pos ${rule.posicion} ('${digit}'). -> ${result}`);
+            return result;
+        }
+    }
+
+    // 2. Si no hay regla con prefijo, buscar una regla "comodín" (prefijo vacío)
+    const wildcardRule = rules.find(r => r.prefijo === '');
+    if (wildcardRule) {
+        const digit = (catalogNumber.substring(wildcardRule.posicion - 1, wildcardRule.posicion) || '').toUpperCase();
+        if (wildcardRule.t_es_12 && digit === 'T') return 12;
+        const num = parseInt(digit, 10);
+        return isNaN(num) ? 0 : num;
+    }
+
+    // 3. Si no hay ninguna regla, usar la lógica original como fallback
+    // console.log(`[Calc] Sin regla para '${area}' o prefijo. Usando fallback (4to dígito).`);
     const digit = catalogNumber.substring(3, 4).toUpperCase();
     if (digit === 'T') return 12;
     const num = parseInt(digit, 10);
     return isNaN(num) ? 0 : num;
-}	   
-
-
+}
 
 
 		
@@ -4820,7 +4889,104 @@ function showProduccionCalidadConfigModal() {
             }
         }
 
+// --- ¡NUEVA FUNCIÓN! Modal de Configuración de Áreas ---
+function showAreaConfigModal() {
+    const config = params.terminaciones_areas_config || {};
+    // Clonamos las opciones del dropdown de áreas que ya existe en la vista
+    const areaOptions = doc('prodTarimas_area').innerHTML; 
 
+    const content = `
+        <div class="control-group">
+            <label for="configAreaSelect">Seleccionar Área para Configurar</label>
+            <select id="configAreaSelect" class="control-group select">
+                ${areaOptions
+                    .replace('<option value="ALL">Todas las Áreas</option>', '')
+                    .replace('value="" disabled', 'value="Default"')
+                    .replace('Cargando áreas...', 'Default (Reglas Globales)')
+                }
+            </select>
+        </div>
+        <hr style="border-color: var(--border-color); margin: 16px 0;">
+        <p style="text-align:center; color: var(--text-dark); font-size: 0.9em;">Define reglas de prefijo para los catálogos de esta área. La app usará la primera regla que coincida (la más específica). Si ninguna coincide, usará la lógica por defecto.</p>
+        <ul class="param-list" id="areaRulesList" style="max-height: 40vh; overflow-y: auto;">
+            </ul>
+        <button id="addAreaRuleBtn" class="btn btn-glass" style="width: auto; padding: 8px 16px;">Añadir Regla</button>
+        <button id="saveAreaConfigBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Configuración de Áreas</button>
+    `;
+    showModal('Configurar Cálculo de Fibras por Área', content);
+
+    const areaSelect = doc('configAreaSelect');
+    areaSelect.addEventListener('change', () => {
+        renderAreaRules(areaSelect.value);
+    });
+    
+    doc('addAreaRuleBtn').addEventListener('click', () => {
+        const list = doc('areaRulesList');
+        // Por defecto, la regla comodín (sin prefijo)
+        list.insertAdjacentHTML('beforeend', createAreaRuleHTML({ prefijo: "", posicion: 4, t_es_12: true }));
+    });
+    
+    doc('saveAreaConfigBtn').addEventListener('click', saveAreaConfig);
+    
+    renderAreaRules(areaSelect.value);
+}
+
+// --- ¡NUEVA FUNCIÓN! Helper para el modal de áreas ---
+function renderAreaRules(areaKey) {
+    const list = doc('areaRulesList');
+    if (!list) return;
+    
+    const config = params.terminaciones_areas_config || {};
+    const rules = config[areaKey] || [];
+    
+    list.innerHTML = rules.map(rule => createAreaRuleHTML(rule)).join('');
+    if (rules.length === 0) {
+        list.innerHTML = `<p style="text-align:center; color: var(--text-dark);">No hay reglas para esta área. Se usará la lógica por defecto (4to dígito).</p>`;
+    }
+}
+
+// --- ¡NUEVA FUNCIÓN! Helper para el modal de áreas ---
+function createAreaRuleHTML(rule) {
+    return `
+    <li class="param-item" style="grid-template-columns: 2fr 1fr auto auto; gap: 12px;">
+        <input type="text" class="rule-prefix" placeholder="Prefijo (ej: 123-) (Vacío para comodín)" value="${rule.prefijo || ''}">
+        <input type="number" class="rule-pos" placeholder="Pos. Dígito" value="${rule.posicion || 4}" min="1" style="text-align: center;">
+        <label style="display: flex; align-items: center; gap: 5px; font-size: 0.9em; justify-content: center; color: var(--text-secondary); cursor: pointer;">
+            <input type="checkbox" class="rule-t" ${rule.t_es_12 ? 'checked' : ''}> 'T' es 12
+        </label>
+        <button class="btn btn-danger" onclick="this.parentElement.remove()" style="padding: 6px 10px; font-size: 0.9rem;">X</button>
+    </li>
+    `;
+}
+
+// --- ¡NUEVA FUNCIÓN! Guardar la configuración de áreas ---
+async function saveAreaConfig() {
+    const modalBody = doc('modalBody');
+    const selectedArea = doc('configAreaSelect').value;
+    if (!selectedArea) {
+        showModal('Error', '<p>No se seleccionó ningún área.</p>');
+        return;
+    }
+
+    const rules = Array.from(modalBody.querySelectorAll('#areaRulesList .param-item')).map(item => ({
+        prefijo: item.querySelector('.rule-prefix').value.trim().toUpperCase(),
+        posicion: parseInt(item.querySelector('.rule-pos').value, 10) || 4,
+        t_es_12: item.querySelector('.rule-t').checked
+    }));
+
+    if (!params.terminaciones_areas_config) {
+        params.terminaciones_areas_config = {};
+    }
+    params.terminaciones_areas_config[selectedArea] = rules;
+
+    try {
+        await db.collection('report_configs').doc('terminaciones_areas_params').set(params.terminaciones_areas_config);
+        showModal('Éxito', `<p>Configuración para el área <strong>${selectedArea}</strong> guardada.</p>`);
+    } catch (e) {
+        console.error("Error guardando config de áreas:", e);
+        showModal('Error', '<p>No se pudo guardar la configuración en la base de datos.</p>');
+    }
+}
 
 // =======================================================================================
 // --- FIN: LÓGICA REPORTE PRODUCCIÓN CALIDAD ---
@@ -4829,43 +4995,45 @@ function showProduccionCalidadConfigModal() {
 
         // --- INICIO: INICIALIZACIÓN DE LA APP ---
         function initializeApp() {
-            if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
-            Promise.all([
-                loadParams('901_config'),
-                loadParams('terminaciones_config'),
-                loadParams('produccion_hora_config'),
-                loadParams('produccion_20_config'),
-                loadParams('produccion_daily_config'),
-                loadParams('produccion_calidad_config'),
-            ]).then(() => {
-                const today = new Date();
-                const pastDate = new Date();
-                pastDate.setDate(today.getDate() - 6);
+    if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
+    Promise.all([
+        loadParams('901_config'),
+        loadParams('terminaciones_config'),
+        loadParams('produccion_hora_config'),
+        loadParams('produccion_20_config'),
+        loadParams('produccion_daily_config'),
+        loadParams('produccion_calidad_config'),
+        loadParams('terminaciones_areas_config') // <-- ¡AQUÍ ESTÁ EL AJUSTE!
+    ]).then(() => {
+        const today = new Date();
+        const pastDate = new Date();
+        pastDate.setDate(today.getDate() - 6);
 
-				
-                const formatDate = (date) => {
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                };
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
 
-                doc('prod_fecha_unica').value = formatDate(today);
-                doc('prod_fecha_inicio').value = formatDate(pastDate);
-                doc('prod_fecha_fin').value = formatDate(today);
-                doc('prod20_fecha').value = formatDate(today);
-                doc('prodDaily_fecha').value = formatDate(today);
-                
-                const currentShift = getAutoCurrentShift();
-                doc('prod_turno').value = currentShift;
-                doc('prod20_turno').value = currentShift;
-                doc('prodDaily_turno').value = currentShift;
+        doc('prod_fecha_unica').value = formatDate(today);
+        doc('prod_fecha_inicio').value = formatDate(pastDate);
+        doc('prod_fecha_fin').value = formatDate(today);
+        doc('prod20_fecha').value = formatDate(today);
+        doc('prodDaily_fecha').value = formatDate(today);
+        doc('prodCalidad_fecha').value = formatDate(today);
+        
+        const currentShift = getAutoCurrentShift();
+        doc('prod_turno').value = currentShift;
+        doc('prod20_turno').value = currentShift;
+        doc('prodDaily_turno').value = currentShift;
+        doc('prodCalidad_turno').value = currentShift;
 
-                applyTheme(currentTheme);
-                Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
-                views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
-            });
-        }
+        applyTheme(currentTheme);
+        Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
+        views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
+    });
+}
         initializeApp();
     });
 </script>
