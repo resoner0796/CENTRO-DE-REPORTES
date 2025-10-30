@@ -512,52 +512,28 @@ body.light-theme .app-branding { color: var(--branding-color); }
   padding-right: 10px; /* Espacio para la barra de scroll */
 }
 		
-	@media (max-width: 900px), (max-height: 450px) {
-            body { overflow-y: auto; padding: 8px; }
-            .app-header { margin-bottom: 16px; }
-            .app-branding { font-size: 2rem; }
-            .app-title { font-size: 1rem; }
-
-            /* --- INICIO DE LOS CAMBIOS --- */
-            .main-container { 
-                grid-template-columns: 1fr; /* 1. Mantenemos una columna */
-                grid-template-rows: auto;  /* 2. Las filas se ajustan solas */
-                height: auto; 
-                gap: 12px; 
-                padding-top: 0; 
-            }
-            .sidebar { 
-                height: auto; 
-                order: 2; /* 3. El Panel de Control va en segundo lugar */
-            }
-            .main-content {
-                display: contents; /* 4. LA MAGIA: "desenvuelve" el main */
-            }
-
-            /* 5. REGLAS NUEVAS NECESARIAS para ordenar los hijos del main */
-            .main-content > .app-header {
-                order: 1; /* El Logo va primero */
-            }
-            .main-content > .card,
-            .main-content > .table-grid-container {
-                order: 3; /* Las gráficas y tablas van al final */
-            }
-            /* --- FIN DE LOS CAMBIOS --- */
-            
-            .card { padding: 16px; }
-            .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            table th, table td { padding: 8px 10px; font-size: 0.8rem; text-align: center; }
-            #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; }
-            .modal-content { width: 95%; max-height: 85vh; display: flex; flex-direction: column; }
-            #modalBody { overflow-y: auto; }
-            .param-item, .area-item { grid-template-columns: 1fr; gap: 8px; text-align: left; }
-            .param-item .btn-danger, .area-item .btn-danger { justify-self: end; }
-            .param-value-container { grid-column: 1; }
-            #fibraReportContainer .fibra-grid { grid-template-columns: 1fr; }
-            .table-grid-container { grid-template-columns: 1fr; }
-            #addPackerForm { grid-template-columns: 1fr; }
-            #packerList li { grid-template-columns: 1fr; text-align: center; gap: 4px; }
-        }
+@media (max-width: 900px), (max-height: 450px) {
+            body { overflow-y: auto; padding: 8px; }
+            .app-header { margin-bottom: 16px; }
+            .app-branding { font-size: 2rem; }
+            .app-title { font-size: 1rem; }
+            .main-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; gap: 12px; padding-top: 0; }
+            .sidebar { height: auto; }
+            .main-content { min-height: 50vh; gap: 12px; min-width: 0; }
+            .card { padding: 16px; }
+            .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            table th, table td { padding: 8px 10px; font-size: 0.8rem; text-align: center; }
+            #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; }
+            .modal-content { width: 95%; max-height: 85vh; display: flex; flex-direction: column; }
+            #modalBody { overflow-y: auto; }
+            .param-item, .area-item { grid-template-columns: 1fr; gap: 8px; text-align: left; }
+            .param-item .btn-danger, .area-item .btn-danger { justify-self: end; }
+            .param-value-container { grid-column: 1; }
+            #fibraReportContainer .fibra-grid { grid-template-columns: 1fr; }
+            .table-grid-container { grid-template-columns: 1fr; }
+            #addPackerForm { grid-template-columns: 1fr; }
+            #packerList li { grid-template-columns: 1fr; text-align: center; gap: 4px; }
+        }
     </style>
 </head>
 <body class="dark-theme">
