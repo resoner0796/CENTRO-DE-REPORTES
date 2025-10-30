@@ -512,34 +512,37 @@ body.light-theme .app-branding { color: var(--branding-color); }
   padding-right: 10px; /* Espacio para la barra de scroll */
 }
 		
-		@media (max-width: 900px), (max-height: 450px) {
+	@media (max-width: 900px), (max-height: 450px) {
             body { overflow-y: auto; padding: 8px; }
             .app-header { margin-bottom: 16px; }
             .app-branding { font-size: 2rem; }
             .app-title { font-size: 1rem; }
-            
-            /* --- AJUSTES PARA REORDENAR EN MÓVIL (CORRECTO) --- */
+
+            /* --- INICIO DE LOS CAMBIOS --- */
             .main-container { 
-                grid-template-columns: 1fr; 
-                /* Ahora definimos 3 filas: 
-                   1. Panel (auto)
-                   2. Contenido principal (1fr, toma el resto del espacio) */
-                grid-template-rows: auto 1fr; /* <-- Orden de filas: sidebar, luego main-content */
+                grid-template-columns: 1fr; /* 1. Mantenemos una columna */
+                grid-template-rows: auto;  /* 2. Las filas se ajustan solas */
                 height: auto; 
                 gap: 12px; 
                 padding-top: 0; 
             }
             .sidebar { 
                 height: auto; 
-                grid-row: 1; /* <-- EL PANEL VA A LA FILA 1 (debajo del header, ya que el header está fuera del grid) */
+                order: 2; /* 3. El Panel de Control va en segundo lugar */
             }
-            .main-content { 
-                min-height: auto; 
-                gap: 12px; 
-                min-width: 0; 
-                grid-row: 2; /* <-- EL CONTENIDO (gráficas) VA A LA FILA 2 */
+            .main-content {
+                display: contents; /* 4. LA MAGIA: "desenvuelve" el main */
             }
-            /* --- FIN DE LOS AJUSTES --- */
+
+            /* 5. REGLAS NUEVAS NECESARIAS para ordenar los hijos del main */
+            .main-content > .app-header {
+                order: 1; /* El Logo va primero */
+            }
+            .main-content > .card,
+            .main-content > .table-grid-container {
+                order: 3; /* Las gráficas y tablas van al final */
+            }
+            /* --- FIN DE LOS CAMBIOS --- */
             
             .card { padding: 16px; }
             .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
