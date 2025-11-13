@@ -607,7 +607,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
                                     <option value="ALL">Todas las Áreas</option>
                                 </select>
                             </div>
-                            <div id="packerSelectsContainer"></div>
+                            <div id="packerSelectsContainer" style="display: none;"></div>
                             <hr style="border-color: var(--border-color); margin: 24px 0;">
                             <div style="display: flex; flex-direction: column; gap: 12px;">
                                 <button id="showProduccionHoraBtn" class="btn btn-glass">Producción por Hora</button>
@@ -1106,7 +1106,6 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
         if (viewKey === 'produccionHora') {
             loadAreasForProductionReport();
-            populatePackerSelects();
         } else if (viewKey === 'produccion20') {
             const today = new Date();
             const year = today.getFullYear();
@@ -1245,21 +1244,28 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
             });
 
             doc('addPackerForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const newPacker = {
-                    id: doc('newPackerId').value.trim().toUpperCase(),
-                    area: doc('newPackerArea').value,
-                    linea: doc('newPackerLinea').value,
-                    turno: doc('newPackerTurno').value
-                };
-                if (newPacker.id && !params.produccion_hora_config.packers.some(p => p.id === newPacker.id)) {
-                    params.produccion_hora_config.packers.push(newPacker);
-                    renderPackerListInModal();
-                    doc('newPackerId').value = '';
-                } else if (newPacker.id) {
-                    alert("El ID de empacador ya existe.");
-                }
-            });
+                e.preventDefault();
+                const newPacker = {
+                    id: doc('newPackerId').value.trim().toUpperCase(),
+                    area: doc('newPackerArea').value,
+                    linea: doc('newPackerLinea').value, // Asegúrate que este sea .value (del input numérico)
+                    turno: doc('newPackerTurno').value
+                };
+
+                // --- ¡LÓGICA MEJORADA! ---
+                // Buscamos si ya existe una entrada idéntica (mismo ID, misma Línea, mismo Turno)
+                const yaExiste = params.produccion_hora_config.packers.some(
+                    p => p.id === newPacker.id && p.linea === newPacker.linea && p.turno === newPacker.turno
+                );
+
+                if (newPacker.id && !yaExiste) {
+                    params.produccion_hora_config.packers.push(newPacker);
+                    renderPackerListInModal();
+                    doc('newPackerId').value = '';
+                } else if (newPacker.id && yaExiste) {
+                    alert("Error: Ese empacador ya está registrado en esa misma línea y turno.");
+                }
+            });
 
             renderPackerListInModal();
         }
@@ -1544,7 +1550,6 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
 }
 
         function applyProduccionHoraConfig() {
-            populatePackerSelects();
         }
 
         // --- FUNCIÓN DE REEMPLAZO (JS) ---
