@@ -511,6 +511,96 @@ body.light-theme .app-branding { color: var(--branding-color); }
 #modalBody ul {
   padding-right: 10px; /* Espacio para la barra de scroll */
 }
+
+/* --- INICIO: Estilos del Nuevo Dashboard --- */
+
+.dashboard-kpi-container {
+    display: grid;
+    /* Ajuste responsivo: en pantallas chicas 1 columna, en grandes hasta 3 */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    width: 100%;
+}
+
+.kpi-card {
+    background-color: var(--surface-hover-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.kpi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.kpi-header h4 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+}
+
+.kpi-meta {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.kpi-card h1 {
+    font-size: 3.5rem; /* ¡Número Gigante! */
+    color: var(--text-primary);
+    margin: 10px 0;
+    text-align: center;
+    font-weight: 700;
+}
+
+.kpi-progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background-color: var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.kpi-progress-bar {
+    height: 100%;
+    width: 0%; /* Inicia en 0 */
+    border-radius: 6px;
+    background-color: var(--success-color); /* Color por defecto */
+    transition: width 0.5s ease-in-out; /* ¡La animación! */
+    box-shadow: 0 0 10px var(--success-color);
+}
+
+/* Colores de la barra (luego los asignamos con JS) */
+.progress-bar-green { background-color: var(--success-color); box-shadow: 0 0 10px var(--success-color); }
+.progress-bar-yellow { background-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+.progress-bar-red { background-color: var(--danger-color); box-shadow: 0 0 10px var(--danger-color); }
+
+.kpi-percent {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: right;
+    margin-top: 4px;
+}
+
+#liveFeedContainer p {
+    font-size: 0.9rem;
+    margin: 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+#liveFeedContainer p:last-child {
+    border-bottom: none;
+}
+
+/* --- FIN: Estilos del Nuevo Dashboard --- */
 		
 @media (max-width: 900px), (max-height: 450px) {
             body { overflow-y: auto; padding: 8px; }
@@ -548,6 +638,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
         <main class="card animated-startup" style="animation-delay: 0.1s;">
             <div class="menu-container">
                 <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
+                <button id="liveDashboardBtn" class="btn" style="grid-column: 1 / -1; background-color: var(--success-color); color: var(--primary-text-color);">Vista Producción</button>
                 <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
                 <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
                 <button id="reporteProduccionCalidadBtn" class="btn">Reporte de Producción Calidad</button>
@@ -1006,6 +1097,84 @@ body.light-theme .app-branding { color: var(--branding-color); }
         </div>
     </div>
 
+<div id="viewLiveDashboard" style="display: none; opacity: 0;">
+    <div class="main-container" style="height: calc(100vh - 32px);">
+        
+        <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+            <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+                <div class="sidebar-header">
+                    <h3>Dashboard en Vivo</h3>
+                    <div>
+                        <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+                        <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                            <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div style="flex-grow: 1; overflow-y: auto; padding-right: 8px;">
+                    <h4 id="liveTurnoTitle" style="text-align: center;">Turno: Cargando...</h4>
+                    <div class="card" style="margin-top: 20px;">
+                        <h5>Último Movimiento</h5>
+                        <div id="liveFeedContainer">
+                            <p id="liveFeedContent" style="color: var(--text-secondary); font-style: italic;">Esperando datos...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+            <div class="dashboard-kpi-container">
+                
+                <div class="kpi-card" id="kpi-linea-1">
+                    <div class="kpi-header">
+                        <h4>Línea 1</h4>
+                        <span id="kpi-linea-1-meta" class="kpi-meta">vs 5280</span>
+                    </div>
+                    <h1 id="kpi-linea-1-total">0</h1>
+                    <div class="kpi-progress-bar-container">
+                        <div id="kpi-linea-1-progress" class="kpi-progress-bar" style="width: 0%;"></div>
+                    </div>
+                    <span id="kpi-linea-1-percent" class="kpi-percent">0%</span>
+                </div>
+
+                <div class="kpi-card" id="kpi-linea-2">
+                    <div class="kpi-header">
+                        <h4>Línea 2</h4>
+                        <span id="kpi-linea-2-meta" class="kpi-meta">vs 5280</span>
+                    </div>
+                    <h1 id="kpi-linea-2-total">0</h1>
+                    <div class="kpi-progress-bar-container">
+                        <div id="kpi-linea-2-progress" class="kpi-progress-bar" style="width: 0%;"></div>
+                    </div>
+                    <span id="kpi-linea-2-percent" class="kpi-percent">0%</span>
+                </div>
+
+                <div class="kpi-card" id="kpi-linea-3">
+                    <div class="kpi-header">
+                        <h4>Línea 3</h4>
+                        <span id="kpi-linea-3-meta" class="kpi-meta">vs 5280</span>
+                    </div>
+                    <h1 id="kpi-linea-3-total">0</h1>
+                    <div class="kpi-progress-bar-container">
+                        <div id="kpi-linea-3-progress" class="kpi-progress-bar" style="width: 0%;"></div>
+                    </div>
+                    <span id="kpi-linea-3-percent" class="kpi-percent">0%</span>
+                </div>
+                
+                </div>
+
+            <div class="card" style="flex-grow: 1; display: flex; flex-direction: column;">
+                <h5>Producción por Hora (En Vivo)</h5>
+                <div id="liveChartContainer" style="flex-grow: 1; position: relative; min-height: 35vh;">
+                    <canvas id="liveProduccionChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
     <div id="modalOverlay" class="modal-overlay"><div id="modalContent" class="modal-content"><span id="modalClose" class="modal-close">&times;</span><h2 id="modalTitle" class="modal-title"></h2><div id="modalBody" style="margin-top:16px; color: var(--text-secondary);"></div></div></div>
 </body>
    <script>
@@ -1025,7 +1194,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
             produccionDaily: doc('viewProduccionDaily'),
             produccionCalidad: doc('viewProduccionCalidad'),
             tarimasConfirmadas: doc('viewTarimasConfirmadas'), // <-- AÑADE ESTA
-            boxID: doc('viewBoxID')
+            boxID: doc('viewBoxID'),
+            liveDashboard: doc('viewLiveDashboard')
         };
         let session = { isMaster: false };
         let activeView = 'menu';
@@ -1088,6 +1258,8 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         let graficaSemanalDailyInstance = null;
         let graficaSemanalCalidadInstance = null;
         let weeklyProductionChart = null;
+        let liveListener = null; // El "listener" que escucha en vivo
+        let liveProductionChart = null; // La gráfica de barras en vivo
 
 
         // --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
@@ -1162,7 +1334,13 @@ doc('abrirModalSemanalBtn').addEventListener('click', abrirModalReporteSemanal);
         doc('consultarTarimasBtn').addEventListener('click', consultarTarimas);
 		doc('calcularTerminacionesDiaBtn').addEventListener('click', consultarTerminacionesConfirmadas);
 		doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
-document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => switchView('menu')));
+doc('liveDashboardBtn').addEventListener('click', () => showLiveDashboard());
+document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => {
+        if (activeView === 'liveDashboard') {
+            stopLiveDashboard(); // Apagamos el listener si estábamos en el dashboard
+        }
+        switchView('menu');
+    }));
 
         let currentTheme = localStorage.getItem('theme') || 'dark';
         function applyTheme(theme) {
@@ -1773,6 +1951,98 @@ async function loadAreasForTarimasReport() {
         areaSelect.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
     }
 }       
+
+// =======================================================================================
+// --- INICIO: LÓGICA DEL DASHBOARD EN VIVO ---
+// =======================================================================================
+
+function showLiveDashboard() {
+    const turnoActual = getAutoCurrentShift();
+    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual}`;
+
+    // 1. Inicializar la gráfica (vacía por ahora)
+    const ctx = doc('liveProduccionChart').getContext('2d');
+    if (liveProductionChart) {
+        liveProductionChart.destroy();
+    }
+    // (Aquí pegaremos la lógica de la gráfica de barras en el siguiente paso)
+    // Por ahora, solo cambiamos de vista
+    switchView('liveDashboard');
+
+    // 2. Apagar listener viejo (si existe)
+    if (liveListener) {
+        console.log("Deteniendo listener anterior...");
+        liveListener();
+        liveListener = null;
+    }
+
+    // 3. ¡EL CEREBRO! Enganchar el nuevo listener
+    console.log(`Iniciando listener en vivo para el turno: ${turnoActual}`);
+    const { startTime } = getShiftDateRange(new Date().toISOString().split('T')[0], turnoActual); // Obtenemos la hora de inicio del turno
+    
+    // NOTA: Esto va a buscar en 'scaneos_en_vivo', la colección que aún no creamos.
+    liveListener = db.collection("scaneos_en_vivo")
+        .where("turno", "==", turnoActual)
+        .where("timestamp", ">=", startTime) // Solo de este turno
+        .orderBy("timestamp", "desc") // Empezar por los más nuevos
+        .onSnapshot(querySnapshot => {
+            
+            console.log("¡Datos en vivo recibidos!", querySnapshot.size);
+            let todosLosScaneos = [];
+            querySnapshot.forEach(doc => {
+                todosLosScaneos.push(doc.data());
+            });
+            
+            // 4. Llamar a la función que actualiza la UI
+            updateLiveDashboard(todosLosScaneos, startTime);
+
+        }, error => {
+            console.error("¡Error en el listener en vivo!:", error);
+            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase.</p>`;
+        });
+}
+
+function stopLiveDashboard() {
+    if (liveListener) {
+        console.log("Deteniendo listener en vivo...");
+        liveListener(); // Esta función "apaga" el onSnapshot
+        liveListener = null;
+    }
+    if (liveProductionChart) {
+        liveProductionChart.destroy();
+        liveProductionChart = null;
+    }
+}
+
+function updateLiveDashboard(datos, shiftStartTime) {
+    if (!datos || datos.length === 0) {
+        doc('liveFeedContent').innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Esperando primer escaneo del turno...</p>`;
+        return;
+    }
+
+    // --- 1. ACTUALIZAR FEED DE ACTIVIDAD ---
+    const ultimoScaneo = datos[0]; // Como ordenamos por timestamp 'desc', el 0 es el más nuevo
+    doc('liveFeedContent').innerHTML = `
+        <p>
+            <strong>Línea:</strong> ${ultimoScaneo.linea || 'N/A'}<br>
+            <strong>Empacador:</strong> ${ultimoScaneo.empacador || 'N/A'}<br>
+            <strong>Hora:</strong> ${new Date().toLocaleTimeString()}
+        </p>
+    `;
+
+    // --- (En el siguiente paso, aquí irá la lógica para recalcular y actualizar KPIs y Gráfica) ---
+    console.log("Aquí actualizaremos la gráfica y los KPIs...");
+    // Por ahora, solo ponemos un placeholder:
+    doc('kpi-linea-1-total').textContent = '...';
+    doc('kpi-linea-2-total').textContent = '...';
+    doc('kpi-linea-3-total').textContent = '...';
+}
+// =======================================================================================
+// --- FIN: LÓGICA DEL DASHBOARD EN VIVO ---
+// =======================================================================================
+
+
+
         // =======================================================================================
         // --- INICIO: LÓGICA REPORTE PRODUCCIÓN POR SEMANA DAILY ---
         // =======================================================================================
