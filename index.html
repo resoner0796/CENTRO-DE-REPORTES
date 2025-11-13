@@ -600,7 +600,40 @@ body.light-theme .app-branding { color: var(--branding-color); }
     border-bottom: none;
 }
 
-/* --- FIN: Estilos del Nuevo Dashboard --- */
+#viewLiveDashboard .main-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: 
+        "sidebar"
+        "main";
+    height: calc(100vh - 32px);
+}
+
+#viewLiveDashboard .sidebar {
+    position: static; 
+    max-height: none;
+    top: 0;
+    gap: 0;
+}
+
+#viewLiveDashboard .sidebar .card {
+    height: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+#viewLiveDashboard .sidebar .card > div:not(.sidebar-header) {
+    display: none; 
+}
+#viewLiveDashboard .sidebar .card .sidebar-header {
+    width: 100%;
+}
+
+#viewLiveDashboard .main-content {
+    grid-area: main;
+}
 		
 @media (max-width: 900px), (max-height: 450px) {
             body { overflow-y: auto; padding: 8px; }
@@ -1098,12 +1131,12 @@ body.light-theme .app-branding { color: var(--branding-color); }
     </div>
 
 <div id="viewLiveDashboard" style="display: none; opacity: 0;">
-    <div class="main-container" style="height: calc(100vh - 32px);">
+    <div class="main-container">
         
         <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
-            <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+            <div class="card">
                 <div class="sidebar-header">
-                    <h3>Dashboard en Vivo</h3>
+                    <h3 id="liveTurnoTitle">Turno: Cargando...</h3>
                     <div>
                         <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
                         <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
@@ -1112,57 +1145,12 @@ body.light-theme .app-branding { color: var(--branding-color); }
                         </button>
                     </div>
                 </div>
-                <div style="flex-grow: 1; overflow-y: auto; padding-right: 8px;">
-                    <h4 id="liveTurnoTitle" style="text-align: center;">Turno: Cargando...</h4>
-                    <div class="card" style="margin-top: 20px;">
-                        <h5>Último Movimiento</h5>
-                        <div id="liveFeedContainer">
-                            <p id="liveFeedContent" style="color: var(--text-secondary); font-style: italic;">Esperando datos...</p>
-                        </div>
-                    </div>
-                </div>
             </div>
         </aside>
 
         <main class="main-content animated-startup" style="animation-delay: 0.2s;">
-            <div class="dashboard-kpi-container">
-                
-                <div class="kpi-card" id="kpi-linea-1">
-                    <div class="kpi-header">
-                        <h4>Línea 1</h4>
-                        <span id="kpi-linea-1-meta" class="kpi-meta">vs 5280</span>
-                    </div>
-                    <h1 id="kpi-linea-1-total">0</h1>
-                    <div class="kpi-progress-bar-container">
-                        <div id="kpi-linea-1-progress" class="kpi-progress-bar" style="width: 0%;"></div>
-                    </div>
-                    <span id="kpi-linea-1-percent" class="kpi-percent">0%</span>
-                </div>
-
-                <div class="kpi-card" id="kpi-linea-2">
-                    <div class="kpi-header">
-                        <h4>Línea 2</h4>
-                        <span id="kpi-linea-2-meta" class="kpi-meta">vs 5280</span>
-                    </div>
-                    <h1 id="kpi-linea-2-total">0</h1>
-                    <div class="kpi-progress-bar-container">
-                        <div id="kpi-linea-2-progress" class="kpi-progress-bar" style="width: 0%;"></div>
-                    </div>
-                    <span id="kpi-linea-2-percent" class="kpi-percent">0%</span>
-                </div>
-
-                <div class="kpi-card" id="kpi-linea-3">
-                    <div class="kpi-header">
-                        <h4>Línea 3</h4>
-                        <span id="kpi-linea-3-meta" class="kpi-meta">vs 5280</span>
-                    </div>
-                    <h1 id="kpi-linea-3-total">0</h1>
-                    <div class="kpi-progress-bar-container">
-                        <div id="kpi-linea-3-progress" class="kpi-progress-bar" style="width: 0%;"></div>
-                    </div>
-                    <span id="kpi-linea-3-percent" class="kpi-percent">0%</span>
-                </div>
-                
+            
+            <div class="dashboard-kpi-container" id="kpiCardContainer">
                 </div>
 
             <div class="card" style="flex-grow: 1; display: flex; flex-direction: column;">
@@ -1171,6 +1159,14 @@ body.light-theme .app-branding { color: var(--branding-color); }
                     <canvas id="liveProduccionChart"></canvas>
                 </div>
             </div>
+
+            <div class="card" style="margin-top: 16px;">
+                <h5>Último Movimiento</h5>
+                <div id="liveFeedContainer">
+                    <p id="liveFeedContent" style="color: var(--text-secondary); font-style: italic;">Esperando datos...</p>
+                </div>
+            </div>
+            
         </main>
     </div>
 </div>
@@ -2014,28 +2010,126 @@ function stopLiveDashboard() {
     }
 }
 
-function updateLiveDashboard(datos, shiftStartTime) {
-    if (!datos || datos.length === 0) {
-        doc('liveFeedContent').innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Esperando primer escaneo del turno...</p>`;
-        return;
-    }
+// --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
+function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadoresPorLinea) {
+    let allPackedItems = [];
+    let lastScan = { timestamp: new Date(0), empacador: 'N/A', linea: 'N/A' };
+    const totalsByLine = {}; // Objeto para KPIs
+    const hourlyBins = Array(12).fill(0).map(() => ({})); // Array para la gráfica
+    const lineasEncontradas = new Set(); // Para saber qué líneas tienen datos
 
-    // --- 1. ACTUALIZAR FEED DE ACTIVIDAD ---
-    const ultimoScaneo = datos[0]; // Como ordenamos por timestamp 'desc', el 0 es el más nuevo
-    doc('liveFeedContent').innerHTML = `
-        <p>
-            <strong>Línea:</strong> ${ultimoScaneo.linea || 'N/A'}<br>
-            <strong>Empacador:</strong> ${ultimoScaneo.empacador || 'N/A'}<br>
-            <strong>Hora:</strong> ${new Date().toLocaleTimeString()}
-        </p>
-    `;
+    // 1. PROCESAR TODOS LOS DATOS (Iterar órdenes, cajas y seriales)
+    allOrders.forEach(order => {
+        // El empaqueData que viene de Firebase es un MAPA, no un array
+        const empaqueMap = (order.empaqueData && typeof order.empaqueData.forEach === 'function') 
+            ? order.empaqueData 
+            : new Map(Object.entries(order.empaqueData || {})); // Convertir si es array u objeto (código viejo)
 
-    // --- (En el siguiente paso, aquí irá la lógica para recalcular y actualizar KPIs y Gráfica) ---
-    console.log("Aquí actualizaremos la gráfica y los KPIs...");
-    // Por ahora, solo ponemos un placeholder:
-    doc('kpi-linea-1-total').textContent = '...';
-    doc('kpi-linea-2-total').textContent = '...';
-    doc('kpi-linea-3-total').textContent = '...';
+        empaqueMap.forEach(serialsInBox => { // Iterar sobre los valores del Mapa
+            if (Array.isArray(serialsInBox)) {
+                serialsInBox.forEach(item => {
+                    const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
+                    if (!packedDate) return;
+
+                    const { shift } = getWorkShiftAndDate(packedDate);
+
+                    // Checamos si el serial pertenece al turno que estamos viendo
+                    if (shift === turnoActual) {
+                        const empacador = (item['Employee ID'] || '').toString().toUpperCase();
+                        let lineaAsignada = null;
+
+                        // Buscar en qué línea está registrado el empacador
+                        for (const [lineaNum, setDeEmpacadores] of empacadoresPorLinea.entries()) {
+                            if (setDeEmpacadores.has(empacador)) {
+                                lineaAsignada = `Línea ${lineaNum}`;
+                                break;
+                            }
+                        }
+
+                        if (lineaAsignada) {
+                            lineasEncontradas.add(lineaAsignada);
+                            const char = (order.catalogNumber || '').substring(3, 4).toUpperCase();
+                            const terminaciones = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+
+                            // 1. Sumar a Totales (KPIs)
+                            if (!totalsByLine[lineaAsignada]) totalsByLine[lineaAsignada] = { term: 0, pzas: 0 };
+                            totalsByLine[lineaAsignada].term += terminaciones;
+                            totalsByLine[lineaAsignada].pzas++;
+
+                            // 2. Sumar a Bines por Hora (Gráfica)
+                            const diffMillis = packedDate - shiftStartTime;
+                            const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
+                            if (hourIndex >= 0 && hourIndex < 12) {
+                                if (!hourlyBins[hourIndex][lineaAsignada]) hourlyBins[hourIndex][lineaAsignada] = 0;
+                                hourlyBins[hourIndex][lineaAsignada] += terminaciones;
+                            }
+
+                            // 3. Actualizar Último Movimiento
+                            if (packedDate > lastScan.timestamp) {
+                                lastScan = { timestamp: packedDate, empacador, linea: lineaAsignada };
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    });
+
+    const lineasOrdenadas = [...lineasEncontradas].sort();
+
+    // --- 2. ACTUALIZAR FEED DE ACTIVIDAD ---
+    if (lastScan.timestamp > 0) {
+        doc('liveFeedContent').innerHTML = `
+            <p>
+                <strong>Línea:</strong> ${lastScan.linea}<br>
+                <strong>Empacador:</strong> ${lastScan.empacador}<br>
+                <strong>Hora:</strong> ${lastScan.timestamp.toLocaleTimeString()}
+            </p>
+        `;
+    } else {
+        doc('liveFeedContent').innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Esperando primer escaneo del turno...</p>`;
+    }
+
+    // --- 3. ACTUALIZAR TARJETAS (KPIs) --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+    const metaTurno = 5280; // La meta que definimos
+    const kpiContainer = doc('kpiCardContainer');
+    let kpiHtml = ''; // String vacío para construir el HTML
+
+    // Recorrer las líneas que SÍ tienen datos
+    lineasOrdenadas.forEach(lineaNombre => {
+        const lineaNumero = lineaNombre.split(' ')[1]; // Saca '1' de 'Línea 1'
+        
+        const totalTerm = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].term) ? totalsByLine[lineaNombre].term : 0;
+        const percent = (totalTerm / metaTurno) * 100;
+        let progressClass = 'progress-bar-red';
+        if (percent >= 80) progressClass = 'progress-bar-green';
+        else if (percent >= 40) progressClass = 'progress-bar-yellow';
+
+        // Construir el HTML de la tarjeta
+        kpiHtml += `
+            <div class="kpi-card" id="kpi-linea-${lineaNumero}">
+                <div class="kpi-header">
+                    <h4>${lineaNombre}</h4>
+                    <span id="kpi-linea-${lineaNumero}-meta" class="kpi-meta">vs ${metaTurno}</span>
+                </div>
+                <h1 id="kpi-linea-${lineaNumero}-total">${totalTerm.toLocaleString()}</h1>
+                <div class="kpi-progress-bar-container">
+                    <div id="kpi-linea-${lineaNumero}-progress" class="kpi-progress-bar ${progressClass}" style="width: ${Math.min(percent, 100)}%;"></div>
+                </div>
+                <span id="kpi-linea-${lineaNumero}-percent" class="kpi-percent">${percent.toFixed(1)}%</span>
+            </div>
+        `;
+    });
+
+    // Si no hay líneas, mostrar un placeholder
+    if (lineasOrdenadas.length === 0) {
+        kpiContainer.innerHTML = '<p style="color: var(--text-secondary); text-align: center; width: 100%; grid-column: 1 / -1;">Esperando datos de producción para las líneas...</p>';
+    } else {
+        kpiContainer.innerHTML = kpiHtml; // Inyectar el HTML
+    }
+
+    // --- 4. ACTUALIZAR GRÁFICA DE BARRAS ---
+    renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
 // =======================================================================================
 // --- FIN: LÓGICA DEL DASHBOARD EN VIVO ---
