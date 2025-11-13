@@ -3442,6 +3442,7 @@ async function generarReportePorHora() {
     // --- INICIO DE LA MODIFICACIÓN DINÁMICA ---
     const goals = Array(12).fill(480); // Metas (esto sigue igual)
     goals[1] = 360; goals[5] = 280; goals[8] = 360; 
+    const visualGoalLine = Array(12).fill(480);
 
     const hourlyData = {}; // { 0: {}, 1: {}, ... 11: {} }
     const labels = [];
@@ -3510,7 +3511,7 @@ async function generarReportePorHora() {
     dynamicDatasets.unshift({ 
         type: 'line', 
         label: 'Meta', 
-        data: goals, // Usamos el array de metas que definimos arriba
+        data: visualGoalLine,// Usamos el array de metas que definimos arriba
         borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), 
         borderWidth: 2, 
         borderDash: [5, 5], 
