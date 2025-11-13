@@ -3504,11 +3504,27 @@ async function generarReportePorHora() {
         }
 
         // --- FUNCIÓN DE REEMPLAZO (renderProductionChart) ---
-        function renderProductionChart(data, shiftStartTime, turno) {
-    const ctx = doc('produccionChart').getContext('2d');
-    if (productionChart) productionChart.destroy();
+function renderProductionChart(data, shiftStartTime, turno) {
+    // --- INICIO DEL ARREGLO ---
+    const canvas = doc('produccionChart'); // 1. Obtenemos el <canvas>
+    if (!canvas) { // 2. Seguridad por si no lo encuentra
+        console.error("renderProductionChart: No se encontró el canvas 'produccionChart'.");
+        return; 
+    }
+    const ctx = canvas.getContext('2d'); // 3. Obtenemos el contexto
+
+    // 4. ¡EL ARREGLO! Primero destruimos el chart viejo, si existe
+    if (productionChart) {
+        productionChart.destroy();
+    }
+
+    // 5. ¡EL ARREGLO! Limpiamos a la fuerza el canvas (crucial en móviles)
+    // Esto ahora se hace SIEMPRE, para asegurar que la memoria se libere
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    // --- FIN DEL ARREGLO ---
+
     if(data.length === 0){
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        // Ya no necesitamos el clearRect aquí, solo el resto
         doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
     }
 
