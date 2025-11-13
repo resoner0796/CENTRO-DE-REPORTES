@@ -2491,6 +2491,79 @@ async function loadAreasForTarimasReport() {
             }
         }
 
+// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (después de consultarReporteSemanal) ---
+
+function renderGraficaSemanal(datos, labels, turnos) {
+    const ctx = doc('graficaSemanal').getContext('2d');
+    if (graficaSemanalInstance) {
+        graficaSemanalInstance.destroy();
+    }
+
+    const colors = [
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(255, 206, 86, 0.7)'
+    ];
+
+    // Mapa para que T45 siempre sea azul, T46 rojo, etc.
+    const turnosMap = { 'T45': 0, 'T46': 1, 'T47': 2, 'T48': 3 };
+
+    const datasets = turnos.map(turno => ({
+        label: `Terminaciones ${turno}`,
+        data: labels.map(fecha => (datos[fecha] && datos[fecha][turno]) ? datos[fecha][turno] : 0),
+        backgroundColor: colors[turnosMap[turno] % colors.length]
+    }));
+
+    graficaSemanalInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.map(f =>
+                new Date(f + 'T12:00:00').toLocaleDateString('es-MX', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                })
+            ),
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: 'var(--chart-tick-color)' },
+                    grid: { color: 'var(--chart-grid-color)' },
+                    title: {
+                        display: true,
+                        text: 'Total Terminaciones',
+                        color: 'var(--chart-tick-color)'
+                    }
+                },
+                x: {
+                    ticks: { color: 'var(--chart-tick-color)' },
+                    grid: { color: 'var(--chart-grid-color)' }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { color: 'var(--text-primary)' }
+                },
+                datalabels: {
+                    color: 'white',
+                    font: { weight: 'bold' },
+                    formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    updateChartTheme();
+}
+
         function renderGraficaSemanalProduccion(datos, labels) {
     const ctx = doc('produccionSemanalChart').getContext('2d');
     if (weeklyProductionChart) {
