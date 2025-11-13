@@ -607,14 +607,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
                                     <option value="ALL">Todas las Áreas</option>
                                 </select>
                             </div>
-                            <div class="control-group" style="display: none;">
-                                <label for="prod_linea1_packer">Empacador Línea 1</label>
-                                <select id="prod_linea1_packer"></select>
-                            </div>
-                            <div class="control-group" style="display: none;">
-                                <label for="prod_linea2_packer">Empacador Línea 2</label>
-                                <select id="prod_linea2_packer"></select>
-                            </div>
+                            <div id="packerSelectsContainer"></div>
                             <hr style="border-color: var(--border-color); margin: 24px 0;">
                             <div style="display: flex; flex-direction: column; gap: 12px;">
                                 <button id="showProduccionHoraBtn" class="btn btn-glass">Producción por Hora</button>
@@ -658,26 +651,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
                         </div>
                     </div>
 
-                    <div class="table-grid-container" id="produccionTablesGrid">
-                        <div class="card table-container">
-                            <h5>Producción Línea 1</h5>
-                            <div class="table-wrapper">
-                                <table id="dataTableProduccionL1">
-                                    <thead><tr><th>Configure los filtros y genere el reporte.</th></tr></thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div class="card table-container">
-                             <h5>Producción Línea 2</h5>
-                            <div class="table-wrapper">
-                                <table id="dataTableProduccionL2">
-                                    <thead><tr><th>Configure los filtros y genere el reporte.</th></tr></thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="table-grid-container" id="produccionTablesGrid" style="grid-template-columns: 1fr 1fr;">
+                                            </div>
                 </main>
             </div>
         </div>
@@ -1107,8 +1082,7 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         let production20Chart = null;
         let productionDailyChart = null;
         let productionCalidadChart = null;
-        let fiberPieChart1 = null;
-        let fiberPieChart2 = null;
+        let fiberPieCharts = [];
         let productionReportData = null;
         let graficaSemanalInstance = null;
         let graficaSemanalDailyInstance = null;
@@ -1251,12 +1225,12 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
                     <div class="collapsible-content">
                         <p>Añada, edite o elimine empacadores para autocompletar en el panel de control. Los cambios se guardan al presionar el botón de abajo.</p>
                         <form id="addPackerForm">
-                            <input type="text" id="newPackerId" placeholder="ID Empacador" required>
-                            <select id="newPackerArea">${doc('prod_area').innerHTML}</select>
-                            <select id="newPackerLinea" required><option value="1">Línea 1</option><option value="2">Línea 2</option></select>
-                            <select id="newPackerTurno" required>${doc('prod_turno').innerHTML}</select>
-                            <button type="submit" class="btn" style="padding: 8px 12px; font-size: 1rem;">+</button>
-                        </form>
+                            <input type="text" id="newPackerId" placeholder="ID Empacador" required>
+                            <select id="newPackerArea">${doc('prod_area').innerHTML}</select>
+                            <input type="number" id="newPackerLinea" placeholder="Línea #" required min="1" style="width: 100%; padding: 8px; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary);">
+                            <select id="newPackerTurno" required>${doc('prod_turno').innerHTML}</select>
+                            <button type="submit" class="btn" style="padding: 8px 12px; font-size: 1rem;">+</button>
+                        </form>
                         <ul id="packerList"></ul>
                     </div>
                 </div>
@@ -1573,27 +1547,49 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
             populatePackerSelects();
         }
 
-        function populatePackerSelects() {
-            const turno = doc('prod_turno').value;
-            const area = doc('prod_area').value;
-            const packers = params.produccion_hora_config.packers || [];
+        // --- FUNCIÓN DE REEMPLAZO (JS) ---
+        function populatePackerSelects() {
+            const turno = doc('prod_turno').value;
+            const area = doc('prod_area').value;
+            const packers = params.produccion_hora_config.packers || [];
+            const container = doc('packerSelectsContainer');
+            
+            // 1. Encontrar todas las líneas únicas para este turno/área
+            const filteredPackers = packers.filter(p => p.turno === turno && (p.area === area || area === 'ALL' || p.area === 'ALL'));
+            const lineasUnicas = [...new Set(filteredPackers.map(p => p.linea))].sort((a, b) => a - b);
 
-            const filterAndPopulate = (linea, selectId) => {
-                const select = doc(selectId);
-                const currentSelection = select.value;
-                select.innerHTML = '<option value="" disabled selected>Seleccionar...</option>';
-                const filteredPackers = packers.filter(p => p.linea === linea && p.turno === turno && (p.area === area || area === 'ALL' || p.area === 'ALL'));
-                filteredPackers.forEach(p => {
-                    select.innerHTML += `<option value="${p.id}">${p.id}</option>`;
-                });
-                if (filteredPackers.some(p => p.id === currentSelection)) {
-                    select.value = currentSelection;
-                }
-            };
+            // 2. Guardar selecciones actuales antes de limpiar
+            const currentSelections = {};
+            container.querySelectorAll('select').forEach(select => {
+                currentSelections[select.id] = select.value;
+            });
+            
+            // 3. Limpiar y regenerar
+            container.innerHTML = '';
+            
+            lineasUnicas.forEach(linea => {
+                const selectId = `prod_linea${linea}_packer`;
+                const packersDeLinea = filteredPackers.filter(p => p.linea === linea);
+                
+                let optionsHtml = '<option value="" disabled selected>Seleccionar...</option>';
+                packersDeLinea.sort((a,b) => a.id.localeCompare(b.id)).forEach(p => {
+                    optionsHtml += `<option value="${p.id}">${p.id}</option>`;
+                });
 
-            filterAndPopulate('1', 'prod_linea1_packer');
-            filterAndPopulate('2', 'prod_linea2_packer');
-        }
+                const controlGroup = `
+                    <div class="control-group" style="display: block;">
+                        <label for="${selectId}">Empacador Línea ${linea}</label>
+                        <select id="${selectId}">${optionsHtml}</select>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', controlGroup);
+
+                // 4. Restaurar selección si existía
+                if (currentSelections[selectId] && packersDeLinea.some(p => p.id === currentSelections[selectId])) {
+                    doc(selectId).value = currentSelections[selectId];
+                }
+            });
+        }
         doc('prod_turno').addEventListener('change', populatePackerSelects);
         doc('prod_area').addEventListener('change', populatePackerSelects);
 
@@ -3107,102 +3103,171 @@ async function loadAreasForTarimasReport() {
             }
         }
 
-        async function generarReportePorHora() {
-            const btn = doc('generarReporteProduccionBtn');
-            btn.disabled = true; btn.textContent = 'Cargando datos...';
-            doc('exportChartBtn').style.display = 'none';
-            try {
-                const selectedDateStr = doc('prod_fecha_unica').value;
-                const selectedTurno = doc('prod_turno').value;
-                const selectedArea = doc('prod_area').value;
-                
-                const todosLosEmpacadores = params.produccion_hora_config.packers || [];
-                const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
-                    (p.area === selectedArea || selectedArea === 'ALL') && p.turno === selectedTurno
-                );
-                const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
-                const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
+        // --- FUNCIÓN DE REEMPLAZO (AHORA SÍ, LIMPIA) ---
+async function generarReportePorHora() {
+    const btn = doc('generarReporteProduccionBtn');
+    btn.disabled = true; btn.textContent = 'Cargando datos...';
+    doc('exportChartBtn').style.display = 'none';
+    
+    // Limpiar tablas anteriores
+    const tablesGrid = doc('produccionTablesGrid');
+    tablesGrid.innerHTML = ''; // Limpiamos el contenedor
 
-                if (!selectedDateStr) { showModal('Error', '<p>Por favor, selecciona una fecha.</p>'); return; }
-                
-                const { startTime, endTime } = getShiftDateRange(selectedDateStr, selectedTurno);
-                const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
-                
-                const snapshot = await query.get();
-                if (snapshot.empty) {
-                    showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
-                    renderProductionTable([], 'dataTableProduccionL1', 'Línea 1');
-                    renderProductionTable([], 'dataTableProduccionL2', 'Línea 2');
-                    renderProductionChart([], startTime, selectedTurno);
-                    productionReportData = [];
-                    return;
-                }
-                
-                let allPackedItems = [];
-                snapshot.forEach(orderDoc => {
-                    const orderData = orderDoc.data();
-                    if (Array.isArray(orderData.empaqueData)) {
-                        orderData.empaqueData.forEach(box => {
-                            if (Array.isArray(box.serials)) {
-                                box.serials.forEach(item => {
-                                    const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
-                                    if (packedDate && packedDate >= startTime && packedDate <= endTime) {
-                                        const empacador = (item['Employee ID'] || '').toString().toUpperCase();
-                                        let linea = null;
-                                        if (empacadoresL1.includes(empacador)) {
-                                            linea = 'Línea 1';
-                                        } else if (empacadoresL2.includes(empacador)) {
-                                            linea = 'Línea 2';
-                                        }
+    try {
+        const selectedDateStr = doc('prod_fecha_unica').value;
+        const selectedTurno = doc('prod_turno').value;
+        const selectedArea = doc('prod_area').value;
+        
+        const todosLosEmpacadores = params.produccion_hora_config.packers || [];
+        const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
+            (p.area === selectedArea || selectedArea === 'ALL' || p.area === 'ALL') && p.turno === selectedTurno
+        );
 
-                                        if (linea) {
-                                            allPackedItems.push({
-                                                orden: orderDoc.id, catalogo: orderData.catalogNumber || 'N/A',
-                                                empacador: empacador, timestamp: packedDate,
-                                                linea: linea,
-                                                boxId: box.boxId || 'SIN_CAJA'
-                                            });
-                                        }
+        // --- INICIO DEL CAMBIO ---
+        // 1. Crear un mapa de empacadores por línea
+        const empacadoresPorLinea = new Map();
+        const lineasEnReporte = new Set();
+        empacadoresFiltrados.forEach(p => {
+            const lineaNum = String(p.linea);
+            if (!empacadoresPorLinea.has(lineaNum)) {
+                empacadoresPorLinea.set(lineaNum, new Set());
+            }
+            empacadoresPorLinea.get(lineaNum).add(p.id);
+            lineasEnReporte.add(lineaNum);
+        });
+        
+        // 2. Crear dinámicamente los contenedores de las tablas
+        const lineasOrdenadas = [...lineasEnReporte].sort((a, b) => a - b);
+        if (lineasOrdenadas.length === 0) {
+            showModal('Sin Empacadores', '<p>No se encontraron empacadores configurados para esta Área y Turno en el panel de Configuración.</p>');
+            renderProductionChart([], null, selectedTurno);
+            productionReportData = [];
+            return;
+        }
+
+        // Ajustar el grid-template-columns basado en cuántas líneas hay
+        tablesGrid.style.gridTemplateColumns = `repeat(${lineasOrdenadas.length}, 1fr)`;
+
+        lineasOrdenadas.forEach(linea => {
+            const tableId = `dataTableProduccionL${linea}`;
+            const tableHtml = `
+                <div class="card table-container">
+                    <h5>Producción Línea ${linea}</h5>
+                    <div class="table-wrapper">
+                        <table id="${tableId}">
+                            <thead><tr><th>Cargando...</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            tablesGrid.insertAdjacentHTML('beforeend', tableHtml);
+        });
+        // --- FIN DEL CAMBIO ---
+
+        if (!selectedDateStr) { showModal('Error', '<p>Por favor, selecciona una fecha.</p>'); return; }
+        
+        const { startTime, endTime } = getShiftDateRange(selectedDateStr, selectedTurno);
+        const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
+        
+        const snapshot = await query.get();
+        if (snapshot.empty) {
+            showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
+            // Limpiar tablas dinámicas
+            lineasOrdenadas.forEach(linea => {
+                renderProductionTable([], `dataTableProduccionL${linea}`, `Línea ${linea}`);
+            });
+            renderProductionChart([], startTime, selectedTurno);
+            productionReportData = [];
+            return;
+        }
+        
+        let allPackedItems = [];
+        snapshot.forEach(orderDoc => {
+            const orderData = orderDoc.data();
+            if (Array.isArray(orderData.empaqueData)) {
+                orderData.empaqueData.forEach(box => {
+                    if (Array.isArray(box.serials)) {
+                        box.serials.forEach(item => {
+                            const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
+                            if (packedDate && packedDate >= startTime && packedDate <= endTime) {
+                                const empacador = (item['Employee ID'] || '').toString().toUpperCase();
+                                // --- INICIO DEL CAMBIO ---
+                                let lineaAsignada = null;
+                                // Buscar en qué línea está registrado el empacador
+                                for (const [linea, setDeEmpacadores] of empacadoresPorLinea.entries()) {
+                                    if (setDeEmpacadores.has(empacador)) {
+                                        lineaAsignada = linea;
+                                        break;
                                     }
-                                });
+                                }
+
+                                if (lineaAsignada) {
+                                // --- FIN DEL CAMBIO ---
+                                    allPackedItems.push({
+                                        orden: orderDoc.id, catalogo: orderData.catalogNumber || 'N/A',
+                                        empacador: empacador, timestamp: packedDate,
+                                        linea: `Línea ${lineaAsignada}`, // <-- CAMBIO: Usar el nombre completo
+                                        boxId: box.boxId || 'SIN_CAJA'
+                                    });
+                                }
                             }
                         });
                     }
                 });
-                
-                const detailedData = allPackedItems.map(item => {
-                    const char = (item.catalogo || '').substring(3, 4).toUpperCase();
-                    const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-                    return { ...item, fibras, terminaciones: fibras };
-                });
-                productionReportData = detailedData;
-                const groupedByBox = new Map();
-                detailedData.forEach(item => {
-                    const key = `${item.orden}-${item.boxId}`;
-                    if (!groupedByBox.has(key)) {
-                        groupedByBox.set(key, { ...item, piezas: 0, terminaciones: 0 });
-                    }
-                    const group = groupedByBox.get(key);
-                    group.piezas++;
-                    group.terminaciones += item.terminaciones;
-                    if (item.timestamp > group.timestamp) { group.timestamp = item.timestamp; }
-                });
-                
-                const aggregatedData = Array.from(groupedByBox.values()).sort((a, b) => b.timestamp - a.timestamp);
-                const dataL1 = aggregatedData.filter(row => row.linea === 'Línea 1');
-                const dataL2 = aggregatedData.filter(row => row.linea === 'Línea 2');
-                renderProductionTable(dataL1, 'dataTableProduccionL1', 'Línea 1');
-                renderProductionTable(dataL2, 'dataTableProduccionL2', 'Línea 2');
-                renderProductionChart(detailedData, startTime, selectedTurno);
-
-            } catch (e) {
-                console.error("Error generando reporte por hora:", e);
-                showModal('Error', `<p>Ocurrió un error: ${e.message}</p>`);
-                productionReportData = null;
-            } finally {
-                btn.disabled = false; btn.textContent = 'Generar Reporte';
             }
+        });
+        
+        const detailedData = allPackedItems.map(item => {
+            const char = (item.catalogo || '').substring(3, 4).toUpperCase();
+            const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+            return { ...item, fibras, terminaciones: fibras };
+        });
+        productionReportData = detailedData;
+        const groupedByBox = new Map();
+        detailedData.forEach(item => {
+            const key = `${item.orden}-${item.boxId}`;
+            if (!groupedByBox.has(key)) {
+                groupedByBox.set(key, { ...item, piezas: 0, terminaciones: 0 });
+            }
+            const group = groupedByBox.get(key);
+            group.piezas++;
+            group.terminaciones += item.terminaciones;
+            if (item.timestamp > group.timestamp) { group.timestamp = item.timestamp; }
+        });
+        
+        const aggregatedData = Array.from(groupedByBox.values()).sort((a, b) => b.timestamp - a.timestamp);
+        
+        // --- INICIO DEL CAMBIO ---
+        // 4. Agrupar datos y renderizar tablas dinámicamente
+        const datosPorLinea = new Map();
+        lineasOrdenadas.forEach(linea => {
+            datosPorLinea.set(`Línea ${linea}`, []);
+        });
+
+        aggregatedData.forEach(row => {
+            if (datosPorLinea.has(row.linea)) {
+                datosPorLinea.get(row.linea).push(row);
+            }
+        });
+
+        for (const [lineaNombre, data] of datosPorLinea.entries()) {
+            const lineaNumero = lineaNombre.split(' ')[1];
+            renderProductionTable(data, `dataTableProduccionL${lineaNumero}`, lineaNombre);
         }
+        // --- FIN DEL CAMBIO ---
+        
+        // ¡OJO! La gráfica aún no es dinámica, eso es para la Parte 2
+        renderProductionChart(detailedData, startTime, selectedTurno);
+
+    } catch (e) {
+        console.error("Error generando reporte por hora:", e);
+        showModal('Error', `<p>Ocurrió un error: ${e.message}</p>`);
+        productionReportData = null;
+    } finally {
+        btn.disabled = false; btn.textContent = 'Generar Reporte';
+    }
+}
     async function generarReporteSemanalProduccion() {
             const btn = doc('generarReporteProduccionBtn');
             btn.disabled = true;
@@ -3360,189 +3425,290 @@ async function loadAreasForTarimasReport() {
             table.innerHTML = html + `</tbody>`;
         }
 
-        function renderProductionChart(data, shiftStartTime, turno) {
-    const ctx = doc('produccionChart').getContext('2d');
-    if (productionChart) productionChart.destroy();
-    if(data.length === 0){
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
-    }
+        // --- FUNCIÓN DE REEMPLAZO (renderProductionChart) ---
+        function renderProductionChart(data, shiftStartTime, turno) {
+    const ctx = doc('produccionChart').getContext('2d');
+    if (productionChart) productionChart.destroy();
+    if(data.length === 0){
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
+    }
 
-    const goals = Array(12).fill(480); 
-    goals[1] = 360; 
-    goals[5] = 280; 
-    goals[8] = 360; 
+    // --- INICIO DE LA MODIFICACIÓN DINÁMICA ---
+    const goals = Array(12).fill(480); // Metas (esto sigue igual)
+    goals[1] = 360; goals[5] = 280; goals[8] = 360; 
 
-    const hourlyData = {}; const labels = [];
-    const totalSummary = { linea1: { piezas: 0, terminaciones: 0 }, linea2: { piezas: 0, terminaciones: 0 } };
-    for (let i = 0; i < 12; i++) {
-        const startHour = new Date(shiftStartTime); startHour.setHours(startHour.getHours() + i);
-        const endHour = new Date(startHour); endHour.setHours(endHour.getHours() + 1);
-        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-        labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
-        hourlyData[i] = { 'Línea 1': 0, 'Línea 2': 0 };
-    }
-    data.forEach(item => {
-        const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
-        if(diffHours >= 0 && diffHours < 12){
-            if(item.linea === 'Línea 1') hourlyData[diffHours]['Línea 1'] += item.terminaciones;
-            else hourlyData[diffHours]['Línea 2'] += item.terminaciones;
-        }
-        if (item.linea === 'Línea 1') { totalSummary.linea1.piezas++; totalSummary.linea1.terminaciones += item.terminaciones; }
-        else { totalSummary.linea2.piezas++; totalSummary.linea2.terminaciones += item.terminaciones; }
-    });
-    doc('chartSummary').innerHTML = `Línea 1: <strong>${totalSummary.linea1.piezas} pzas / ${totalSummary.linea1.terminaciones} term.</strong> | Línea 2: <strong>${totalSummary.linea2.piezas} pzas / ${totalSummary.linea2.terminaciones} term.</strong>`;
+    const hourlyData = {}; // { 0: {}, 1: {}, ... 11: {} }
+    const labels = [];
+    const totalSummary = {}; // Objeto vacío
+    const lineasEncontradas = new Set(); // Set para líneas únicas
 
-    productionChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { type: 'line', label: 'Meta', data: Array(12).fill(480), borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, order: 0 },
-                { label: 'Línea 1', data: Object.values(hourlyData).map(d => d['Línea 1']), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, order: 1 },
-                { label: 'Línea 2', data: Object.values(hourlyData).map(d => d['Línea 2']), backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1, order: 1 }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } },
-                title: { display: true, text: `Producción de Terminaciones - ${turno}`, color: 'var(--text-primary)', font: { size: 16 } },
-                datalabels: {
-                    display: context => context.dataset.type !== 'line',
-                    labels: {
-                        value: {
-                            anchor: 'end', 
-                            align: 'top',
-                            offset: 5,
-                            backgroundColor: (ctx) => {
-                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex];
-                                const colorVar = isSuccess ? '--glow-green' : '--glow-red';
-                                const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
-                                return rawColor.replace(/0.9\)$/, '0.4)');
-                            },
-                            borderColor: (ctx) => {
-                                return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
-                            },
-                            borderWidth: 1,
-                            borderRadius: 4,
-                            // El color del texto es ahora blanco para un mejor contraste
-                            color: 'white',
-                            font: { weight: 'bold' },
-                            padding: { top: 2, bottom: 2, left: 5, right: 5 },
-                            formatter: (value) => value > 0 ? value.toLocaleString() : '',
-                        },
-                        percentage: { 
-                            align: 'center', anchor: 'center',
-                            color: (ctx) => {
-                                const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
-                                return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
-                            },
-                            font: { weight: 'bold', size: 11 },
-                            formatter: (value, ctx) => {
-                                const goalForHour = goals[ctx.dataIndex];
-                                if (value <= 0 || goalForHour === 0) return '';
-                                const percentage = (value / goalForHour) * 100;
-                                return percentage.toFixed(0) + '%';
-                            },
-                            textStrokeColor: 'rgba(0,0,0,0.6)',
-                            textStrokeWidth: 2
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { 
-                    grid: { color: 'var(--chart-grid-color)' }, 
-                    ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
-                    categoryPercentage: 0.7,
-                    barPercentage: 0.9
-                },
-                y: { 
-                    beginAtZero: true, 
-                    grid: { color: 'var(--chart-grid-color)' }, 
-                    ticks: { color: 'var(--chart-tick-color)' }, 
-                    title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
-                    afterDataLimits: (scale) => {
-                        scale.max = scale.max * 1.2;
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-    doc('exportChartBtn').style.display = 'block';
-    updateChartTheme();
+    // 1. Inicializar etiquetas y hourlyData
+    for (let i = 0; i < 12; i++) {
+        const startHour = new Date(shiftStartTime); startHour.setHours(startHour.getHours() + i);
+        const endHour = new Date(startHour); endHour.setHours(endHour.getHours() + 1);
+        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+        labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
+        hourlyData[i] = {}; // Objeto vacío para cada hora
+    }
+
+    // 2. Procesar datos y descubrir líneas
+    data.forEach(item => {
+        const lineaNombre = item.linea; // ej: "Línea 1", "Línea 3"
+        if (!lineaNombre) return; // Ignorar si no tiene línea
+
+        lineasEncontradas.add(lineaNombre); // Añadir al Set
+
+        // Inicializar summary si es la primera vez que vemos esta línea
+        if (!totalSummary[lineaNombre]) {
+            totalSummary[lineaNombre] = { piezas: 0, terminaciones: 0 };
+        }
+
+        const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
+        if(diffHours >= 0 && diffHours < 12){
+            // Inicializar la línea en el bin de esa hora si no existe
+            if (!hourlyData[diffHours][lineaNombre]) {
+                hourlyData[diffHours][lineaNombre] = 0;
+            }
+            hourlyData[diffHours][lineaNombre] += item.terminaciones;
+        }
+
+        // Acumular totales
+        totalSummary[lineaNombre].piezas++;
+        totalSummary[lineaNombre].terminaciones += item.terminaciones;
+    });
+
+    // 3. Crear el HTML del resumen dinámicamente
+    const lineasOrdenadas = [...lineasEncontradas].sort(); // ["Línea 1", "Línea 2", "Línea 3"]
+    const summaryHtml = lineasOrdenadas.map(linea => {
+        const summary = totalSummary[linea];
+        return `${linea}: <strong>${summary.piezas} pzas / ${summary.terminaciones} term.</strong>`;
+    }).join(' | ');
+    doc('chartSummary').innerHTML = summaryHtml;
+
+    // 4. Crear los datasets dinámicamente
+    const colors = ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)'];
+    const borderColors = ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)'];
+
+    const dynamicDatasets = lineasOrdenadas.map((linea, index) => {
+        return {
+            label: linea,
+            data: Object.values(hourlyData).map(d => d[linea] || 0), // Obtener el dato de esa línea, o 0
+            backgroundColor: colors[index % colors.length],
+            borderColor: borderColors[index % borderColors.length],
+            borderWidth: 1,
+            order: 1
+        };
+    });
+
+    // 5. Añadir el dataset de la meta
+    dynamicDatasets.unshift({ 
+        type: 'line', 
+        label: 'Meta', 
+        data: goals, // Usamos el array de metas que definimos arriba
+        borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), 
+        borderWidth: 2, 
+        borderDash: [5, 5], 
+        pointRadius: 0, 
+        fill: false, 
+        order: 0 
+    });
+
+    // --- FIN DE LA MODIFICACIÓN DINÁMICA ---
+
+    productionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: dynamicDatasets // <-- USAR LOS DATASETS DINÁMICOS
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } }, // Sigue ocultando la meta
+                title: { display: true, text: `Producción de Terminaciones - ${turno}`, color: 'var(--text-primary)', font: { size: 16 } },
+                datalabels: {
+                    display: context => context.dataset.type !== 'line',
+                    labels: {
+                        value: {
+                            anchor: 'end', 
+                            align: 'top',
+                            offset: 5,
+                            backgroundColor: (ctx) => {
+                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex]; // Revisa contra la meta correcta
+                                const colorVar = isSuccess ? '--glow-green' : '--glow-red';
+                                const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
+                                return rawColor.replace(/0.9\)$/, '0.4)');
+                            },
+                            borderColor: (ctx) => {
+                                return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
+                            },
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            color: 'white',
+                            font: { weight: 'bold' },
+                            padding: { top: 2, bottom: 2, left: 5, right: 5 },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : '',
+                        },
+                        percentage: { 
+                            align: 'center', anchor: 'center',
+                            color: (ctx) => {
+                                const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
+                                return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
+                            },
+                            font: { weight: 'bold', size: 11 },
+                            formatter: (value, ctx) => {
+                                const goalForHour = goals[ctx.dataIndex];
+                                if (value <= 0 || goalForHour === 0) return '';
+                                const percentage = (value / goalForHour) * 100;
+                                return percentage.toFixed(0) + '%';
+                            },
+                            textStrokeColor: 'rgba(0,0,0,0.6)',
+                            textStrokeWidth: 2
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
+                    categoryPercentage: 0.7,
+                    barPercentage: 0.9
+                },
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)' }, 
+                    title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
+                    afterDataLimits: (scale) => {
+                        scale.max = scale.max * 1.2;
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+    doc('exportChartBtn').style.display = 'block';
+    updateChartTheme();
 }
 
-        function renderFiberReport(data) {
-            const container = doc('fibraReportContent');
-            if (fiberPieChart1) fiberPieChart1.destroy();
-            if (fiberPieChart2) fiberPieChart2.destroy();
-            if (!data || data.length === 0) { container.innerHTML = '<p>No hay datos de producción para analizar.</p>'; return; }
-            const dataL1 = data.filter(item => item.linea === 'Línea 1');
-            const dataL2 = data.filter(item => item.linea === 'Línea 2');
-            const generateHtmlForLine = (lineData, lineName, chartId) => {
-                if (lineData.length === 0) return `<div><h5>${lineName}</h5><p>Sin producción registrada.</p></div>`;
-                const fibraData = {};
-                lineData.forEach(item => {
-                    const fibraKey = `${item.fibras} Fibras`;
-                    const catalogo = item.catalogo;
-                    if (!fibraData[fibraKey]) fibraData[fibraKey] = {};
-                    if (!fibraData[fibraKey][catalogo]) fibraData[fibraKey][catalogo] = 0;
-                    fibraData[fibraKey][catalogo]++;
-                });
-                let tableHTML = `<div class="table-wrapper" style="max-height: 200px;"><table class="sub-table"><thead><tr><th>Fibra</th><th>Catálogo</th><th>Piezas</th></tr></thead><tbody>`;
-                Object.entries(fibraData).forEach(([fibra, catalogos]) => {
-                    Object.entries(catalogos).forEach(([catalogo, piezas]) => { tableHTML += `<tr><td>${fibra}</td><td>${catalogo}</td><td>${piezas}</td></tr>`; });
-                });
-                tableHTML += '</tbody></table></div>';
-                return `<div><h5>${lineName}</h5><div class="pie-chart-container"><canvas id="${chartId}"></canvas></div>${tableHTML}</div>`;
-            };
-            container.innerHTML = `<div class="fibra-grid">${generateHtmlForLine(dataL1, 'Línea 1', 'fibraPieChart1')}${generateHtmlForLine(dataL2, 'Línea 2', 'fibraPieChart2')}</div>`;
+        // --- FUNCIÓN DE REEMPLAZO (renderFiberReport) ---
+        function renderFiberReport(data) {
+            const container = doc('fibraReportContent');
+            
+            // --- INICIO DE LA MODIFICACIÓN DINÁMICA ---
+            
+            // 1. Destruir todos los pie charts anteriores
+            if (fiberPieCharts.length > 0) {
+                fiberPieCharts.forEach(chart => chart.destroy());
+                fiberPieCharts = []; // Limpiar el array
+            }
 
-            const createPieChart = (chartId, lineData) => {
-                const ctx = doc(chartId)?.getContext('2d');
-                if (!ctx || lineData.length === 0) return null;
-                const pieData = {};
-                lineData.forEach(item => {
-                    const fibraKey = `${item.fibras} Fibras`;
-                    if (!pieData[fibraKey]) pieData[fibraKey] = 0;
-                    pieData[fibraKey]++;
-                });
-                const pieLabels = Object.keys(pieData);
-                const colors = ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-                return new Chart(ctx, {
-                    type: 'pie',
-                    data: {
-                        labels: pieLabels,
-                        datasets: [{ data: Object.values(pieData), backgroundColor: pieLabels.map((_, i) => colors[i % colors.length]) }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            datalabels: {
-                                formatter: (value, ctx) => {
-                                    const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                    return (value * 100 / sum).toFixed(1) + '%';
-                                },
-                                color: '#fff',
-                                textShadowColor: 'rgba(0,0,0,0.7)', textShadowBlur: 5,
-                                font: { weight: 'bold' }
-                            }
-                        }
-                    },
-                     plugins: [ChartDataLabels]
-                });
-            };
-            fiberPieChart1 = createPieChart('fibraPieChart1', dataL1);
-            fiberPieChart2 = createPieChart('fibraPieChart2', dataL2);
-            updateChartTheme();
-        }
+            if (!data || data.length === 0) { 
+                container.innerHTML = '<p>No hay datos de producción para analizar.</p>'; 
+                return; 
+            }
+
+            // 2. Agrupar datos por línea
+            const datosPorLinea = new Map();
+            const lineasEncontradas = new Set();
+            data.forEach(item => {
+                const lineaNombre = item.linea;
+                if (!lineaNombre) return;
+
+                lineasEncontradas.add(lineaNombre);
+                if (!datosPorLinea.has(lineaNombre)) {
+                    datosPorLinea.set(lineaNombre, []);
+                }
+                datosPorLinea.get(lineaNombre).push(item);
+            });
+
+            // 3. Helper (generateHtmlForLine) - (La función interna ya era dinámica, no cambia)
+            const generateHtmlForLine = (lineData, lineName, chartId) => {
+                if (lineData.length === 0) return `<div><h5>${lineName}</h5><p>Sin producción registrada.</p></div>`;
+                const fibraData = {};
+                lineData.forEach(item => {
+                    const fibraKey = `${item.fibras} Fibras`;
+                    const catalogo = item.catalogo;
+                    if (!fibraData[fibraKey]) fibraData[fibraKey] = {};
+                    if (!fibraData[fibraKey][catalogo]) fibraData[fibraKey][catalogo] = 0;
+                    fibraData[fibraKey][catalogo]++;
+                });
+                let tableHTML = `<div class="table-wrapper" style="max-height: 200px;"><table class="sub-table"><thead><tr><th>Fibra</th><th>Catálogo</th><th>Piezas</th></tr></thead><tbody>`;
+                Object.entries(fibraData).forEach(([fibra, catalogos]) => {
+                    Object.entries(catalogos).forEach(([catalogo, piezas]) => { tableHTML += `<tr><td>${fibra}</td><td>${catalogo}</td><td>${piezas}</td></tr>`; });
+                });
+                tableHTML += '</tbody></table></div>';
+                return `<div><h5>${lineName}</h5><div class="pie-chart-container"><canvas id="${chartId}"></canvas></div>${tableHTML}</div>`;
+            };
+
+            // 4. Helper (createPieChart) - (La función interna ya era dinámica, no cambia)
+            const createPieChart = (chartId, lineData) => {
+                const ctx = doc(chartId)?.getContext('2d');
+                if (!ctx || lineData.length === 0) return null;
+                const pieData = {};
+                lineData.forEach(item => {
+                    const fibraKey = `${item.fibras} Fibras`;
+                    if (!pieData[fibraKey]) pieData[fibraKey] = 0;
+                    pieData[fibraKey]++;
+                });
+                const pieLabels = Object.keys(pieData);
+                const colors = ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+                return new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: pieLabels,
+                        datasets: [{ data: Object.values(pieData), backgroundColor: pieLabels.map((_, i) => colors[i % colors.length]) }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: {
+                                formatter: (value, ctx) => {
+                                    const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    return (value * 100 / sum).toFixed(1) + '%';
+                                },
+                                color: '#fff',
+                                textShadowColor: 'rgba(0,0,0,0.7)', textShadowBlur: 5,
+                                font: { weight: 'bold' }
+                            }
+                        }
+                    },
+                     plugins: [ChartDataLabels]
+                });
+            };
+
+            // 5. Generar HTML y crear gráficas dinámicamente
+            const lineasOrdenadas = [...lineasEncontradas].sort();
+            let gridHtml = '';
+            lineasOrdenadas.forEach((lineaNombre, index) => {
+                const chartId = `fibraPieChart${index}`;
+                const dataDeLinea = datosPorLinea.get(lineaNombre) || [];
+                gridHtml += generateHtmlForLine(dataDeLinea, lineaNombre, chartId);
+            });
+
+            // Ajustar el grid-template-columns basado en cuántas líneas hay
+            container.innerHTML = `<div class="fibra-grid" style="grid-template-columns: repeat(${lineasOrdenadas.length}, 1fr);">${gridHtml}</div>`;
+
+            // 6. Crear las gráficas y guardarlas en el array
+            lineasOrdenadas.forEach((lineaNombre, index) => {
+                const chartId = `fibraPieChart${index}`;
+                const dataDeLinea = datosPorLinea.get(lineaNombre) || [];
+                const newChart = createPieChart(chartId, dataDeLinea);
+                if (newChart) {
+                    fiberPieCharts.push(newChart); // Guardar la instancia
+                }
+            });
+            
+	        // --- FIN DE LA MODIFICACIÓN DINÁMICA ---
+            
+            updateChartTheme();
+        }
 
         function updateChartTheme() {
-    const charts = [productionChart, fiberPieChart1, fiberPieChart2, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance].filter(Boolean);
+    const charts = [productionChart, ...fiberPieCharts, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance].filter(Boolean);
     if (charts.length === 0) return;
     const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
     const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
