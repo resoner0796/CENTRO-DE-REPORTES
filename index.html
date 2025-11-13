@@ -3108,7 +3108,7 @@ async function loadAreasForTarimasReport() {
             }
         }
 
-        // --- FUNCIÓN DE REEMPLAZO (AHORA SÍ, LIMPIA) ---
+        // --- FUNCIÓN DE REEMPLAZO (generarReportePorHora) ---
 async function generarReportePorHora() {
     const btn = doc('generarReporteProduccionBtn');
     btn.disabled = true; btn.textContent = 'Cargando datos...';
@@ -3123,105 +3123,70 @@ async function generarReportePorHora() {
         const selectedTurno = doc('prod_turno').value;
         const selectedArea = doc('prod_area').value;
         
+        // 1. OBTENER CONFIGURACIÓN DE EMPACADORES (Sigue igual)
         const todosLosEmpacadores = params.produccion_hora_config.packers || [];
         const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
             (p.area === selectedArea || selectedArea === 'ALL' || p.area === 'ALL') && p.turno === selectedTurno
         );
 
-        // --- INICIO DEL CAMBIO ---
-        // 1. Crear un mapa de empacadores por línea
         const empacadoresPorLinea = new Map();
-        const lineasEnReporte = new Set();
         empacadoresFiltrados.forEach(p => {
             const lineaNum = String(p.linea);
             if (!empacadoresPorLinea.has(lineaNum)) {
                 empacadoresPorLinea.set(lineaNum, new Set());
             }
             empacadoresPorLinea.get(lineaNum).add(p.id);
-            lineasEnReporte.add(lineaNum);
         });
         
-        // 2. Crear dinámicamente los contenedores de las tablas
-        const lineasOrdenadas = [...lineasEnReporte].sort((a, b) => a - b);
-        if (lineasOrdenadas.length === 0) {
+        if (empacadoresFiltrados.length === 0) {
             showModal('Sin Empacadores', '<p>No se encontraron empacadores configurados para esta Área y Turno en el panel de Configuración.</p>');
             renderProductionChart([], null, selectedTurno);
             productionReportData = [];
             return;
         }
 
-        // Ajustar el grid-template-columns basado en cuántas líneas hay
-        tablesGrid.style.gridTemplateColumns = `repeat(${lineasOrdenadas.length}, 1fr)`;
-
-        lineasOrdenadas.forEach(linea => {
-            const tableId = `dataTableProduccionL${linea}`;
-            const tableHtml = `
-                <div class="card table-container">
-                    <h5>Producción Línea ${linea}</h5>
-                    <div class="table-wrapper">
-                        <table id="${tableId}">
-                            <thead><tr><th>Cargando...</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-            tablesGrid.insertAdjacentHTML('beforeend', tableHtml);
-        });
-        // --- FIN DEL CAMBIO ---
-
         if (!selectedDateStr) { showModal('Error', '<p>Por favor, selecciona una fecha.</p>'); return; }
         
+        // 2. OBTENER DATOS DE FIREBASE (Sigue igual)
         const { startTime, endTime } = getShiftDateRange(selectedDateStr, selectedTurno);
         const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
         
         const snapshot = await query.get();
-        if (snapshot.empty) {
-            showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
-            // Limpiar tablas dinámicas
-            lineasOrdenadas.forEach(linea => {
-                renderProductionTable([], `dataTableProduccionL${linea}`, `Línea ${linea}`);
-            });
-            renderProductionChart([], startTime, selectedTurno);
-            productionReportData = [];
-            return;
-        }
         
+        // 3. PROCESAR DATOS (Sigue igual)
         let allPackedItems = [];
-        snapshot.forEach(orderDoc => {
-            const orderData = orderDoc.data();
-            if (Array.isArray(orderData.empaqueData)) {
-                orderData.empaqueData.forEach(box => {
-                    if (Array.isArray(box.serials)) {
-                        box.serials.forEach(item => {
-                            const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
-                            if (packedDate && packedDate >= startTime && packedDate <= endTime) {
-                                const empacador = (item['Employee ID'] || '').toString().toUpperCase();
-                                // --- INICIO DEL CAMBIO ---
-                                let lineaAsignada = null;
-                                // Buscar en qué línea está registrado el empacador
-                                for (const [linea, setDeEmpacadores] of empacadoresPorLinea.entries()) {
-                                    if (setDeEmpacadores.has(empacador)) {
-                                        lineaAsignada = linea;
-                                        break;
+        if (!snapshot.empty) {
+            snapshot.forEach(orderDoc => {
+                const orderData = orderDoc.data();
+                if (Array.isArray(orderData.empaqueData)) {
+                    orderData.empaqueData.forEach(box => {
+                        if (Array.isArray(box.serials)) {
+                            box.serials.forEach(item => {
+                                const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
+                                if (packedDate && packedDate >= startTime && packedDate <= endTime) {
+                                    const empacador = (item['Employee ID'] || '').toString().toUpperCase();
+                                    let lineaAsignada = null;
+                                    for (const [linea, setDeEmpacadores] of empacadoresPorLinea.entries()) {
+                                        if (setDeEmpacadores.has(empacador)) {
+                                            lineaAsignada = linea;
+                                            break;
+                                        }
+                                    }
+                                    if (lineaAsignada) {
+                                        allPackedItems.push({
+                                            orden: orderDoc.id, catalogo: orderData.catalogNumber || 'N/A',
+                                            empacador: empacador, timestamp: packedDate,
+                                            linea: `Línea ${lineaAsignada}`,
+                                            boxId: box.boxId || 'SIN_CAJA'
+                                        });
                                     }
                                 }
-
-                                if (lineaAsignada) {
-                                // --- FIN DEL CAMBIO ---
-                                    allPackedItems.push({
-                                        orden: orderDoc.id, catalogo: orderData.catalogNumber || 'N/A',
-                                        empacador: empacador, timestamp: packedDate,
-                                        linea: `Línea ${lineaAsignada}`, // <-- CAMBIO: Usar el nombre completo
-                                        boxId: box.boxId || 'SIN_CAJA'
-                                    });
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-        });
+                            });
+                        }
+                    });
+                }
+            });
+        }
         
         const detailedData = allPackedItems.map(item => {
             const char = (item.catalogo || '').substring(3, 4).toUpperCase();
@@ -3229,6 +3194,7 @@ async function generarReportePorHora() {
             return { ...item, fibras, terminaciones: fibras };
         });
         productionReportData = detailedData;
+        
         const groupedByBox = new Map();
         detailedData.forEach(item => {
             const key = `${item.orden}-${item.boxId}`;
@@ -3243,26 +3209,60 @@ async function generarReportePorHora() {
         
         const aggregatedData = Array.from(groupedByBox.values()).sort((a, b) => b.timestamp - a.timestamp);
         
-        // --- INICIO DEL CAMBIO ---
-        // 4. Agrupar datos y renderizar tablas dinámicamente
+        // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+        // 4. AGRUPAR DATOS POR LÍNEA (ANTES DE CREAR HTML)
         const datosPorLinea = new Map();
-        lineasOrdenadas.forEach(linea => {
-            datosPorLinea.set(`Línea ${linea}`, []);
-        });
-
         aggregatedData.forEach(row => {
-            if (datosPorLinea.has(row.linea)) {
-                datosPorLinea.get(row.linea).push(row);
+            const lineaNombre = row.linea;
+            if (!lineaNombre) return;
+            
+            if (!datosPorLinea.has(lineaNombre)) {
+                datosPorLinea.set(lineaNombre, []);
             }
+            datosPorLinea.get(lineaNombre).push(row);
         });
 
+        // 5. OBTENER LISTA DE LÍNEAS QUE SÍ TIENEN DATOS
+        const lineasConDatos = [...datosPorLinea.keys()].sort();
+
+        // 6. VERIFICAR SI HAY ALGO QUE MOSTRAR
+        if (lineasConDatos.length === 0) {
+            // Esto pasa si hay empacadores configurados (paso 1), pero no empacaron nada (paso 3).
+            showModal('Sin Producción', '<p>No se encontró producción registrada para los empacadores de este turno y área.</p>');
+            tablesGrid.innerHTML = ''; // Contenedor vacío
+            renderProductionChart([], startTime, selectedTurno); // Gráfica vacía
+            productionReportData = [];
+            return; // Salir
+        }
+
+        // 7. AJUSTAR GRID Y CREAR TABLAS (SOLO PARA LÍNEAS CON DATOS)
+        tablesGrid.style.gridTemplateColumns = `repeat(${lineasConDatos.length}, 1fr)`;
+
+        lineasConDatos.forEach(lineaNombre => {
+            const lineaNumero = lineaNombre.split(' ')[1]; // Saca el '1' de 'Línea 1'
+            const tableId = `dataTableProduccionL${lineaNumero}`;
+            const tableHtml = `
+                <div class="card table-container">
+                    <h5>Producción ${lineaNombre}</h5>
+                    <div class="table-wrapper">
+                        <table id="${tableId}">
+                            <thead><tr><th>Cargando...</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            tablesGrid.insertAdjacentHTML('beforeend', tableHtml);
+        });
+
+        // 8. RENDERIZAR DATOS EN LAS TABLAS CREADAS
         for (const [lineaNombre, data] of datosPorLinea.entries()) {
             const lineaNumero = lineaNombre.split(' ')[1];
             renderProductionTable(data, `dataTableProduccionL${lineaNumero}`, lineaNombre);
         }
         // --- FIN DEL CAMBIO ---
         
-        // ¡OJO! La gráfica aún no es dinámica, eso es para la Parte 2
+        // 9. RENDERIZAR GRÁFICA (esto no cambia)
         renderProductionChart(detailedData, startTime, selectedTurno);
 
     } catch (e) {
