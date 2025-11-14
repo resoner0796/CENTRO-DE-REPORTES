@@ -689,27 +689,49 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     #packerList li { grid-template-columns: 1fr; text-align: center; gap: 4px; }
 }
 
-/* === FIX: Centrar dashboard y desactivar layout de sidebar === */
+/* ============================
+   FIX PARA CENTRAR DASHBOARD LIVE
+   ============================ */
 
 #viewLiveDashboard .main-container {
     display: flex !important;
     flex-direction: column !important;
-    justify-content: flex-start;
     align-items: center !important;
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto !important;
     padding: 16px;
+    gap: 20px;
 }
 
+/* La sidebar (header) se vuelve un bloque centrado, no una columna */
 #viewLiveDashboard .sidebar {
-    display: none !important;
+    width: 100% !important;
+    max-width: 1000px;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
 }
 
+/* Centrar el header interno */
+#viewLiveDashboard .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+/* Centrar contenido principal */
 #viewLiveDashboard .main-content {
     width: 100%;
     max-width: 1000px;
-    margin: 0 auto !important;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* KPIs centradas */
+#viewLiveDashboard .dashboard-kpi-container {
+    justify-content: center !important;
 }
 
 </style>
