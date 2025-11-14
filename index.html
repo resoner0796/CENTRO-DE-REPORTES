@@ -785,6 +785,15 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     box-sizing: border-box;
 }
 
+/* FIX GLOBAL: cancelar el layout de 2 columnas viejo */
+#viewLiveDashboard .main-container,
+.main-container {
+    display: block !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    grid-template-columns: none !important;
+}
+
 </style>
 </head>
 <body class="dark-theme">
