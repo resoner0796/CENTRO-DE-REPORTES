@@ -627,6 +627,23 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     border-bottom: none;
 }
 
+.kpi-piezas {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin: -10px 0 10px 0; /* Ajusta el espacio entre la terminación y las piezas */
+    text-align: center;
+}
+
+.last-scan-label {
+    display: block;
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-dark);
+    font-style: italic;
+    margin-top: 8px; /* Espacio para separarlo de la gráfica */
+}
+
 /* --- Media Queries para pantallas mÃ¡s grandes --- */
 @media (min-width: 768px) {
     #viewLiveDashboard .main-content {
@@ -1043,7 +1060,9 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 		<div id="viewLiveDashboard" style="display: none; opacity: 0;">
     <div class="live-dashboard-wrapper">
 
-        <!-- HEADER / TOP BAR -->
+      <div id="viewLiveDashboard" style="display: none; opacity: 0;">
+    <div class="live-dashboard-wrapper">
+
         <header class="live-dashboard-header animated-startup" style="animation-delay: 0.1s;">
             <h3 id="liveTurnoTitle">Turno: Cargando...</h3>
 
@@ -1081,30 +1100,19 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
             </div>
         </header>
 
-        <!-- KPIs CENTRADAS -->
         <section id="kpiCardContainer" class="dashboard-kpi-container animated-startup"
             style="animation-delay: 0.15s;">
-        </section>
+            </section>
 
-        <!-- GRÁFICA -->
         <div class="card animated-startup" style="animation-delay: 0.2s;">
             <h5>Producción por Hora (En Vivo)</h5>
             <div id="liveChartContainer" style="flex-grow: 1; position: relative; min-height: 35vh;">
                 <canvas id="liveProduccionChart"></canvas>
             </div>
+            <span id="liveChartLastScan" class="last-scan-label"></span>
         </div>
 
-        <!-- ÚLTIMO MOVIMIENTO -->
-        <div class="card animated-startup" style="animation-delay: 0.25s;">
-            <h5>Último Movimiento</h5>
-            <div id="liveFeedContainer">
-                <p id="liveFeedContent" style="color: var(--text-secondary); font-style: italic;">
-                    Esperando datos...
-                </p>
-            </div>
         </div>
-
-    </div>
 </div>
 		
 <div id="viewProduccionCalidad" style="display: none;">
@@ -2183,23 +2191,18 @@ function stopLiveDashboard() {
 }
 
 // --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-// --- INICIO DE LA CORRECCIÓN DE TURNO (PASO 4) ---
-// El 3er parámetro ahora es 'fechaDeTrabajoActual' en lugar de 'hoyStr'
+// --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
 function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shiftStartTime, empacadoresPorLinea) {
-// --- FIN DE LA CORRECCIÓN DE TURNO ---
     let allPackedItems = [];
     let lastScan = { timestamp: new Date(0), empacador: 'N/A', linea: 'N/A' };
     const totalsByLine = {};
     const hourlyBins = Array(12).fill(0).map(() => ({}));
     const lineasEncontradas = new Set();
 
-    // 1. PROCESAR TODOS LOS DATOS
+    // 1. PROCESAR TODOS LOS DATOS (Sin cambios)
     allOrders.forEach(order => {
-        
-        // Asumimos que empaqueData es un ARRAY de objetos: [{boxId: "B1", serials: [...]}]
         const empaqueArray = order.empaqueData || []; 
         if (!Array.isArray(empaqueArray)) {
-            // Si no es un array, intentamos convertirlo desde el formato Mapa (por si acaso)
             if (typeof order.empaqueData.forEach === 'function') {
                 order.empaqueData.forEach(serialsInBox => empaqueArray.push({ serials: serialsInBox }));
             } else {
@@ -2215,13 +2218,9 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                     if (!packedDate) return;
 
-                    // --- INICIO DE LA CORRECCIÓN DE TURNO (PASO 5) ---
-                    // Esta función calcula el día de TRABAJO (ej: 02:00 AM del día 14 es 'dateKey' del día 13)
                     const { shift, dateKey } = getWorkShiftAndDate(packedDate);
 
-                    // Comparamos el turno/fecha del item con el turno/fecha DE TRABAJO actual
                     if (shift === turnoActual && dateKey === fechaDeTrabajoActual) {
-                    // --- FIN DE LA CORRECCIÓN DE TURNO ---
                         const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                         let lineaAsignada = null;
 
@@ -2239,7 +2238,7 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
 
                             if (!totalsByLine[lineaAsignada]) totalsByLine[lineaAsignada] = { term: 0, pzas: 0 };
                             totalsByLine[lineaAsignada].term += terminaciones;
-                            totalsByLine[lineaAsignada].pzas++;
+                            totalsByLine[lineaAsignada].pzas++; // <-- ¡Aquí se cuentan las piezas!
 
                             const diffMillis = packedDate - shiftStartTime;
                             const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
@@ -2260,17 +2259,12 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
 
     const lineasOrdenadas = [...lineasEncontradas].sort();
 
-    // --- 2. ACTUALIZAR FEED DE ACTIVIDAD ---
+    // --- 2. ACTUALIZAR FEED DE ACTIVIDAD (AHORA DISCRETO) ---
+    const lastScanEl = doc('liveChartLastScan'); // <-- ¡NUEVO! Apunta al span en la gráfica
     if (lastScan.timestamp > 0) {
-        doc('liveFeedContent').innerHTML = `
-            <p>
-                <strong>Línea:</strong> ${lastScan.linea}<br>
-                <strong>Empacador:</strong> ${lastScan.empacador}<br>
-                <strong>Hora:</strong> ${lastScan.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-            </p>
-        `;
+        lastScanEl.innerHTML = `Último escaneo: ${lastScan.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${lastScan.linea})`;
     } else {
-        doc('liveFeedContent').innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Esperando primer escaneo del turno ${turnoActual}...</p>`;
+        lastScanEl.innerHTML = `Esperando escaneo...`;
     }
 
     // --- 3. ACTUALIZAR TARJETAS (KPIs) ---
@@ -2281,7 +2275,10 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
     lineasOrdenadas.forEach(lineaNombre => {
         const lineaNumero = lineaNombre.split(' ')[1];
         
+        // --- ¡NUEVO! Obtenemos el total de piezas y terminaciones ---
         const totalTerm = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].term) ? totalsByLine[lineaNombre].term : 0;
+        const totalPzas = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].pzas) ? totalsByLine[lineaNombre].pzas : 0;
+        
         const percent = (totalTerm / metaTurno) * 100;
         let progressClass = 'progress-bar-red';
         if (percent >= 80) progressClass = 'progress-bar-green';
@@ -2291,9 +2288,11 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
             <div class="kpi-card" id="kpi-linea-${lineaNumero}">
                 <div class="kpi-header">
                     <h4>${lineaNombre}</h4>
-                    <span id="kpi-linea-${lineaNumero}-meta" class="kpi-meta">vs ${metaTurno.toLocaleString()}</span>
+                    <span id="kpi-linea-${lineaNumero}-meta" class="kpi-meta">Meta: ${metaTurno.toLocaleString()}</span>
                 </div>
                 <h1 id="kpi-linea-${lineaNumero}-total">${totalTerm.toLocaleString()}</h1>
+                <h4 id="kpi-linea-${lineaNumero}-piezas" class="kpi-piezas">${totalPzas.toLocaleString()} Piezas</h4>
+                
                 <div class="kpi-progress-bar-container">
                     <div id="kpi-linea-${lineaNumero}-progress" class="kpi-progress-bar ${progressClass}" style="width: ${Math.min(percent, 100)}%;"></div>
                 </div>
@@ -2308,34 +2307,30 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
         kpiContainer.innerHTML = kpiHtml;
     }
 
-    // --- 4. ACTUALIZAR GRÁFICA DE BARRAS ---
+    // --- 4. ACTUALIZAR GRÁFICA DE BARRAS (Sin cambios) ---
     renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
 
 // --- FUNCIÓN DE REEMPLAZO (renderLiveChart) ---
-// (Esta es la que faltaba y causaba el error 'renderLiveChart is not defined')
 function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
     const canvas = doc('liveProduccionChart');
-    if (!canvas) return; // Seguridad
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return; // Doble seguridad
+    if (!ctx) return;
 
-    // --- ¡NUEVO! Lógica de Metas (Copiada de renderProductionChart) ---
-    const goals = Array(12).fill(480); // Metas por hora
+    // Lógica de Metas (Sin cambios)
+    const goals = Array(12).fill(480);
     goals[1] = 360; goals[5] = 280; goals[8] = 360; 
-    const visualGoalLine = Array(12).fill(480); // La línea visual que se dibuja
+    const visualGoalLine = Array(12).fill(480);
 
-    // --- INICIO DEL ARREGLO ---
-    // 1. Destruir el chart viejo, si existe
+    // Destruir chart viejo (Sin cambios)
     if (liveProductionChart) {
         liveProductionChart.destroy();
-        liveProductionChart = null; // Asegurarse que la referencia se elimine
+        liveProductionChart = null;
     }
-    // 2. Limpiar el canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height); 
-    // --- FIN DEL ARREGLO ---
 
-    // 1. Crear Etiquetas (12 horas) - (Lógica sin cambios)
+    // 1. Crear Etiquetas (Sin cambios)
     const labels = [];
     const startTime = (shiftStartTime instanceof Date) ? shiftStartTime : new Date(shiftStartTime);
     
@@ -2353,7 +2348,7 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         }
     }
 
-    // 2. Crear Datasets (Dinámicos) - (Lógica sin cambios)
+    // 2. Crear Datasets (Sin cambios)
     const colors = ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)'];
     const borderColors = ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)'];
     
@@ -2364,11 +2359,10 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
             backgroundColor: colors[index % colors.length],
             borderColor: borderColors[index % borderColors.length],
             borderWidth: 1,
-            order: 1 // --- ¡NUEVO! Asegura que las barras se dibujen detrás de la línea
+            order: 1
         };
     });
     
-    // --- ¡NUEVO! Añadir el dataset de la meta ---
     dynamicDatasets.unshift({ 
         type: 'line', 
         label: 'Meta', 
@@ -2378,13 +2372,10 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         borderDash: [5, 5], 
         pointRadius: 0, 
         fill: false, 
-        order: 0 // --- ¡NUEVO! Asegura que la línea se dibuje encima
+        order: 0
     });
     
-    // 3. Crear o Actualizar Gráfica
-    // ¡OJO! La estructura if/else se elimina. Siempre creamos una NUEVA gráfica
-    // después de haber destruido la anterior. Esto soluciona bugs de renderizado.
-
+    // 3. Crear Gráfica
     liveProductionChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -2394,28 +2385,25 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: {
-                // --- ¡NUEVO! Ocultamos la "Meta" de la leyenda ---
                 legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } }, 
                 title: { 
                     display: true, 
-                    text: 'Producción por Hora (En Vivo)', // Título actualizado
+                    text: 'Producción por Hora (En Vivo)',
                     color: 'var(--text-primary)', 
                     font: { size: 16 } 
                 },
-                // --- ¡NUEVO! Lógica de Datalabels "Perrona" ---
                 datalabels: {
-                    display: context => context.dataset.type !== 'line', // No mostrar en la línea de meta
+                    display: context => context.dataset.type !== 'line',
                     labels: {
                         value: {
                             anchor: 'end', 
                             align: 'top',
                             offset: 5,
                             backgroundColor: (ctx) => {
-                                // Compara el valor de la barra con la meta de esa hora
                                 const isSuccess = ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex]; 
                                 const colorVar = isSuccess ? '--glow-green' : '--glow-red';
                                 const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
-                                return rawColor.replace(/0.9\)$/, '0.4)'); // Fondo semitransparente
+                                return rawColor.replace(/0.9\)$/, '0.4)');
                             },
                             borderColor: (ctx) => {
                                 return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
@@ -2430,13 +2418,12 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
                         percentage: { 
                             align: 'center', anchor: 'center',
                             color: (ctx) => {
-                                // Ocultar el % si la barra es muy pequeña
                                 const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
                                 return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
                             },
                             font: { weight: 'bold', size: 11 },
                             formatter: (value, ctx) => {
-                                const goalForHour = goals[ctx.dataIndex]; // Meta de esa hora
+                                const goalForHour = goals[ctx.dataIndex];
                                 if (value <= 0 || goalForHour === 0) return '';
                                 const percentage = (value / goalForHour) * 100;
                                 return percentage.toFixed(0) + '%';
@@ -2447,21 +2434,24 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
                     }
                 }
             },
-            // --- ¡NUEVO! Ajuste de escalas ---
             scales: {
                 x: { 
                     grid: { color: 'var(--chart-grid-color)' }, 
                     ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
-                    categoryPercentage: 0.7, // Espacio entre grupos de horas
-                    barPercentage: 0.9 // Ancho de las barras
+                    categoryPercentage: 0.7,
+                    barPercentage: 0.9
                 },
                 y: { 
                     beginAtZero: true, 
-                    grid: { color: 'var(--chart-grid-color)' }, 
+                    grid: { 
+                        color: 'var(--chart-grid-color)',
+                        // --- ¡AQUÍ ESTÁ EL ARREGLO DE LA CUADRÍCULA! ---
+                        drawOnChartArea: false 
+                    }, 
                     ticks: { color: 'var(--chart-tick-color)' }, 
                     title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
                     afterDataLimits: (scale) => {
-                        scale.max = scale.max * 1.2; // 20% de espacio extra arriba
+                        scale.max = scale.max * 1.2;
                     }
                 }
             }
@@ -2469,7 +2459,7 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         plugins: [ChartDataLabels]
     });
 
-    updateChartTheme(); // Aplicar tema (dark/light)
+    updateChartTheme();
 }
 
 // =======================================================================================
