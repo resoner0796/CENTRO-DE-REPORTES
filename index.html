@@ -785,9 +785,8 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     box-sizing: border-box;
 }
 
-/* FIX GLOBAL: cancelar el layout de 2 columnas viejo */
-#viewLiveDashboard .main-container,
-.main-container {
+/* FIX REAL: Cancelar por completo el GRID heredado */
+#viewLiveDashboard .main-container { /* <--- ¡YA NO TIENE LA COMA! */
     display: block !important;
     margin: 0 auto !important;
     padding: 0 !important;
