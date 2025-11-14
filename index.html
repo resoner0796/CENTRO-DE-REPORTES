@@ -514,21 +514,17 @@ body.light-theme .app-branding { color: var(--branding-color); }
 
 /* --- INICIO: Estilos del Nuevo Dashboard --- */
 
-/* --- INICIO: Arreglos Dashboard en Vivo (v3 - Centrado Forzado) --- */
+/* --- INICIO: Arreglos Dashboard en Vivo (v3) --- */
 
-/* * 1. Forzamos la VISTA del dashboard a que ignore el grid principal.
- * La hacemos un bloque que ocupa todo el ancho.
- */
+/* 1. Hacemos que la VISTA ocupe todo el ancho */
 #viewLiveDashboard {
     width: 100%;
-    box-sizing: border-box; /* Importante */
+    box-sizing: border-box;
 }
 
-/* * 2. Sobreescribimos el .main-container de ADENTRO del dashboard
- * para que sea una sola columna centrada.
- */
+/* 2. Sobreescribimos el .main-container de ADENTRO del dashboard */
 #viewLiveDashboard .main-container {
-    display: flex; /* Usamos flex en lugar de grid para centrar */
+    display: flex; /* Usamos flex para centrar */
     flex-direction: column;
     align-items: center; /* Centra horizontalmente */
     
@@ -539,7 +535,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
         "main";
     height: calc(100vh - 32px);
     width: 100%;
-    max-width: 1600px; /* Le damos un ancho máximo para que no se vea feo en pantallas gigantes */
+    max-width: 1600px; /* Ancho máximo para pantallas gigantes */
     margin: 0 auto; /* ¡Esto lo centra! */
     padding: 0; 
     box-sizing: border-box;
@@ -550,7 +546,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
     max-height: none;
     top: 0;
     gap: 0;
-    width: 100%; /* Hacemos que la barra de "Turno" ocupe todo el ancho */
+    width: 100%; 
     box-sizing: border-box;
 }
 
@@ -571,8 +567,6 @@ body.light-theme .app-branding { color: var(--branding-color); }
     width: 100%;
 }
 
-/* * 3. El contenido principal (KPIs, gráfica, feed)
- */
 #viewLiveDashboard .main-content {
     grid-area: main;
     width: 100%;
@@ -582,7 +576,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
     flex-direction: column;
     gap: 16px;
     min-width: 0; 
-    padding: 0; /* El padding del .app-container ya es suficiente */
+    padding: 0 16px; /* Padding AQUI, dentro del main */
     box-sizing: border-box;
 }
 
@@ -603,81 +597,20 @@ body.light-theme .app-branding { color: var(--branding-color); }
     display: flex;
     flex-direction: column;
     
-    /* Lógica responsiva de tarjetas */
     flex: 1 1 calc(50% - 8px); 
     min-width: 160px;
     max-width: calc(50% - 8px);
 }
 
-.kpi-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-}
+/* El resto de .kpi-card, .kpi-header, etc. que ya te había pasado está bien */
+/* ... (pega el resto de los estilos del kpi-card aquí) ... */
 
-.kpi-header h4 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: var(--text-primary);
-}
-
-.kpi-meta {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-dark);
-}
-
-.kpi-card h1 {
-    font-size: 3.5rem;
-    color: var(--text-primary);
-    margin: 10px 0;
-    text-align: center;
-    font-weight: 700;
-}
-
-.kpi-progress-bar-container {
-    width: 100%;
-    height: 12px;
-    background-color: var(--border-color);
-    border-radius: 6px;
-    overflow: hidden;
-    margin-top: 5px;
-}
-
-.kpi-progress-bar {
-    height: 100%;
-    width: 0%;
-    border-radius: 6px;
-    background-color: var(--success-color);
-    transition: width 0.5s ease-in-out;
-    box-shadow: 0 0 10px var(--success-color);
-}
-
-.progress-bar-green { background-color: var(--success-color); box-shadow: 0 0 10px var(--success-color); }
-.progress-bar-yellow { background-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
-.progress-bar-red { background-color: var(--danger-color); box-shadow: 0 0 10px var(--danger-color); }
-
-.kpi-percent {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-align: right;
-    margin-top: 4px;
-}
-
-#liveFeedContainer p {
-    font-size: 0.9rem;
-    margin: 8px 0;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
-}
-#liveFeedContainer p:last-child {
-    border-bottom: none;
-}
 
 /* --- Media Queries para pantallas más grandes --- */
 @media (min-width: 768px) {
+    #viewLiveDashboard .main-content {
+        padding: 0; /* En desktop, el padding del app-container es suficiente */
+    }
     .kpi-card {
         flex: 1 1 calc(33.333% - 11px);
         max-width: calc(33.333% - 11px);
@@ -689,6 +622,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
         max-width: calc(25% - 12px);
     }
 }
+
+/* --- FIN: Estilos del Nuevo Dashboard --- */
 /* --- FIN: Estilos del Nuevo Dashboard --- */
 
 /* Estilos @media (max-width: 900px) que ya tenías */
@@ -2033,29 +1968,29 @@ async function loadAreasForTarimasReport() {
 // =======================================================================================
 
 // --- FUNCIÓN DE REEMPLAZO (showLiveDashboard) ---
+// --- FUNCIÓN DE REEMPLAZO (showLiveDashboard) ---
 function showLiveDashboard() {
-    const turnoActual = getAutoCurrentShift();
+    const turnoActual = getAutoCurrentShift();
     
-    // --- ¡AQUÍ ESTÁ EL ARREGLO IMPORTANTE! ---
-    // Hardcodeamos el área que este dashboard debe escuchar.
-    // Cámbiala si no es "MULTIPORT".
-    const areaALeer = "MULTIPORT"; 
+    // --- ARREGLO 1: "INVALID DATE" ---
+    // Usamos una función para obtener la fecha de HOY en la zona horaria correcta
+    const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Matamoros' }); // 'YYYY-MM-DD'
     
-    const { startTime } = getShiftDateRange(new Date().toISOString().split('T')[0], turnoActual);
-    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
+    const { startTime } = getShiftDateRange(hoyStr, turnoActual); 
+    
+    const areaALeer = "MULTIPORT"; // Asumimos esta área
+    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
 
-    // 1. Inicializar la gráfica (vacía)
-    renderLiveChart({}, [], startTime); // Llama a la gráfica vacía
-    switchView('liveDashboard'); // Cambia a la nueva vista
+    renderLiveChart({}, [], startTime); // Llama a la gráfica vacía
+    switchView('liveDashboard'); 
 
-    // 2. Apagar listener viejo (si existe)
-    if (liveListener) {
-        console.log("Deteniendo listener anterior...");
-        liveListener();
-        liveListener = null;
-    }
+    if (liveListener) {
+        console.log("Deteniendo listener anterior...");
+        liveListener();
+        liveListener = null;
+    }
 
-    // 3. Pre-calcular los empacadores para este turno
+    // Pre-calcular los empacadores para este turno
     const allPackers = params.produccion_hora_config.packers || [];
     const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
     const empacadoresPorLinea = new Map(); 
@@ -2067,25 +2002,25 @@ function showLiveDashboard() {
         empacadoresPorLinea.get(lineaNum).add(p.id);
     });
     
-    // 4. ¡EL CEREBRO! Enganchar el nuevo listener (ya usa areaALeer)
-    console.log(`Iniciando listener en vivo para: areas/${areaALeer}/orders`);
-    
-    liveListener = db.collection("areas").doc(areaALeer).collection("orders")
-        .onSnapshot(querySnapshot => {
-            
-            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes analizadas.");
-            let allOrders = [];
-            querySnapshot.forEach(doc => {
-                allOrders.push(doc.data());
-            });
-            
-            // 5. Llamar a la función que actualiza la UI
-            updateLiveDashboard(allOrders, turnoActual, startTime, empacadoresPorLinea);
+    console.log(`Iniciando listener en vivo para: areas/${areaALeer}/orders`);
+    
+    liveListener = db.collection("areas").doc(areaALeer).collection("orders")
+        .onSnapshot(querySnapshot => {
+            
+            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes analizadas.");
+            let allOrders = [];
+            querySnapshot.forEach(doc => {
+                allOrders.push(doc.data());
+            });
+            
+            // --- ARREGLO 2: "DATOS HISTÓRICOS" ---
+            // Le pasamos el string de "hoy" a la función que actualiza
+            updateLiveDashboard(allOrders, turnoActual, hoyStr, startTime, empacadoresPorLinea);
 
-        }, error => {
-            console.error("¡Error en el listener en vivo!:", error);
-            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase. Revise permisos.</p>`;
-        });
+        }, error => {
+            console.error("¡Error en el listener en vivo!:", error);
+            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase. Revise permisos.</p>`;
+        });
 }
 
 function stopLiveDashboard() {
@@ -2101,40 +2036,44 @@ function stopLiveDashboard() {
 }
 
 // --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadoresPorLinea) {
+// --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
+function updateLiveDashboard(allOrders, turnoActual, hoyStr, shiftStartTime, empacadoresPorLinea) {
     let allPackedItems = [];
     let lastScan = { timestamp: new Date(0), empacador: 'N/A', linea: 'N/A' };
-    const totalsByLine = {}; // Objeto para KPIs
-    const hourlyBins = Array(12).fill(0).map(() => ({})); // Array para la gráfica
-    const lineasEncontradas = new Set(); // Para saber qué líneas tienen datos
+    const totalsByLine = {};
+    const hourlyBins = Array(12).fill(0).map(() => ({}));
+    const lineasEncontradas = new Set();
 
     // 1. PROCESAR TODOS LOS DATOS
     allOrders.forEach(order => {
         
-        // --- ¡ARREGLO CLAVE! ---
-        // Tu app de Rastreo guarda empaqueData como un ARRAY de objetos: [{boxId: "B1", serials: [...]}]
-        // Ya no usamos el código de "Map".
+        // Asumimos que empaqueData es un ARRAY de objetos: [{boxId: "B1", serials: [...]}]
         const empaqueArray = order.empaqueData || []; 
         if (!Array.isArray(empaqueArray)) {
-            console.warn(`empaqueData de orden ${order.orderNumber} no es un array, saltando.`);
-            return; // Saltar esta orden si el formato es inesperado
+            // Si no es un array, intentamos convertirlo desde el formato Mapa (por si acaso)
+            if (typeof order.empaqueData.forEach === 'function') {
+                order.empaqueData.forEach(serialsInBox => empaqueArray.push({ serials: serialsInBox }));
+            } else {
+                console.warn(`empaqueData de orden ${order.orderNumber} no es un array, saltando.`);
+                return;
+            }
         }
         
-        empaqueArray.forEach(box => { // Iteramos sobre el array
-            const serialsInBox = box.serials; // Sacamos los seriales de adentro del objeto
+        empaqueArray.forEach(box => {
+            const serialsInBox = box.serials;
             if (Array.isArray(serialsInBox)) {
                 serialsInBox.forEach(item => {
                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                     if (!packedDate) return;
 
-                    const { shift } = getWorkShiftAndDate(packedDate);
+                    // --- ¡AQUÍ ESTÁ EL ARREGLO DE DATOS HISTÓRICOS! ---
+                    const { shift, dateKey } = getWorkShiftAndDate(packedDate);
 
-                    // Checamos si el serial pertenece al turno que estamos viendo
-                    if (shift === turnoActual) {
+                    // AHORA CHECAMOS TURNO Y QUE SEA LA FECHA DE HOY
+                    if (shift === turnoActual && dateKey === hoyStr) {
                         const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                         let lineaAsignada = null;
 
-                        // Buscar en qué línea está registrado el empacador
                         for (const [lineaNum, setDeEmpacadores] of empacadoresPorLinea.entries()) {
                             if (setDeEmpacadores.has(empacador)) {
                                 lineaAsignada = `Línea ${lineaNum}`;
@@ -2144,16 +2083,13 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
 
                         if (lineaAsignada) {
                             lineasEncontradas.add(lineaAsignada);
-                            // Usamos el catalogNumber de la orden principal
                             const char = (order.catalogNumber || '').substring(3, 4).toUpperCase();
                             const terminaciones = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
 
-                            // 1. Sumar a Totales (KPIs)
                             if (!totalsByLine[lineaAsignada]) totalsByLine[lineaAsignada] = { term: 0, pzas: 0 };
                             totalsByLine[lineaAsignada].term += terminaciones;
                             totalsByLine[lineaAsignada].pzas++;
 
-                            // 2. Sumar a Bines por Hora (Gráfica)
                             const diffMillis = packedDate - shiftStartTime;
                             const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
                             if (hourIndex >= 0 && hourIndex < 12) {
@@ -2161,12 +2097,12 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
                                 hourlyBins[hourIndex][lineaAsignada] += terminaciones;
                             }
 
-                            // 3. Actualizar Último Movimiento
                             if (packedDate > lastScan.timestamp) {
                                 lastScan = { timestamp: packedDate, empacador, linea: lineaAsignada };
                             }
                         }
                     }
+                    // --- FIN DEL ARREGLO ---
                 });
             }
         });
@@ -2184,17 +2120,16 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
             </p>
         `;
     } else {
-        doc('liveFeedContent').innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Esperando primer escaneo del turno...</p>`;
+        doc('liveFeedContent').innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Esperando primer escaneo del turno ${turnoActual}...</p>`;
     }
 
     // --- 3. ACTUALIZAR TARJETAS (KPIs) ---
-    const metaTurno = 5280; // La meta que definimos
+    const metaTurno = 5280; 
     const kpiContainer = doc('kpiCardContainer');
-    let kpiHtml = ''; // String vacío para construir el HTML
+    let kpiHtml = ''; 
 
-    // Recorrer las líneas que SÍ tienen datos
     lineasOrdenadas.forEach(lineaNombre => {
-        const lineaNumero = lineaNombre.split(' ')[1]; // Saca '1' de 'Línea 1'
+        const lineaNumero = lineaNombre.split(' ')[1];
         
         const totalTerm = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].term) ? totalsByLine[lineaNombre].term : 0;
         const percent = (totalTerm / metaTurno) * 100;
@@ -2202,7 +2137,6 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
         if (percent >= 80) progressClass = 'progress-bar-green';
         else if (percent >= 40) progressClass = 'progress-bar-yellow';
 
-        // Construir el HTML de la tarjeta
         kpiHtml += `
             <div class="kpi-card" id="kpi-linea-${lineaNumero}">
                 <div class="kpi-header">
@@ -2218,11 +2152,10 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
         `;
     });
 
-    // Si no hay líneas, mostrar un placeholder
     if (lineasOrdenadas.length === 0) {
-        kpiContainer.innerHTML = '<p style="color: var(--text-secondary); text-align: center; width: 100%; grid-column: 1 / -1;">Esperando datos de producción para las líneas...</p>';
+        kpiContainer.innerHTML = `<p style="color: var(--text-secondary); text-align: center; width: 100%; grid-column: 1 / -1;">Esperando datos de producción para las líneas...</p>`;
     } else {
-        kpiContainer.innerHTML = kpiHtml; // Inyectar el HTML
+        kpiContainer.innerHTML = kpiHtml;
     }
 
     // --- 4. ACTUALIZAR GRÁFICA DE BARRAS ---
@@ -2230,6 +2163,9 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
 }
 
 // --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (Arregla el "is not defined" y el "Invalid Date") ---
+
+// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA ---
+// (Esta es la que faltaba y causaba el error 'renderLiveChart is not defined')
 
 function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
     const canvas = doc('liveProduccionChart');
@@ -2254,7 +2190,7 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
             const end = new Date(start.getTime());
             end.setHours(end.getHours() + 1);
             const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-            labels.push(`${start.toLocaleTimeString('es-ES', format)} - ${end.toLocaleTimeString('es-ES', format)}`);
+            labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
         }
     }
 
@@ -2310,8 +2246,6 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
     }
     updateChartTheme(); // Aplicar tema (dark/light)
 }
-
-
 
 // =======================================================================================
 // --- FIN: LÓGICA DEL DASHBOARD EN VIVO ---
