@@ -784,31 +784,58 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 }
 
 /* --- Estilos para el Modal Semanal 20% --- */
-.modal-semanal-layout {
+/* --- Estilos para el Modal Semanal 20% (Con Vistas) --- */
+.modal-view-tabs {
 	display: flex;
-	flex-direction: row;
-	gap: 20px;
+	gap: 10px;
 	margin-top: 20px;
+	border-bottom: 2px solid var(--border-color);
+}
+.modal-tab-btn {
+	padding: 10px 16px;
+	border-radius: 8px 8px 0 0;
+	cursor: pointer;
+	background-color: transparent;
+	border: none;
+	border-bottom: 3px solid transparent;
+	color: var(--text-secondary);
+	font-weight: 600;
+	font-size: 0.9rem;
+	transition: all 0.2s;
+}
+.modal-tab-btn:hover {
+	color: var(--text-primary);
+}
+.modal-tab-btn.active {
+	color: var(--text-primary);
+	border-bottom: 3px solid var(--primary-color);
+}
+.modal-view-content {
+	display: none;
+	padding-top: 20px;
+	animation: fadeInUp 0.3s ease-out;
 	min-height: 45vh;
 }
-.modal-chart-wrapper {
-	flex-grow: 1;
-	position: relative;
-	min-width: 0; /* Evita que la gráfica se desborde */
+.modal-view-content.active {
+	display: block;
 }
-.modal-ranking-wrapper {
-	flex-basis: 300px; /* Ancho fijo para la tabla */
-	flex-shrink: 0;
+
+/* Contenedores internos de las vistas */
+#viewComparativa .modal-chart-wrapper {
+	height: 45vh; /* Altura fija para la gráfica */
+	position: relative;
+}
+#viewRanking .modal-ranking-wrapper {
 	overflow-y: auto;
 	max-height: 45vh;
-	border-left: 1px solid var(--border-color);
-	padding-left: 20px;
 }
-.modal-ranking-wrapper h5 {
+#viewRanking .modal-ranking-wrapper h5 {
 	margin-top: 0;
 	text-align: center;
 	color: var(--text-primary);
 }
+
+/* Estilos de la tabla de ranking (sin cambios, solo movidos aquí) */
 #rankingTable20 {
 	width: 100%;
 	table-layout: auto;
@@ -822,7 +849,6 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 	padding: 6px 8px;
 	white-space: nowrap;
 }
-/* Centrar las columnas 2 y 3 */
 #rankingTable20 th:nth-child(2), #rankingTable20 td:nth-child(2),
 #rankingTable20 th:nth-child(3), #rankingTable20 td:nth-child(3) {
 	text-align: right;
@@ -832,17 +858,21 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 	background-color: var(--surface-hover-color);
 }
 
-/* Hacerlo responsive en móviles (pone la tabla debajo) */
+/* Ocultar layout viejo (por si acaso) */
+.modal-semanal-layout {
+	display: none !important;
+}
+
+/* Responsive (se aplica al wrapper) */
 @media (max-width: 768px) {
-	.modal-semanal-layout {
-		flex-direction: column;
+	.modal-view-content {
+		min-height: 50vh;
 	}
-	.modal-ranking-wrapper {
-		flex-basis: auto; /* Se ajusta al contenido */
-		border-left: none;
-		border-top: 1px solid var(--border-color);
-		padding-left: 0;
-		padding-top: 16px;
+	#viewComparativa .modal-chart-wrapper {
+		height: 50vh;
+	}
+	#viewRanking .modal-ranking-wrapper {
+		max-height: 50vh;
 	}
 }
 
@@ -3144,48 +3174,77 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         // --- INICIO: LÓGICA DEL REPORTE SEMANAL 20% ---
         // --- Lógica para el Reporte Semanal 20% ---
 function abrirModalReporteSemanal() {
-    const modalHTML = `
-        <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
-            <div>
-                <label for="semanal_fecha_inicio" style="font-size: 0.9rem; font-weight: 500;">Fecha de Inicio</label>
-                <input type="date" id="semanal_fecha_inicio">
-            </div>
-            <div>
-                <label for="semanal_fecha_fin" style="font-size: 0.9rem; font-weight: 500;">Fecha de Fin</label>
-                <input type="date" id="semanal_fecha_fin">
-            </div>
-        </div>
+	const modalHTML = `
+		<div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
+			<div>
+				<label for="semanal_fecha_inicio" style="font-size: 0.9rem; font-weight: 500;">Fecha de Inicio</label>
+				<input type="date" id="semanal_fecha_inicio">
+			</div>
+			<div>
+				<label for="semanal_fecha_fin" style="font-size: 0.9rem; font-weight: 500;">Fecha de Fin</label>
+				<input type="date" id="semanal_fecha_fin">
+			</div>
+		</div>
 
-        <button id="generarReporteSemanalBtn" class="btn" style="width: 100%;">Generar Reporte Semanal</button>
+		<button id="generarReporteSemanalBtn" class="btn" style="width: 100%;">Generar Reporte Semanal</button>
 
-        <div class="modal-semanal-layout">
-            <div class="modal-chart-wrapper">
-                <canvas id="graficaSemanal20"></canvas>
-            </div>
-            <div class="modal-ranking-wrapper">
-                <h5>Ranking de Empleados</h5>
-                <div class="table-wrapper" style="height: auto; max-height: calc(45vh - 40px);">
-                    <table id="rankingTable20">
-                        <thead><tr><th>Cargando...</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    `;
+		<div class="modal-view-tabs">
+			<button id="btnComparativaTurnos" class="modal-tab-btn active">Comparativa de turnos</button>
+			<button id="btnRankingSemanal" class="modal-tab-btn">Ranking Semanal</button>
+		</div>
 
-    showModal('Reporte Semanal 20%', modalHTML);
+		<div id="viewComparativa" class="modal-view-content active">
+			<div class="modal-chart-wrapper">
+				<canvas id="graficaSemanal20"></canvas>
+			</div>
+		</div>
 
-    const hoy = new Date();
-    const haceUnaSemana = new Date();
-    haceUnaSemana.setDate(hoy.getDate() - 6);
+		<div id="viewRanking" class="modal-view-content">
+			<div class="modal-ranking-wrapper">
+				<h5>Ranking de Empleados</h5>
+				<div class="table-wrapper">
+					<table id="rankingTable20">
+						<thead><tr><th>Cargando...</th></tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		`;
 
-    doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
-    doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
+	showModal('Reporte Semanal 20%', modalHTML);
 
-    doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
+	// Configuración de fechas (sin cambios)
+	const hoy = new Date();
+	const haceUnaSemana = new Date();
+	haceUnaSemana.setDate(hoy.getDate() - 6);
+	doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
+	doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
+
+	// Listener para generar reporte (sin cambios)
+	doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
+	
+	// --- INICIO: NUEVOS Listeners para los botones de las vistas ---
+	const btnComparativa = doc('btnComparativaTurnos');
+	const btnRanking = doc('btnRankingSemanal');
+	const viewComparativa = doc('viewComparativa');
+	const viewRanking = doc('viewRanking');
+
+	btnComparativa.addEventListener('click', () => {
+		btnComparativa.classList.add('active');
+		btnRanking.classList.remove('active');
+		viewComparativa.classList.add('active');
+		viewRanking.classList.remove('active');
+	});
+
+	btnRanking.addEventListener('click', () => {
+		btnComparativa.classList.remove('active');
+		btnRanking.classList.add('active');
+		viewComparativa.classList.remove('active');
+		viewRanking.classList.add('active');
+	});
+	// --- FIN: NUEVOS Listeners ---
 }
-
 async function consultarReporteSemanal() {
     const btn = doc('generarReporteSemanalBtn');
     btn.disabled = true;
