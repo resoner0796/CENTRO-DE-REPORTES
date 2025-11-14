@@ -17,7 +17,513 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tinos&display=swap" rel="stylesheet">
     
+    <style>
+:root {}
 
+body.dark-theme {
+    --bg-gradient: radial-gradient(ellipse at center top, #22252a 0%, #0a0a0a 70%);
+    --surface-color: rgba(35, 38, 43, 0.6);
+    --surface-hover-color: rgba(55, 58, 63, 0.7);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --primary-color: #E5E7EB;
+    --primary-text-color: #0A0A0A;
+    --danger-color: #FB7185;
+    --danger-hover-color: #f43f5e;
+    --text-primary: #F1F5F9; 
+    --text-secondary: #94A3B8;
+    --text-dark: #64748B;
+    --thead-bg: rgba(55, 65, 81, 0.8);
+    --sticky-col-bg: #2a2d32;
+    --success-color: #4ade80;
+    --row-today-bg: rgba(74, 222, 128, 0.1);
+    --row-yesterday-bg: rgba(251, 191, 36, 0.1);
+    --row-past-bg: rgba(244, 63, 94, 0.1);
+    --chart-grid-color: rgba(255, 255, 255, 0.1);
+    --chart-tick-color: #94A3B8;
+    --glow-green: rgba(74, 222, 128, 0.9);
+    --glow-red: rgba(251, 113, 133, 0.9);
+}
+
+body.light-theme {
+    --bg-gradient: linear-gradient(145deg, #f9fafb, #e5e7eb);
+    --surface-color: rgba(255, 255, 255, 0.5);
+    --surface-hover-color: rgba(243, 244, 246, 0.7);
+    --border-color: rgba(0, 0, 0, 0.1);
+    --primary-color: #1F2937;
+    --primary-text-color: #FFFFFF;
+    --danger-color: #EF4444;
+    --danger-hover-color: #dc2626;
+    --text-primary: #111827; 
+    --text-secondary: #4B5563;
+    --text-dark: #9CA3AF;
+    --branding-color: #0055A5;
+    --thead-bg: rgba(229, 231, 235, 0.8);
+    --sticky-col-bg: #f1f5f9;
+    --success-color: #22c55e;
+    --row-today-bg: rgba(34, 197, 94, 0.1);
+    --row-yesterday-bg: rgba(245, 158, 11, 0.1);
+    --row-past-bg: rgba(239, 68, 68, 0.1);
+    --chart-grid-color: rgba(0, 0, 0, 0.1);
+    --chart-tick-color: #4B5563;
+    --glow-green: rgba(34, 197, 94, 0.9);
+    --glow-red: rgba(239, 68, 68, 0.9);
+}
+
+@keyframes fadeInUp { 
+    from { opacity: 0; transform: translateY(20px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+html { min-height: 100%; background-color: #0a0a0a; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text-primary);
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    transition: background 0.3s ease-in-out;
+    background-attachment: fixed;
+    padding: 16px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.app-container { width: 100%; }
+
+.menu-wrapper { 
+    width: 100%; 
+    max-width: 700px; 
+    text-align: center; 
+}
+
+.animated-startup {
+    animation: fadeInUp 0.5s ease-out forwards;
+    opacity: 0;
+}
+
+.card, .modal-content {
+    background-color: var(--surface-color);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    padding: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+    border-right: 2px solid rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.menu-container { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 16px; 
+    align-items: stretch; 
+}
+
+.btn { 
+    padding: 16px 24px; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    background-color: var(--primary-color); 
+    border: none; 
+    color: var(--primary-text-color); 
+    font-weight: 700; 
+    font-size: 1.1rem; 
+    text-align: center; 
+    transition: all 0.2s; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+}
+
+.btn:hover:not(:disabled) { 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15); 
+}
+
+.btn:disabled { 
+    opacity: 0.6; 
+    cursor: not-allowed; 
+}
+
+.btn-glass {
+    background: rgba(255, 255, 255, 0.1); 
+    backdrop-filter: blur(10px); 
+    border: 1px solid rgba(255, 255, 255, 0.2); 
+    color: var(--text-primary);
+    padding: 12px 20px; 
+    font-size: 0.95rem; 
+    font-weight: 600;
+}
+
+.btn-glass:hover:not(:disabled) { 
+    background: rgba(255, 255, 255, 0.2); 
+}
+
+.main-container {
+    display: grid; 
+    grid-template-columns: 320px 1fr; 
+    gap: 16px; 
+    width: 100%; 
+    height: calc(100vh - 32px); 
+}
+
+.sidebar { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 16px; 
+}
+
+.sidebar-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+.icon-btn { 
+    background: transparent; 
+    border: none; 
+    color: var(--text-secondary); 
+    font-size: 1.5rem; 
+    cursor: pointer; 
+    padding: 8px; 
+    border-radius: 50%; 
+    transition: all 0.2s; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+}
+
+.icon-btn:hover { 
+    color: var(--text-primary); 
+    background-color: var(--surface-hover-color); 
+}
+
+.main-content {
+    display: flex; 
+    flex-direction: column; 
+    gap: 16px; 
+    min-width: 0; 
+    min-height: auto; 
+    flex-grow: 1; 
+    overflow-y: auto; 
+    overflow-x: hidden; 
+    padding-bottom: 16px; 
+    box-sizing: border-box;
+}
+
+.table-container { 
+    display: flex; 
+    flex-direction: column; 
+    flex-grow: 1; 
+    min-height: 0; 
+}
+
+.table-wrapper { 
+    overflow: auto; 
+    height: 100%; 
+    border-radius: 12px; 
+    border: 1px solid var(--border-color); 
+}
+
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed;
+}
+
+th, td { 
+    padding: 10px 14px; 
+    text-align: left; 
+    border-bottom: 1px solid var(--border-color); 
+    white-space: nowrap; 
+    font-size: 0.9rem;
+}
+
+thead { 
+    position: sticky; 
+    top: 0; 
+    background-color: var(--thead-bg); 
+    backdrop-filter: blur(5px); 
+    z-index: 10; 
+}
+
+th { 
+    font-weight: 600; 
+    color: var(--text-secondary); 
+    font-size: 0.75rem; 
+    vertical-align: top; 
+}
+
+.copyable { 
+    cursor: pointer; 
+    transition: color 0.2s; 
+}
+
+.copyable:hover { 
+    color: var(--success-color); 
+}
+
+.filter-input, 
+.control-group input, 
+.control-group select { 
+    display: block; 
+    width: 100%; 
+    box-sizing: border-box; 
+    background-color: var(--surface-color); 
+    border: 1px solid var(--border-color); 
+    color: var(--text-primary); 
+    border-radius: 8px; 
+    padding: 8px 12px; 
+    font-size: 0.9rem; 
+}
+
+.filter-input { 
+    border-radius: 4px; 
+    padding: 4px 6px; 
+    margin-top: 4px; 
+    font-size: 0.8rem; 
+}
+
+.control-group { 
+    margin-bottom: 16px; 
+}
+
+.control-group label { 
+    display: block; 
+    font-weight: 500; 
+    color: var(--text-secondary); 
+    margin-bottom: 6px; 
+    font-size: 0.9rem; 
+}
+
+.file-drop-area { 
+    border: 2px dashed var(--border-color); 
+    border-radius: 8px; 
+    padding: 24px 20px; 
+    text-align: center; 
+    cursor: pointer; 
+    transition: all 0.2s ease; 
+    margin-top: 16px; 
+}
+
+.file-drop-area h4 { 
+    margin: 0 0 8px 0; 
+    color: var(--text-secondary); 
+}
+
+.file-drop-area p { 
+    margin: 0; 
+    color: var(--text-dark); 
+}
+
+/* ============================================================
+   DASHBOARD EN VIVO — VISTA 100% CENTRADA Y REPARADA
+   ============================================================ */
+
+/* 🔥 Elimina cualquier grid heredado */
+#viewLiveDashboard .main-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start;
+    width: 100%;
+    margin: 0 auto !important;
+    padding: 0 16px 20px 16px;
+    gap: 20px;
+    max-width: 1200px;
+    box-sizing: border-box;
+}
+
+/* Sidebar convertida en HEADER (centrada) */
+#viewLiveDashboard .sidebar {
+    width: 100% !important;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: block !important;
+}
+
+/* Estilo del header */
+#viewLiveDashboard .sidebar .card {
+    width: 100%;
+    margin: 0 auto;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    padding: 16px 20px;
+    box-sizing: border-box;
+}
+
+#viewLiveDashboard .sidebar-header {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Contenido principal CENTRADO */
+#viewLiveDashboard .main-content {
+    width: 100% !important;
+    max-width: 1100px;
+    margin: 0 auto !important;
+    display: flex !important;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ============================
+   KPIs CENTRADAS Y FLUIDAS
+   ============================ */
+
+.dashboard-kpi-container {
+    width: 100%;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center !important;
+}
+
+.kpi-card {
+    background-color: var(--surface-hover-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 calc(50% - 16px);
+    min-width: 220px;
+    max-width: 280px;
+    transition: transform .2s;
+}
+
+.kpi-card:hover {
+    transform: translateY(-3px);
+}
+
+/* KPI header */
+.kpi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.kpi-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+/* Valor KPI */
+.kpi-card h1 {
+    font-size: 3rem;
+    margin: 10px 0;
+    text-align: center;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Meta */
+.kpi-meta {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    text-align: center;
+}
+
+/* Barra progreso */
+.kpi-progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background-color: var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.kpi-progress-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+
+.progress-bar-green { background-color: var(--success-color); }
+.progress-bar-yellow { background-color: #f59e0b; }
+.progress-bar-red { background-color: var(--danger-color); }
+
+/* Porcentaje */
+.kpi-percent {
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* =============================
+   TARJETA DE GRÁFICA EN VIVO
+   ============================= */
+
+#liveChartContainer {
+    width: 100%;
+    min-height: 35vh;
+    position: relative;
+}
+
+.card h5 {
+    text-align: center;
+    margin: 0 0 10px 0;
+    color: var(--text-secondary);
+}
+
+/* =============================
+   ÚLTIMO MOVIMIENTO
+   ============================= */
+
+#liveFeedContainer p {
+    font-size: 0.9rem;
+    margin: 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#liveFeedContainer p:last-child {
+    border-bottom: none;
+}
+
+/* =============================
+   RESPONSIVE
+   ============================= */
+
+@media (min-width: 768px) {
+    .kpi-card { 
+        flex: 1 1 calc(33.33% - 16px); 
+        max-width: 300px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .kpi-card { 
+        flex: 1 1 calc(25% - 16px); 
+        max-width: 260px;
+    }
+}
+
+@media (max-width: 600px) {
+    #viewLiveDashboard .main-container {
+        padding: 8px;
+    }
+
+    .kpi-card {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+}
+</style>
 </head>
 <body class="dark-theme">
 
