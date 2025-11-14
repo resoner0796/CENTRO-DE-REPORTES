@@ -688,6 +688,30 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     #addPackerForm { grid-template-columns: 1fr; }
     #packerList li { grid-template-columns: 1fr; text-align: center; gap: 4px; }
 }
+
+/* === FIX: Centrar dashboard y desactivar layout de sidebar === */
+
+#viewLiveDashboard .main-container {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start;
+    align-items: center !important;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto !important;
+    padding: 16px;
+}
+
+#viewLiveDashboard .sidebar {
+    display: none !important;
+}
+
+#viewLiveDashboard .main-content {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto !important;
+}
+
 </style>
 </head>
 <body class="dark-theme">
