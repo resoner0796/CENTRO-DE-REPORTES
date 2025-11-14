@@ -4129,52 +4129,53 @@ async function generarReportePorHora() {
         }
 
         function renderResumenSemanalProduccion(totales, diasTrabajados) {
-            const container = doc('resumenSemanal');
-            const metaDiaria = 5280;
-            const metaTotal = metaDiaria * diasTrabajados;
+    const container = doc('resumenSemanal');
+    const metaDiaria = 5280;
+    const metaTotal = metaDiaria * diasTrabajados;
 
-            const eficienciaL1 = metaTotal > 0 ? ((totales['Línea 1'].term / metaTotal) * 100) : 0;
-            const eficienciaL2 = metaTotal > 0 ? ((totales['Línea 2'].term / metaTotal) * 100) : 0;
-            
-            const alturaBarraL1 = Math.min(eficienciaL1, 100);
-            const alturaBarraL2 = Math.min(eficienciaL2, 100);
+    const eficienciaL1 = metaTotal > 0 ? ((totales['Línea 1'].term / metaTotal) * 100) : 0;
+    const eficienciaL2 = metaTotal > 0 ? ((totales['Línea 2'].term / metaTotal) * 100) : 0;
 
-            container.innerHTML = `
-                <h4 style="text-align: center; margin-top: 0;">Resumen del Periodo</h4>
-                
-                <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-                    <h5>Meta Total de la Semana</h5>
-                    <p><strong>Terminaciones:</strong> ${metaTotal.toLocaleString('es-MX')}</p>
+    const alturaBarraL1 = Math.min(eficienciaL1, 100);
+    const alturaBarraL2 = Math.min(eficienciaL2, 100);
+
+    container.innerHTML = `
+        <h4 style="text-align: center; margin-top: 0;">Resumen del Periodo</h4>
+
+        <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+            <h5>Meta Total de la Semana</h5>
+            <p><strong>Terminaciones:</strong> ${metaTotal.toLocaleString('es-MX')}</p>
+        </div>
+
+        <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px;">
+            <h5>Línea 1</h5>
+            <p><strong>Terminaciones:</strong> ${totales['Línea 1'].term.toLocaleString('es-MX')}</p>
+            <p><strong>Eficiencia:</strong> ${eficienciaL1.toFixed(1)}%</p>
+        </div>
+
+        <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-top: 16px;">
+            <h5>Línea 2</h5>
+            <p><strong>Terminaciones:</strong> ${totales['Línea 2'].term.toLocaleString('es-MX')}</p>
+            <p><strong>Eficiencia:</strong> ${eficienciaL2.toFixed(1)}%</p>
+        </div>
+
+        <div class="summary-bars-wrapper">
+            <div class="summary-bar-container">
+                <div class="summary-bar" style="height: ${alturaBarraL1}%; background-color: rgba(245, 158, 11, 0.8);">
+                    <span>${eficienciaL1.toFixed(0)}%</span>
                 </div>
+                <div class="summary-bar-label">Línea 1</div>
+            </div>
 
-                <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px;">
-                    <h5>Línea 1</h5>
-                    <p><strong>Terminaciones:</strong> ${totales['Línea 1'].term.toLocaleString('es-MX')}</p>
-                    <p><strong>Eficiencia:</strong> ${eficienciaL1.toFixed(1)}%</p>
+            <div class="summary-bar-container">
+                <div class="summary-bar" style="height: ${alturaBarraL2}%; background-color: rgba(16, 185, 129, 0.8);">
+                    <span>${eficienciaL2.toFixed(0)}%</span>
                 </div>
-
-                <div style="background-color: var(--surface-hover-color); padding: 12px; border-radius: 8px; margin-top: 16px;">
-                    <h5>Línea 2</h5>
-                    <p><strong>Terminaciones:</strong> ${totales['Línea 2'].term.toLocaleString('es-MX')}</p>
-                    <p><strong>Eficiencia:</strong> ${eficienciaL2.toFixed(1)}%</p>
-                </div>
-
-                <div class="summary-bars-wrapper">
-                    <div class="summary-bar-container">
-                        <div class="summary-bar" style="height: ${alturaBarraL1}%; background-color: rgba(54, 162, 235, 0.7);">
-                            <span>${eficienciaL1.toFixed(0)}%</span>
-                        </div>
-                        <div class="summary-bar-label">Línea 1</div>
-                    </div>
-                    <div class="summary-bar-container">
-                        <div class="summary-bar" style="height: ${alturaBarraL2}%; background-color: rgba(255, 99, 132, 0.7);">
-                            <span>${eficienciaL2.toFixed(0)}%</span>
-                        </div>
-                        <div class="summary-bar-label">Línea 2</div>
-                    </div>
-                </div>
-            `;
-        }
+                <div class="summary-bar-label">Línea 2</div>
+            </div>
+        </div>
+    `;
+}
 
         function renderProductionTable(data, tableId, lineName) {
             const table = doc(tableId);
