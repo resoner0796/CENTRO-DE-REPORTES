@@ -644,6 +644,19 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     margin-top: 8px; /* Espacio para separarlo de la gráfica */
 }
 
+/* --- Ajustes de centrado para el Dashboard --- */
+#liveTurnoTitle {
+	flex-grow: 1; /* Esto hace que el título ocupe el espacio disponible */
+	text-align: center; /* Centra el texto */
+	margin: 0 16px; /* Le da aire para que no se pegue a los botones */
+}
+
+.live-dashboard-wrapper .card h5 {
+	text-align: center; /* Centra el título "Producción por Hora (En Vivo)" */
+	margin-top: 0;
+	margin-bottom: 16px;
+}
+
 /* --- Media Queries para pantallas mÃ¡s grandes --- */
 @media (min-width: 768px) {
     #viewLiveDashboard .main-content {
@@ -4477,7 +4490,7 @@ function renderProductionChart(data, shiftStartTime, turno) {
         }
 
         function updateChartTheme() {
-    const charts = [productionChart, ...fiberPieCharts, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance].filter(Boolean);
+    const charts = [productionChart, ...fiberPieCharts, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance, liveProductionChart].filter(Boolean);
     if (charts.length === 0) return;
     const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
     const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
