@@ -3198,7 +3198,9 @@ function renderGraficaSemanal(datos, labels, turnos) {
 
     const datasets = turnos.map(turno => ({
         label: `Terminaciones ${turno}`,
-        data: labels.map(fecha => (datos[fecha] && datos[fecha][turno]) ? datos[fecha][turno] : 0),
+        data: labels.map(fecha =>
+            (datos[fecha] && datos[fecha][turno]) ? datos[fecha][turno] : 0
+        ),
         backgroundColor: colors[turnosMap[turno] % colors.length]
     }));
 
@@ -3218,29 +3220,47 @@ function renderGraficaSemanal(datos, labels, turnos) {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { color: 'var(--chart-tick-color)' },
-                    grid: { color: 'var(--chart-grid-color)' },
-                    title: {
-                        display: true,
-                        text: 'Total Terminaciones',
-                        color: 'var(--chart-tick-color)'
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { color: 'var(--chart-tick-color)' }, 
+                    grid: { 
+                        color: 'var(--chart-grid-color)',
+                        drawOnChartArea: false
+                    }, 
+                    title: { display: true, text: 'Total Terminaciones', color: 'var(--chart-tick-color)' },
+                    afterDataLimits: (scale) => {
+                        scale.max = scale.max * 1.15;
                     }
                 },
-                x: {
-                    ticks: { color: 'var(--chart-tick-color)' },
-                    grid: { color: 'var(--chart-grid-color)' }
+                x: { 
+                    ticks: { color: 'var(--chart-tick-color)' }, 
+                    grid: { color: 'var(--chart-grid-color)' },
+                    categoryPercentage: 0.7,
+                    barPercentage: 0.9
                 }
             },
             plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { color: 'var(--text-primary)' }
-                },
+                legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
                 datalabels: {
-                    color: 'white',
-                    font: { weight: 'bold' },
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    offset: 8,
+                    backgroundColor: (context) => {
+                        return document.body.classList.contains('dark-theme')
+                            ? 'rgba(40, 43, 48, 0.75)'
+                            : 'rgba(255, 255, 255, 0.75)';
+                    },
+                    borderColor: (context) => context.dataset.backgroundColor,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    color: (context) => {
+                        return document.body.classList.contains('dark-theme')
+                            ? '#F1F5F9'
+                            : '#111827';
+                    },
+                    padding: { top: 2, bottom: 2, left: 5, right: 5 },
+                    font: { weight: 'bold', size: 10 },
                     formatter: (value) => value > 0 ? value.toLocaleString() : ''
                 }
             }
