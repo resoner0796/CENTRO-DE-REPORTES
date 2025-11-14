@@ -524,11 +524,11 @@ body.light-theme .app-branding { color: var(--branding-color); }
         "sidebar"
         "main";
     height: calc(100vh - 32px);
-    width: 100%;
+    width: 100%; /* <-- AJUSTE CLAVE 1 */
     max-width: 100%;
     margin: 0 auto;
-    padding: 0 16px; /* Padding lateral para que no se pegue en móvil */
-    box-sizing: border-box; /* Para que el padding no afecte el ancho */
+    padding: 0; /* <-- AJUSTE CLAVE 2: Quitar padding para que se estire */
+    box-sizing: border-box; 
 }
 
 #viewLiveDashboard .sidebar {
@@ -536,6 +536,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
     max-height: none;
     top: 0;
     gap: 0;
+    width: 100%; /* <-- AJUSTE CLAVE 3 */
 }
 
 #viewLiveDashboard .sidebar .card {
@@ -544,6 +545,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+    width: 100%; /* <-- AJUSTE CLAVE 4 */
+    box-sizing: border-box; /* Para que el padding de la card no desborde */
 }
 
 #viewLiveDashboard .sidebar .card > div:not(.sidebar-header) {
@@ -562,6 +565,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
     flex-direction: column;
     gap: 16px;
     min-width: 0; /* Arreglo para flexbox */
+    padding: 0 16px; /* Padding AQUI, dentro del main, no en el container */
+    box-sizing: border-box;
 }
 
 .dashboard-kpi-container {
@@ -582,9 +587,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
     flex-direction: column;
     
     /* --- LÓGICA RESPONSIVA DE TARJETAS --- */
-    /* Móvil: 2 tarjetas por fila */
-    flex: 1 1 calc(50% - 8px); /* 50% menos la mitad del gap */
-    min-width: 160px; /* Ancho mínimo para que no se vean mal */
+    flex: 1 1 calc(50% - 8px); /* Móvil: 2 tarjetas por fila */
+    min-width: 160px;
     max-width: calc(50% - 8px);
 }
 
@@ -691,13 +695,18 @@ body.light-theme .app-branding { color: var(--branding-color); }
         padding-top: 0; 
         /* Añadimos esto para asegurar que #viewLiveDashboard se comporte igual */
         width: 100%;
-        padding-left: 0;
-        padding-right: 0;
+        padding-left: 0; /* Sobreescribimos el padding de .app-container */
+        padding-right: 0; /* Sobreescribimos el padding de .app-container */
     }
     
     /* SOBREESCRIBIMOS el padding lateral solo para #viewLiveDashboard en móvil */
     #viewLiveDashboard .main-container {
         padding: 0; 
+    }
+    
+    /* Y le devolvemos el padding al contenido principal del dashboard */
+    #viewLiveDashboard .main-content {
+        padding: 0 8px; /* Padding más chico para móvil */
     }
 
     .sidebar { height: auto; }
@@ -2190,6 +2199,84 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
     // --- 4. ACTUALIZAR GRÁFICA DE BARRAS ---
     renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
+
+// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA AL FINAL DEL SCRIPT ---
+
+function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
+    const canvas = doc('liveProduccionChart');
+    if (!canvas) return; // Seguridad por si no lo encuentra
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return; // Doble seguridad
+
+    // 1. Crear Etiquetas (12 horas)
+    const labels = [];
+    // Asegurarse que shiftStartTime sea un objeto Date
+    const startTime = (shiftStartTime instanceof Date) ? shiftStartTime : new Date(shiftStartTime);
+    
+    for (let i = 0; i < 12; i++) {
+        const start = new Date(startTime);
+        start.setHours(start.getHours() + i);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
+        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+        labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+    }
+
+    // 2. Crear Datasets (Dinámicos)
+    const colors = ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)'];
+    const borderColors = ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)'];
+    
+    const dynamicDatasets = lineasOrdenadas.map((linea, index) => {
+        return {
+            label: linea,
+            data: labels.map((_, i) => (hourlyData[i] && hourlyData[i][linea]) ? hourlyData[i][linea] : 0),
+            backgroundColor: colors[index % colors.length],
+            borderColor: borderColors[index % borderColors.length],
+            borderWidth: 1
+        };
+    });
+
+    // 3. Crear o Actualizar Gráfica
+    if (!liveProductionChart) {
+        // Crear nueva gráfica
+        liveProductionChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: dynamicDatasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
+                    datalabels: {
+                        display: true,
+                        anchor: 'end',
+                        align: 'top',
+                        color: 'var(--text-primary)',
+                        font: { weight: 'bold', size: 10 },
+                        formatter: (value) => value > 0 ? value.toLocaleString() : ''
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 } } },
+                    y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    } else {
+        // Actualizar la existente
+        liveProductionChart.data.labels = labels;
+        liveProductionChart.data.datasets = dynamicDatasets;
+        liveProductionChart.update();
+    }
+    updateChartTheme(); // Aplicar tema (dark/light)
+}
+
+
+
 // =======================================================================================
 // --- FIN: LÓGICA DEL DASHBOARD EN VIVO ---
 // =======================================================================================
