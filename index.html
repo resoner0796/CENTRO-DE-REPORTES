@@ -781,6 +781,18 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     gap: 20px !important;
 }
 
+/* FIX DEFINITIVO: centrado real del Dashboard */
+#viewLiveDashboard .live-dashboard-wrapper {
+    width: 100%;
+    max-width: 1100px;      /* el tamaño ideal de tu dashboard */
+    margin: 0 auto;         /* <-- ESTO ES LO QUE LO CENTRA */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-sizing: border-box;
+}
+
 </style>
 </head>
 <body class="dark-theme">
