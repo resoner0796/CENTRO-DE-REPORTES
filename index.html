@@ -783,6 +783,70 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     gap: 16px;
 }
 
+/* --- Estilos para el Modal Semanal 20% --- */
+.modal-semanal-layout {
+	display: flex;
+	flex-direction: row;
+	gap: 20px;
+	margin-top: 20px;
+	min-height: 45vh;
+}
+.modal-chart-wrapper {
+	flex-grow: 1;
+	position: relative;
+	min-width: 0; /* Evita que la gráfica se desborde */
+}
+.modal-ranking-wrapper {
+	flex-basis: 300px; /* Ancho fijo para la tabla */
+	flex-shrink: 0;
+	overflow-y: auto;
+	max-height: 45vh;
+	border-left: 1px solid var(--border-color);
+	padding-left: 20px;
+}
+.modal-ranking-wrapper h5 {
+	margin-top: 0;
+	text-align: center;
+	color: var(--text-primary);
+}
+#rankingTable20 {
+	width: 100%;
+	table-layout: auto;
+	font-size: 0.85rem;
+}
+#rankingTable20 th {
+	text-align: left;
+	padding: 6px 8px;
+}
+#rankingTable20 td {
+	padding: 6px 8px;
+	white-space: nowrap;
+}
+/* Centrar las columnas 2 y 3 */
+#rankingTable20 th:nth-child(2), #rankingTable20 td:nth-child(2),
+#rankingTable20 th:nth-child(3), #rankingTable20 td:nth-child(3) {
+	text-align: right;
+	font-weight: bold;
+}
+#rankingTable20 tbody tr:nth-child(odd) {
+	background-color: var(--surface-hover-color);
+}
+
+/* Hacerlo responsive en móviles (pone la tabla debajo) */
+@media (max-width: 768px) {
+	.modal-semanal-layout {
+		flex-direction: column;
+	}
+	.modal-ranking-wrapper {
+		flex-basis: auto; /* Se ajusta al contenido */
+		border-left: none;
+		border-top: 1px solid var(--border-color);
+		padding-left: 0;
+		padding-top: 16px;
+	}
+}
+
+
 
 /* FIX DEFINITIVO: centrado real del Dashboard */
 #viewLiveDashboard .live-dashboard-wrapper {
@@ -3078,106 +3142,232 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
 }
         
         // --- INICIO: LÓGICA DEL REPORTE SEMANAL 20% ---
-        function abrirModalReporteSemanal() {
-            const modalHTML = `
-                <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
-                    <div>
-                        <label for="semanal_fecha_inicio" style="font-size: 0.9rem; font-weight: 500;">Fecha de Inicio</label>
-                        <input type="date" id="semanal_fecha_inicio">
-                    </div>
-                    <div>
-                        <label for="semanal_fecha_fin" style="font-size: 0.9rem; font-weight: 500;">Fecha de Fin</label>
-                        <input type="date" id="semanal_fecha_fin">
-                    </div>
+        // --- Lógica para el Reporte Semanal 20% ---
+function abrirModalReporteSemanal() {
+    const modalHTML = `
+        <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
+            <div>
+                <label for="semanal_fecha_inicio" style="font-size: 0.9rem; font-weight: 500;">Fecha de Inicio</label>
+                <input type="date" id="semanal_fecha_inicio">
+            </div>
+            <div>
+                <label for="semanal_fecha_fin" style="font-size: 0.9rem; font-weight: 500;">Fecha de Fin</label>
+                <input type="date" id="semanal_fecha_fin">
+            </div>
+        </div>
+
+        <button id="generarReporteSemanalBtn" class="btn" style="width: 100%;">Generar Reporte Semanal</button>
+
+        <div class="modal-semanal-layout">
+            <div class="modal-chart-wrapper">
+                <canvas id="graficaSemanal20"></canvas>
+            </div>
+            <div class="modal-ranking-wrapper">
+                <h5>Ranking de Empleados</h5>
+                <div class="table-wrapper" style="height: auto; max-height: calc(45vh - 40px);">
+                    <table id="rankingTable20">
+                        <thead><tr><th>Cargando...</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
-                <div class="turnos-semanales" style="margin-bottom: 20px;">
-                    <label style="font-size: 0.9rem; font-weight: 500;">Turnos a Comparar:</label>
-                    <div style="display: flex; justify-content: space-around; margin-top: 8px; background-color: var(--surface-hover-color); padding: 8px; border-radius: 8px;">
-                        <label><input type="checkbox" class="turno-checkbox" value="T45" checked> T45</label>
-                        <label><input type="checkbox" class="turno-checkbox" value="T46" checked> T46</label>
-                        <label><input type="checkbox" class="turno-checkbox" value="T47" checked> T47</label>
-                        <label><input type="checkbox" class="turno-checkbox" value="T48" checked> T48</label>
-                    </div>
-                </div>
-                <button id="generarReporteSemanalBtn" class="btn" style="width: 100%;">Generar Gráfica Comparativa</button>
-                <div id="chartContainerSemanal" style="margin-top: 20px; height: 40vh; position: relative;">
-                    <canvas id="graficaSemanal"></canvas>
-                </div>
+            </div>
+        </div>
+    `;
+
+    showModal('Reporte Semanal 20%', modalHTML);
+
+    const hoy = new Date();
+    const haceUnaSemana = new Date();
+    haceUnaSemana.setDate(hoy.getDate() - 6);
+
+    doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
+    doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
+
+    doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
+}
+
+async function consultarReporteSemanal() {
+    const btn = doc('generarReporteSemanalBtn');
+    btn.disabled = true;
+    btn.textContent = 'Generando...';
+
+    const fechaInicio = doc('semanal_fecha_inicio').value;
+    const fechaFin = doc('semanal_fecha_fin').value;
+
+    if (!fechaInicio || !fechaFin) {
+        alert('Por favor, selecciona un rango de fechas.');
+        btn.disabled = false;
+        btn.textContent = 'Generar Reporte Semanal';
+        return;
+    }
+
+    const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+    const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
+    fechaFinDate.setDate(fechaFinDate.getDate() + 1);
+    fechaFinDate.setHours(6, 29, 59, 999);
+
+    try {
+        const snapshot = await db.collection('produccion_20_historico')
+            .where('Fecha y hora', '>=', fechaInicioDate)
+            .where('Fecha y hora', '<=', fechaFinDate)
+            .get();
+
+        const datosAgrupadosPorDia = {};
+        const datosRanking = {};
+        const labelsFechas = new Set();
+
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const fechaHora = data['Fecha y hora'].toDate();
+
+            const { dateKey } = getWorkShiftAndDate(fechaHora);
+
+            if (dateKey >= fechaInicio && dateKey <= fechaFin) {
+                labelsFechas.add(dateKey);
+
+                const catalogo = data['Catalogo'] || '';
+                const digit = catalogo.substring(3, 4).toUpperCase();
+                const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
+                const cantidad = Number(data['Cantidad']) || 1;
+                const terminacionesTotales = terminacionesPorPieza * cantidad;
+                const empleado = data['Empleado'] || 'N/A';
+
+                if (!datosAgrupadosPorDia[dateKey]) {
+                    datosAgrupadosPorDia[dateKey] = { piezas: 0, terminaciones: 0 };
+                }
+                datosAgrupadosPorDia[dateKey].piezas += cantidad;
+                datosAgrupadosPorDia[dateKey].terminaciones += terminacionesTotales;
+
+                if (!datosRanking[empleado]) {
+                    datosRanking[empleado] = { piezas: 0, terminaciones: 0 };
+                }
+                datosRanking[empleado].piezas += cantidad;
+                datosRanking[empleado].terminaciones += terminacionesTotales;
+            }
+        });
+
+        const fechasOrdenadas = Array.from(labelsFechas).sort();
+
+        renderGraficaSemanal20(datosAgrupadosPorDia, fechasOrdenadas);
+        renderRankingSemanal20(datosRanking);
+
+    } catch (e) {
+        console.error("Error consultando reporte semanal:", e);
+        alert("No se pudo generar el reporte.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generar Reporte Semanal';
+    }
+}
+
+// --- Función renderGraficaSemanal20 ---
+function renderGraficaSemanal20(datos, labels) {
+    const ctx = doc('graficaSemanal20').getContext('2d');
+    if (graficaSemanalInstance) graficaSemanalInstance.destroy();
+
+    const piezasData = labels.map(fecha => datos[fecha]?.piezas || 0);
+    const terminacionesData = labels.map(fecha => datos[fecha]?.terminaciones || 0);
+
+    graficaSemanalInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.map(f =>
+                new Date(f + 'T12:00:00').toLocaleDateString('es-MX', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                })
+            ),
+            datasets: [
+                {
+                    label: 'Piezas',
+                    data: piezasData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)'
+                },
+                {
+                    label: 'Terminaciones',
+                    data: terminacionesData,
+                    backgroundColor: 'rgba(75, 192, 192, 0.7)'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: 'var(--chart-tick-color)' },
+                    grid: { color: 'var(--chart-grid-color)', drawOnChartArea: false },
+                    title: { display: true, text: 'Total', color: 'var(--chart-tick-color)' },
+                    afterDataLimits: scale => scale.max = scale.max * 1.15
+                },
+                x: {
+                    ticks: { color: 'var(--chart-tick-color)' },
+                    grid: { color: 'var(--chart-grid-color)' },
+                    categoryPercentage: 0.7,
+                    barPercentage: 0.9
+                }
+            },
+            plugins: {
+                legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    offset: 8,
+                    backgroundColor: ctx => document.body.classList.contains('dark-theme')
+                        ? 'rgba(40, 43, 48, 0.75)'
+                        : 'rgba(255, 255, 255, 0.75)',
+                    borderColor: ctx => ctx.dataset.backgroundColor,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    color: ctx => document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827',
+                    padding: { top: 2, bottom: 2, left: 5, right: 5 },
+                    font: { weight: 'bold', size: 10 },
+                    formatter: v => v > 0 ? v.toLocaleString() : ''
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    updateChartTheme();
+}
+
+// --- Ranking Semanal ---
+function renderRankingSemanal20(datosRanking) {
+    const table = doc('rankingTable20');
+    if (!table) return;
+
+    const rankingArray = Object.entries(datosRanking).map(([empleado, data]) => ({
+        empleado,
+        piezas: data.piezas,
+        terminaciones: data.terminaciones
+    }));
+
+    rankingArray.sort((a, b) => b.terminaciones - a.terminaciones);
+
+    let headerHtml = `<thead><tr><th>Empleado</th><th>Term.</th><th>Pzas.</th></tr></thead>`;
+    let bodyHtml = '<tbody>';
+
+    if (rankingArray.length === 0) {
+        bodyHtml += '<tr><td colspan="3" style="text-align: center;">Sin datos</td></tr>';
+    } else {
+        rankingArray.forEach(item => {
+            bodyHtml += `
+                <tr>
+                    <td>${item.empleado}</td>
+                    <td>${item.terminaciones.toLocaleString()}</td>
+                    <td>${item.piezas.toLocaleString()}</td>
+                </tr>
             `;
-            showModal('Reporte Semanal Comparativo', modalHTML);
+        });
+    }
 
-            const hoy = new Date();
-            const haceUnaSemana = new Date();
-            haceUnaSemana.setDate(hoy.getDate() - 6);
-            doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
-            doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
-
-            doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
-        }
-
-        async function consultarReporteSemanal() {
-            const btn = doc('generarReporteSemanalBtn');
-            btn.disabled = true;
-            btn.textContent = 'Generando...';
-
-            const fechaInicio = doc('semanal_fecha_inicio').value;
-            const fechaFin = doc('semanal_fecha_fin').value;
-            const turnosSeleccionados = Array.from(document.querySelectorAll('.turno-checkbox:checked')).map(cb => cb.value);
-
-            if (!fechaInicio || !fechaFin || turnosSeleccionados.length === 0) {
-                alert('Por favor, selecciona un rango de fechas y al menos un turno.');
-                btn.disabled = false;
-                btn.textContent = 'Generar Gráfica Comparativa';
-                return;
-            }
-
-            const fechaInicioDate = new Date(`${fechaInicio}T06:30:00`);
-            const fechaFinDate = new Date(`${fechaFin}T23:59:59`);
-             fechaFinDate.setDate(fechaFinDate.getDate() + 1);
-             fechaFinDate.setHours(6, 29, 59, 999);
-
-            try {
-                const snapshot = await db.collection('produccion_20_historico')
-                    .where('Fecha y hora', '>=', fechaInicioDate)
-                    .where('Fecha y hora', '<=', fechaFinDate)
-                    .get();
-
-                const datosAgrupados = {};
-                const labelsFechas = new Set();
-
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    const fechaHora = data['Fecha y hora'].toDate();
-
-                    const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
-
-                    if (turnosSeleccionados.includes(shift) && dateKey >= fechaInicio && dateKey <= fechaFin) {
-                        labelsFechas.add(dateKey);
-
-                        if (!datosAgrupados[dateKey]) datosAgrupados[dateKey] = {};
-                        if (!datosAgrupados[dateKey][shift]) datosAgrupados[dateKey][shift] = 0;
-
-                        const catalogo = data['Catalogo'] || '';
-                        const digit = catalogo.substring(3, 4).toUpperCase();
-                        const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
-                        const cantidad = Number(data['Cantidad']) || 1;
-
-                        datosAgrupados[dateKey][shift] += terminacionesPorPieza * cantidad;
-                    }
-                });
-
-                const fechasOrdenadas = Array.from(labelsFechas).sort();
-                renderGraficaSemanal(datosAgrupados, fechasOrdenadas, turnosSeleccionados);
-
-            } catch (e) {
-                console.error("Error consultando reporte semanal:", e);
-                alert("No se pudo generar el reporte. Revisa la consola para más detalles.");
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Generar Gráfica Comparativa';
-            }
-        }
-
+    bodyHtml += '</tbody>';
+    table.innerHTML = headerHtml + bodyHtml;
+}
 // --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (después de consultarReporteSemanal) ---
 
 function renderGraficaSemanal(datos, labels, turnos) {
@@ -4511,7 +4701,7 @@ function renderProductionChart(data, shiftStartTime, turno) {
         }
 
         function updateChartTheme() {
-    const charts = [productionChart, ...fiberPieCharts, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance, liveProductionChart].filter(Boolean);
+    const charts = [productionChart, ...fiberPieCharts, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance, liveProductionChart, graficaSemanalInstance].filter(Boolean);
     if (charts.length === 0) return;
     const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
     const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
