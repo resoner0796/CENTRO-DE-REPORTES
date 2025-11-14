@@ -3270,28 +3270,28 @@ function renderGraficaSemanal(datos, labels, turnos) {
                 })
             ),
             datasets: [
-                {
-                    label: 'Línea 1',
-                    data: labels.map(fecha => datos[fecha]['Línea 1'].term),
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                },
-                {
-                    label: 'Línea 2',
-                    data: labels.map(fecha => datos[fecha]['Línea 2'].term),
-                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                },
-                {
-                    type: 'line',
-                    label: 'Meta',
-                    data: Array(labels.length).fill(meta),
-                    borderColor: 'var(--success-color)',
-                    borderWidth: 2,
-                    // borderDash: [5, 5], // Si la quieres punteada, descomenta esta línea
-                    pointRadius: 0,
-                    fill: false,
-                    datalabels: { display: false } // 👈 Sin texto sobre la línea
-                }
-            ]
+                {
+                    label: 'Línea 1',
+                    data: labels.map(fecha => datos[fecha]['Línea 1'].term),
+                    backgroundColor: 'rgba(0, 51, 160, 0.8)', // <-- ¡AZUL REY OBSCURO!
+                },
+                {
+                    label: 'Línea 2',
+                    data: labels.map(fecha => datos[fecha]['Línea 2'].term),
+                    backgroundColor: 'rgba(114, 47, 55, 0.8)', // <-- ¡COLOR VINO!
+                },
+                {
+                    type: 'line',
+                    label: 'Meta',
+                    data: Array(labels.length).fill(meta),
+                    borderColor: 'var(--success-color)',
+                    borderWidth: 2,
+                    // borderDash: [5, 5], 
+                    pointRadius: 0,
+                    fill: false,
+                    datalabels: { display: false } 
+                }
+            ]
         },
         options: {
             responsive: true,
