@@ -514,7 +514,12 @@ body.light-theme .app-branding { color: var(--branding-color); }
 
 /* --- INICIO: Estilos del Nuevo Dashboard --- */
 
-/* --- INICIO: Estilos del Nuevo Dashboard (Limpios y Corregidos) --- */
+/* --- INICIO: Arreglos Dashboard en Vivo (v2) --- */
+
+#viewLiveDashboard {
+    /* Hacemos que la vista ocupe todo el ancho del app-container */
+    width: 100%;
+}
 
 #viewLiveDashboard .main-container {
     /* Forzamos 1 columna y que ocupe todo el ancho */
@@ -571,9 +576,9 @@ body.light-theme .app-branding { color: var(--branding-color); }
 
 .dashboard-kpi-container {
     display: flex;
-    flex-wrap: wrap; /* Permite que las tarjetas se acomoden en filas */
+    flex-wrap: wrap; 
     gap: 16px;
-    justify-content: center; /* Centra las tarjetas */
+    justify-content: center;
     width: 100%;
 }
 
@@ -586,8 +591,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
     display: flex;
     flex-direction: column;
     
-    /* --- LÓGICA RESPONSIVA DE TARJETAS --- */
-    flex: 1 1 calc(50% - 8px); /* Móvil: 2 tarjetas por fila */
+    flex: 1 1 calc(50% - 8px); 
     min-width: 160px;
     max-width: calc(50% - 8px);
 }
@@ -660,19 +664,15 @@ body.light-theme .app-branding { color: var(--branding-color); }
 }
 
 /* --- Media Queries para pantallas más grandes --- */
-
-/* Tablets (3 tarjetas) */
 @media (min-width: 768px) {
     .kpi-card {
-        flex: 1 1 calc(33.333% - 11px); /* 33% menos ~mitad del gap */
+        flex: 1 1 calc(33.333% - 11px);
         max-width: calc(33.333% - 11px);
     }
 }
-
-/* Desktops (4 tarjetas) */
 @media (min-width: 1024px) {
     .kpi-card {
-        flex: 1 1 calc(25% - 12px); /* 25% menos mitad del gap */
+        flex: 1 1 calc(25% - 12px);
         max-width: calc(25% - 12px);
     }
 }
@@ -2020,50 +2020,60 @@ async function loadAreasForTarimasReport() {
 // --- INICIO: LÓGICA DEL DASHBOARD EN VIVO ---
 // =======================================================================================
 
+// --- FUNCIÓN DE REEMPLAZO (showLiveDashboard) ---
 function showLiveDashboard() {
-    const turnoActual = getAutoCurrentShift();
-    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual}`;
-
-    // 1. Inicializar la gráfica (vacía por ahora)
-    const ctx = doc('liveProduccionChart').getContext('2d');
-    if (liveProductionChart) {
-        liveProductionChart.destroy();
-    }
-    // (Aquí pegaremos la lógica de la gráfica de barras en el siguiente paso)
-    // Por ahora, solo cambiamos de vista
-    switchView('liveDashboard');
-
-    // 2. Apagar listener viejo (si existe)
-    if (liveListener) {
-        console.log("Deteniendo listener anterior...");
-        liveListener();
-        liveListener = null;
-    }
-
-    // 3. ¡EL CEREBRO! Enganchar el nuevo listener
-    console.log(`Iniciando listener en vivo para el turno: ${turnoActual}`);
-    const { startTime } = getShiftDateRange(new Date().toISOString().split('T')[0], turnoActual); // Obtenemos la hora de inicio del turno
+    const turnoActual = getAutoCurrentShift();
     
-    // NOTA: Esto va a buscar en 'scaneos_en_vivo', la colección que aún no creamos.
-    liveListener = db.collection("scaneos_en_vivo")
-        .where("turno", "==", turnoActual)
-        .where("timestamp", ">=", startTime) // Solo de este turno
-        .orderBy("timestamp", "desc") // Empezar por los más nuevos
-        .onSnapshot(querySnapshot => {
-            
-            console.log("¡Datos en vivo recibidos!", querySnapshot.size);
-            let todosLosScaneos = [];
-            querySnapshot.forEach(doc => {
-                todosLosScaneos.push(doc.data());
-            });
-            
-            // 4. Llamar a la función que actualiza la UI
-            updateLiveDashboard(todosLosScaneos, startTime);
+    // --- ¡AQUÍ ESTÁ EL ARREGLO IMPORTANTE! ---
+    // Hardcodeamos el área que este dashboard debe escuchar.
+    // Cámbiala si no es "MULTIPORT".
+    const areaALeer = "MULTIPORT"; 
+    
+    const { startTime } = getShiftDateRange(new Date().toISOString().split('T')[0], turnoActual);
+    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
 
-        }, error => {
-            console.error("¡Error en el listener en vivo!:", error);
-            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase.</p>`;
-        });
+    // 1. Inicializar la gráfica (vacía)
+    renderLiveChart({}, [], startTime); // Llama a la gráfica vacía
+    switchView('liveDashboard'); // Cambia a la nueva vista
+
+    // 2. Apagar listener viejo (si existe)
+    if (liveListener) {
+        console.log("Deteniendo listener anterior...");
+        liveListener();
+        liveListener = null;
+    }
+
+    // 3. Pre-calcular los empacadores para este turno
+    const allPackers = params.produccion_hora_config.packers || [];
+    const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
+    const empacadoresPorLinea = new Map(); 
+    empacadoresFiltrados.forEach(p => {
+        const lineaNum = String(p.linea);
+        if (!empacadoresPorLinea.has(lineaNum)) {
+            empacadoresPorLinea.set(lineaNum, new Set());
+        }
+        empacadoresPorLinea.get(lineaNum).add(p.id);
+    });
+    
+    // 4. ¡EL CEREBRO! Enganchar el nuevo listener (ya usa areaALeer)
+    console.log(`Iniciando listener en vivo para: areas/${areaALeer}/orders`);
+    
+    liveListener = db.collection("areas").doc(areaALeer).collection("orders")
+        .onSnapshot(querySnapshot => {
+            
+            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes analizadas.");
+            let allOrders = [];
+            querySnapshot.forEach(doc => {
+                allOrders.push(doc.data());
+            });
+            
+            // 5. Llamar a la función que actualiza la UI
+            updateLiveDashboard(allOrders, turnoActual, startTime, empacadoresPorLinea);
+
+        }, error => {
+            console.error("¡Error en el listener en vivo!:", error);
+            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase. Revise permisos.</p>`;
+        });
 }
 
 function stopLiveDashboard() {
@@ -2200,26 +2210,34 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
     renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
 
-// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA AL FINAL DEL SCRIPT ---
+// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA ---
+// (Esta es la que faltaba y causaba el error 'renderLiveChart is not defined')
 
 function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
     const canvas = doc('liveProduccionChart');
-    if (!canvas) return; // Seguridad por si no lo encuentra
+    if (!canvas) return; // Seguridad
     const ctx = canvas.getContext('2d');
     if (!ctx) return; // Doble seguridad
 
     // 1. Crear Etiquetas (12 horas)
     const labels = [];
-    // Asegurarse que shiftStartTime sea un objeto Date
     const startTime = (shiftStartTime instanceof Date) ? shiftStartTime : new Date(shiftStartTime);
     
-    for (let i = 0; i < 12; i++) {
-        const start = new Date(startTime);
-        start.setHours(start.getHours() + i);
-        const end = new Date(start);
-        end.setHours(end.getHours() + 1);
-        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-        labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+    // Si startTime sigue siendo inválido, detenemos
+    if (isNaN(startTime)) {
+        console.error("Error Crítico: La fecha de inicio (startTime) es inválida.", shiftStartTime);
+        // Dibujamos etiquetas de error
+        for (let i = 0; i < 12; i++) labels.push('Error Fecha');
+    } else {
+        // Solo si la fecha es válida, creamos las etiquetas correctas
+        for (let i = 0; i < 12; i++) {
+            const start = new Date(startTime.getTime()); // Usamos .getTime() para clonar
+            start.setHours(start.getHours() + i);
+            const end = new Date(start.getTime());
+            end.setHours(end.getHours() + 1);
+            const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+            labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+        }
     }
 
     // 2. Crear Datasets (Dinámicos)
@@ -2235,7 +2253,7 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
             borderWidth: 1
         };
     });
-
+    
     // 3. Crear o Actualizar Gráfica
     if (!liveProductionChart) {
         // Crear nueva gráfica
