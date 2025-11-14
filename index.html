@@ -514,26 +514,35 @@ body.light-theme .app-branding { color: var(--branding-color); }
 
 /* --- INICIO: Estilos del Nuevo Dashboard --- */
 
-/* --- INICIO: Arreglos Dashboard en Vivo (v2) --- */
+/* --- INICIO: Arreglos Dashboard en Vivo (v3 - Centrado Forzado) --- */
 
+/* * 1. Forzamos la VISTA del dashboard a que ignore el grid principal.
+ * La hacemos un bloque que ocupa todo el ancho.
+ */
 #viewLiveDashboard {
-    /* Hacemos que la vista ocupe todo el ancho del app-container */
     width: 100%;
+    box-sizing: border-box; /* Importante */
 }
 
+/* * 2. Sobreescribimos el .main-container de ADENTRO del dashboard
+ * para que sea una sola columna centrada.
+ */
 #viewLiveDashboard .main-container {
-    /* Forzamos 1 columna y que ocupe todo el ancho */
-    grid-template-columns: 1fr;
+    display: flex; /* Usamos flex en lugar de grid para centrar */
+    flex-direction: column;
+    align-items: center; /* Centra horizontalmente */
+    
+    grid-template-columns: 1fr; /* Anulamos el grid de 320px */
     grid-template-rows: auto 1fr;
     grid-template-areas: 
         "sidebar"
         "main";
     height: calc(100vh - 32px);
-    width: 100%; /* <-- AJUSTE CLAVE 1 */
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 0; /* <-- AJUSTE CLAVE 2: Quitar padding para que se estire */
-    box-sizing: border-box; 
+    width: 100%;
+    max-width: 1600px; /* Le damos un ancho máximo para que no se vea feo en pantallas gigantes */
+    margin: 0 auto; /* ¡Esto lo centra! */
+    padding: 0; 
+    box-sizing: border-box;
 }
 
 #viewLiveDashboard .sidebar {
@@ -541,7 +550,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
     max-height: none;
     top: 0;
     gap: 0;
-    width: 100%; /* <-- AJUSTE CLAVE 3 */
+    width: 100%; /* Hacemos que la barra de "Turno" ocupe todo el ancho */
+    box-sizing: border-box;
 }
 
 #viewLiveDashboard .sidebar .card {
@@ -550,8 +560,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
-    width: 100%; /* <-- AJUSTE CLAVE 4 */
-    box-sizing: border-box; /* Para que el padding de la card no desborde */
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #viewLiveDashboard .sidebar .card > div:not(.sidebar-header) {
@@ -561,6 +571,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
     width: 100%;
 }
 
+/* * 3. El contenido principal (KPIs, gráfica, feed)
+ */
 #viewLiveDashboard .main-content {
     grid-area: main;
     width: 100%;
@@ -569,8 +581,8 @@ body.light-theme .app-branding { color: var(--branding-color); }
     display: flex;
     flex-direction: column;
     gap: 16px;
-    min-width: 0; /* Arreglo para flexbox */
-    padding: 0 16px; /* Padding AQUI, dentro del main, no en el container */
+    min-width: 0; 
+    padding: 0; /* El padding del .app-container ya es suficiente */
     box-sizing: border-box;
 }
 
@@ -591,6 +603,7 @@ body.light-theme .app-branding { color: var(--branding-color); }
     display: flex;
     flex-direction: column;
     
+    /* Lógica responsiva de tarjetas */
     flex: 1 1 calc(50% - 8px); 
     min-width: 160px;
     max-width: calc(50% - 8px);
@@ -676,7 +689,6 @@ body.light-theme .app-branding { color: var(--branding-color); }
         max-width: calc(25% - 12px);
     }
 }
-
 /* --- FIN: Estilos del Nuevo Dashboard --- */
 
 /* Estilos @media (max-width: 900px) que ya tenías */
@@ -2096,14 +2108,20 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
     const hourlyBins = Array(12).fill(0).map(() => ({})); // Array para la gráfica
     const lineasEncontradas = new Set(); // Para saber qué líneas tienen datos
 
-    // 1. PROCESAR TODOS LOS DATOS (Iterar órdenes, cajas y seriales)
+    // 1. PROCESAR TODOS LOS DATOS
     allOrders.forEach(order => {
-        // El empaqueData que viene de Firebase es un MAPA, no un array
-        const empaqueMap = (order.empaqueData && typeof order.empaqueData.forEach === 'function') 
-            ? order.empaqueData 
-            : new Map(Object.entries(order.empaqueData || {})); // Convertir si es array u objeto (código viejo)
-
-        empaqueMap.forEach(serialsInBox => { // Iterar sobre los valores del Mapa
+        
+        // --- ¡ARREGLO CLAVE! ---
+        // Tu app de Rastreo guarda empaqueData como un ARRAY de objetos: [{boxId: "B1", serials: [...]}]
+        // Ya no usamos el código de "Map".
+        const empaqueArray = order.empaqueData || []; 
+        if (!Array.isArray(empaqueArray)) {
+            console.warn(`empaqueData de orden ${order.orderNumber} no es un array, saltando.`);
+            return; // Saltar esta orden si el formato es inesperado
+        }
+        
+        empaqueArray.forEach(box => { // Iteramos sobre el array
+            const serialsInBox = box.serials; // Sacamos los seriales de adentro del objeto
             if (Array.isArray(serialsInBox)) {
                 serialsInBox.forEach(item => {
                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
@@ -2126,6 +2144,7 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
 
                         if (lineaAsignada) {
                             lineasEncontradas.add(lineaAsignada);
+                            // Usamos el catalogNumber de la orden principal
                             const char = (order.catalogNumber || '').substring(3, 4).toUpperCase();
                             const terminaciones = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
 
@@ -2161,14 +2180,14 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
             <p>
                 <strong>Línea:</strong> ${lastScan.linea}<br>
                 <strong>Empacador:</strong> ${lastScan.empacador}<br>
-                <strong>Hora:</strong> ${lastScan.timestamp.toLocaleTimeString()}
+                <strong>Hora:</strong> ${lastScan.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </p>
         `;
     } else {
         doc('liveFeedContent').innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Esperando primer escaneo del turno...</p>`;
     }
 
-    // --- 3. ACTUALIZAR TARJETAS (KPIs) --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+    // --- 3. ACTUALIZAR TARJETAS (KPIs) ---
     const metaTurno = 5280; // La meta que definimos
     const kpiContainer = doc('kpiCardContainer');
     let kpiHtml = ''; // String vacío para construir el HTML
@@ -2188,7 +2207,7 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
             <div class="kpi-card" id="kpi-linea-${lineaNumero}">
                 <div class="kpi-header">
                     <h4>${lineaNombre}</h4>
-                    <span id="kpi-linea-${lineaNumero}-meta" class="kpi-meta">vs ${metaTurno}</span>
+                    <span id="kpi-linea-${lineaNumero}-meta" class="kpi-meta">vs ${metaTurno.toLocaleString()}</span>
                 </div>
                 <h1 id="kpi-linea-${lineaNumero}-total">${totalTerm.toLocaleString()}</h1>
                 <div class="kpi-progress-bar-container">
@@ -2210,8 +2229,7 @@ function updateLiveDashboard(allOrders, turnoActual, shiftStartTime, empacadores
     renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
 
-// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA ---
-// (Esta es la que faltaba y causaba el error 'renderLiveChart is not defined')
+// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (Arregla el "is not defined" y el "Invalid Date") ---
 
 function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
     const canvas = doc('liveProduccionChart');
@@ -2221,12 +2239,12 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
 
     // 1. Crear Etiquetas (12 horas)
     const labels = [];
+    // ¡ARREGLO IMPORTANTE! Asegurar que shiftStartTime sea un objeto Date válido
     const startTime = (shiftStartTime instanceof Date) ? shiftStartTime : new Date(shiftStartTime);
     
-    // Si startTime sigue siendo inválido, detenemos
-    if (isNaN(startTime)) {
+    if (isNaN(startTime.getTime())) {
         console.error("Error Crítico: La fecha de inicio (startTime) es inválida.", shiftStartTime);
-        // Dibujamos etiquetas de error
+        // Dibujamos etiquetas de error si la fecha es mala
         for (let i = 0; i < 12; i++) labels.push('Error Fecha');
     } else {
         // Solo si la fecha es válida, creamos las etiquetas correctas
@@ -2236,7 +2254,7 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
             const end = new Date(start.getTime());
             end.setHours(end.getHours() + 1);
             const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-            labels.push(`${start.toLocaleTimeString([], format)} - ${end.toLocaleTimeString([], format)}`);
+            labels.push(`${start.toLocaleTimeString('es-ES', format)} - ${end.toLocaleTimeString('es-ES', format)}`);
         }
     }
 
