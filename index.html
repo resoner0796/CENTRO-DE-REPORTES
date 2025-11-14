@@ -2313,30 +2313,39 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
     renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
 
-// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (Arregla el "is not defined" y el "Invalid Date") ---
-
-// --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA ---
+// --- FUNCIÓN DE REEMPLAZO (renderLiveChart) ---
 // (Esta es la que faltaba y causaba el error 'renderLiveChart is not defined')
-
 function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
     const canvas = doc('liveProduccionChart');
     if (!canvas) return; // Seguridad
     const ctx = canvas.getContext('2d');
     if (!ctx) return; // Doble seguridad
 
-    // 1. Crear Etiquetas (12 horas)
+    // --- ¡NUEVO! Lógica de Metas (Copiada de renderProductionChart) ---
+    const goals = Array(12).fill(480); // Metas por hora
+    goals[1] = 360; goals[5] = 280; goals[8] = 360; 
+    const visualGoalLine = Array(12).fill(480); // La línea visual que se dibuja
+
+    // --- INICIO DEL ARREGLO ---
+    // 1. Destruir el chart viejo, si existe
+    if (liveProductionChart) {
+        liveProductionChart.destroy();
+        liveProductionChart = null; // Asegurarse que la referencia se elimine
+    }
+    // 2. Limpiar el canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    // --- FIN DEL ARREGLO ---
+
+    // 1. Crear Etiquetas (12 horas) - (Lógica sin cambios)
     const labels = [];
-    // ¡ARREGLO IMPORTANTE! Asegurar que shiftStartTime sea un objeto Date válido
     const startTime = (shiftStartTime instanceof Date) ? shiftStartTime : new Date(shiftStartTime);
     
     if (isNaN(startTime.getTime())) {
         console.error("Error Crítico: La fecha de inicio (startTime) es inválida.", shiftStartTime);
-        // Dibujamos etiquetas de error si la fecha es mala
         for (let i = 0; i < 12; i++) labels.push('Error Fecha');
     } else {
-        // Solo si la fecha es válida, creamos las etiquetas correctas
         for (let i = 0; i < 12; i++) {
-            const start = new Date(startTime.getTime()); // Usamos .getTime() para clonar
+            const start = new Date(startTime.getTime());
             start.setHours(start.getHours() + i);
             const end = new Date(start.getTime());
             end.setHours(end.getHours() + 1);
@@ -2345,7 +2354,7 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         }
     }
 
-    // 2. Crear Datasets (Dinámicos)
+    // 2. Crear Datasets (Dinámicos) - (Lógica sin cambios)
     const colors = ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)'];
     const borderColors = ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)'];
     
@@ -2355,46 +2364,112 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
             data: labels.map((_, i) => (hourlyData[i] && hourlyData[i][linea]) ? hourlyData[i][linea] : 0),
             backgroundColor: colors[index % colors.length],
             borderColor: borderColors[index % borderColors.length],
-            borderWidth: 1
+            borderWidth: 1,
+            order: 1 // --- ¡NUEVO! Asegura que las barras se dibujen detrás de la línea
         };
     });
     
+    // --- ¡NUEVO! Añadir el dataset de la meta ---
+    dynamicDatasets.unshift({ 
+        type: 'line', 
+        label: 'Meta', 
+        data: visualGoalLine,
+        borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), 
+        borderWidth: 2, 
+        borderDash: [5, 5], 
+        pointRadius: 0, 
+        fill: false, 
+        order: 0 // --- ¡NUEVO! Asegura que la línea se dibuje encima
+    });
+    
     // 3. Crear o Actualizar Gráfica
-    if (!liveProductionChart) {
-        // Crear nueva gráfica
-        liveProductionChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: dynamicDatasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
-                    datalabels: {
-                        display: true,
-                        anchor: 'end',
-                        align: 'top',
-                        color: 'var(--text-primary)',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (value) => value > 0 ? value.toLocaleString() : ''
-                    }
+    // ¡OJO! La estructura if/else se elimina. Siempre creamos una NUEVA gráfica
+    // después de haber destruido la anterior. Esto soluciona bugs de renderizado.
+
+    liveProductionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: dynamicDatasets
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                // --- ¡NUEVO! Ocultamos la "Meta" de la leyenda ---
+                legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } }, 
+                title: { 
+                    display: true, 
+                    text: 'Producción por Hora (En Vivo)', // Título actualizado
+                    color: 'var(--text-primary)', 
+                    font: { size: 16 } 
                 },
-                scales: {
-                    x: { grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)', font: { size: 10 } } },
-                    y: { beginAtZero: true, grid: { color: 'var(--chart-grid-color)' }, ticks: { color: 'var(--chart-tick-color)' } }
+                // --- ¡NUEVO! Lógica de Datalabels "Perrona" ---
+                datalabels: {
+                    display: context => context.dataset.type !== 'line', // No mostrar en la línea de meta
+                    labels: {
+                        value: {
+                            anchor: 'end', 
+                            align: 'top',
+                            offset: 5,
+                            backgroundColor: (ctx) => {
+                                // Compara el valor de la barra con la meta de esa hora
+                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex]; 
+                                const colorVar = isSuccess ? '--glow-green' : '--glow-red';
+                                const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
+                                return rawColor.replace(/0.9\)$/, '0.4)'); // Fondo semitransparente
+                            },
+                            borderColor: (ctx) => {
+                                return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
+                            },
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            color: 'white',
+                            font: { weight: 'bold' },
+                            padding: { top: 2, bottom: 2, left: 5, right: 5 },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : '',
+                        },
+                        percentage: { 
+                            align: 'center', anchor: 'center',
+                            color: (ctx) => {
+                                // Ocultar el % si la barra es muy pequeña
+                                const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
+                                return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
+                            },
+                            font: { weight: 'bold', size: 11 },
+                            formatter: (value, ctx) => {
+                                const goalForHour = goals[ctx.dataIndex]; // Meta de esa hora
+                                if (value <= 0 || goalForHour === 0) return '';
+                                const percentage = (value / goalForHour) * 100;
+                                return percentage.toFixed(0) + '%';
+                            },
+                            textStrokeColor: 'rgba(0,0,0,0.6)',
+                            textStrokeWidth: 2
+                        }
+                    }
                 }
             },
-            plugins: [ChartDataLabels]
-        });
-    } else {
-        // Actualizar la existente
-        liveProductionChart.data.labels = labels;
-        liveProductionChart.data.datasets = dynamicDatasets;
-        liveProductionChart.update();
-    }
+            // --- ¡NUEVO! Ajuste de escalas ---
+            scales: {
+                x: { 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
+                    categoryPercentage: 0.7, // Espacio entre grupos de horas
+                    barPercentage: 0.9 // Ancho de las barras
+                },
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)' }, 
+                    title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
+                    afterDataLimits: (scale) => {
+                        scale.max = scale.max * 1.2; // 20% de espacio extra arriba
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
     updateChartTheme(); // Aplicar tema (dark/light)
 }
 
