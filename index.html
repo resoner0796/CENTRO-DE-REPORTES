@@ -2115,27 +2115,27 @@ async function loadAreasForTarimasReport() {
 // =======================================================================================
 
 // --- FUNCIÓN DE REEMPLAZO (showLiveDashboard) ---
-// --- FUNCIÓN DE REEMPLAZO (showLiveDashboard) ---
 function showLiveDashboard() {
-    const turnoActual = getAutoCurrentShift();
+    // --- INICIO DE LA CORRECCIÓN DE TURNO ---
+    // 1. Obtener la fecha y turno de TRABAJO actual, no de calendario.
+    const now = new Date();
+    const { shift: turnoActual, dateKey: fechaDeTrabajoActual } = getWorkShiftAndDate(now);
     
-    // --- ARREGLO 1: "INVALID DATE" ---
-    // Usamos una función para obtener la fecha de HOY en la zona horaria correcta
-    const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Matamoros' }); // 'YYYY-MM-DD'
+    // 2. Calcular el rango de horas para ESE turno de trabajo.
+    const { startTime } = getShiftDateRange(fechaDeTrabajoActual, turnoActual); 
+    // --- FIN DE LA CORRECCIÓN DE TURNO ---
     
-    const { startTime } = getShiftDateRange(hoyStr, turnoActual); 
-    
     const areaALeer = "MULTIPORT"; // Asumimos esta área
-    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
+    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
 
-    renderLiveChart({}, [], startTime); // Llama a la gráfica vacía
-    switchView('liveDashboard'); 
+    renderLiveChart({}, [], startTime); // Llama a la gráfica vacía con el startTime correcto
+    switchView('liveDashboard'); 
 
-    if (liveListener) {
-        console.log("Deteniendo listener anterior...");
-        liveListener();
-        liveListener = null;
-    }
+    if (liveListener) {
+        console.log("Deteniendo listener anterior...");
+        liveListener();
+        liveListener = null;
+    }
 
     // Pre-calcular los empacadores para este turno
     const allPackers = params.produccion_hora_config.packers || [];
@@ -2149,25 +2149,26 @@ function showLiveDashboard() {
         empacadoresPorLinea.get(lineaNum).add(p.id);
     });
     
-    console.log(`Iniciando listener en vivo para: areas/${areaALeer}/orders`);
-    
-    liveListener = db.collection("areas").doc(areaALeer).collection("orders")
-        .onSnapshot(querySnapshot => {
-            
-            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes analizadas.");
-            let allOrders = [];
-            querySnapshot.forEach(doc => {
-                allOrders.push(doc.data());
-            });
-            
-            // --- ARREGLO 2: "DATOS HISTÓRICOS" ---
-            // Le pasamos el string de "hoy" a la función que actualiza
-            updateLiveDashboard(allOrders, turnoActual, hoyStr, startTime, empacadoresPorLinea);
+    console.log(`Iniciando listener en vivo para: areas/${areaALeer}/orders`);
+    
+    liveListener = db.collection("areas").doc(areaALeer).collection("orders")
+        .onSnapshot(querySnapshot => {
+            
+            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes analizadas.");
+            let allOrders = [];
+            querySnapshot.forEach(doc => {
+                allOrders.push(doc.data());
+            });
+            
+            // --- INICIO DE LA CORRECCIÓN DE TURNO (PASO 3) ---
+            // Pasamos la fechaDeTrabajoActual (ej: '2025-11-13') en lugar de la fecha de calendario ('hoyStr')
+            updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, startTime, empacadoresPorLinea);
+            // --- FIN DE LA CORRECCIÓN DE TURNO ---
 
-        }, error => {
-            console.error("¡Error en el listener en vivo!:", error);
-            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase. Revise permisos.</p>`;
-        });
+        }, error => {
+            console.error("¡Error en el listener en vivo!:", error);
+            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase. Revise permisos.</p>`;
+        });
 }
 
 function stopLiveDashboard() {
@@ -2183,8 +2184,10 @@ function stopLiveDashboard() {
 }
 
 // --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-// --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-function updateLiveDashboard(allOrders, turnoActual, hoyStr, shiftStartTime, empacadoresPorLinea) {
+// --- INICIO DE LA CORRECCIÓN DE TURNO (PASO 4) ---
+// El 3er parámetro ahora es 'fechaDeTrabajoActual' en lugar de 'hoyStr'
+function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shiftStartTime, empacadoresPorLinea) {
+// --- FIN DE LA CORRECCIÓN DE TURNO ---
     let allPackedItems = [];
     let lastScan = { timestamp: new Date(0), empacador: 'N/A', linea: 'N/A' };
     const totalsByLine = {};
@@ -2213,11 +2216,13 @@ function updateLiveDashboard(allOrders, turnoActual, hoyStr, shiftStartTime, emp
                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                     if (!packedDate) return;
 
-                    // --- ¡AQUÍ ESTÁ EL ARREGLO DE DATOS HISTÓRICOS! ---
+                    // --- INICIO DE LA CORRECCIÓN DE TURNO (PASO 5) ---
+                    // Esta función calcula el día de TRABAJO (ej: 02:00 AM del día 14 es 'dateKey' del día 13)
                     const { shift, dateKey } = getWorkShiftAndDate(packedDate);
 
-                    // AHORA CHECAMOS TURNO Y QUE SEA LA FECHA DE HOY
-                    if (shift === turnoActual && dateKey === hoyStr) {
+                    // Comparamos el turno/fecha del item con el turno/fecha DE TRABAJO actual
+                    if (shift === turnoActual && dateKey === fechaDeTrabajoActual) {
+                    // --- FIN DE LA CORRECCIÓN DE TURNO ---
                         const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                         let lineaAsignada = null;
 
@@ -2249,7 +2254,6 @@ function updateLiveDashboard(allOrders, turnoActual, hoyStr, shiftStartTime, emp
                             }
                         }
                     }
-                    // --- FIN DEL ARREGLO ---
                 });
             }
         });
