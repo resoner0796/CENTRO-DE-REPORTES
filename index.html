@@ -514,99 +514,21 @@ body.light-theme .app-branding { color: var(--branding-color); }
 
 /* --- INICIO: Estilos del Nuevo Dashboard --- */
 
-.dashboard-kpi-container {
-    display: grid;
-    /* Ajuste responsivo: en pantallas chicas 1 columna, en grandes hasta 3 */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
-    width: 100%;
-}
-
-.kpi-card {
-    background-color: var(--surface-hover-color);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column;
-}
-
-.kpi-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-}
-
-.kpi-header h4 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: var(--text-primary);
-}
-
-.kpi-meta {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-dark);
-}
-
-.kpi-card h1 {
-    font-size: 3.5rem; /* ¡Número Gigante! */
-    color: var(--text-primary);
-    margin: 10px 0;
-    text-align: center;
-    font-weight: 700;
-}
-
-.kpi-progress-bar-container {
-    width: 100%;
-    height: 12px;
-    background-color: var(--border-color);
-    border-radius: 6px;
-    overflow: hidden;
-    margin-top: 5px;
-}
-
-.kpi-progress-bar {
-    height: 100%;
-    width: 0%; /* Inicia en 0 */
-    border-radius: 6px;
-    background-color: var(--success-color); /* Color por defecto */
-    transition: width 0.5s ease-in-out; /* ¡La animación! */
-    box-shadow: 0 0 10px var(--success-color);
-}
-
-/* Colores de la barra (luego los asignamos con JS) */
-.progress-bar-green { background-color: var(--success-color); box-shadow: 0 0 10px var(--success-color); }
-.progress-bar-yellow { background-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
-.progress-bar-red { background-color: var(--danger-color); box-shadow: 0 0 10px var(--danger-color); }
-
-.kpi-percent {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-align: right;
-    margin-top: 4px;
-}
-
-#liveFeedContainer p {
-    font-size: 0.9rem;
-    margin: 8px 0;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
-}
-#liveFeedContainer p:last-child {
-    border-bottom: none;
-}
+/* --- INICIO: Estilos del Nuevo Dashboard (Limpios y Corregidos) --- */
 
 #viewLiveDashboard .main-container {
+    /* Forzamos 1 columna y que ocupe todo el ancho */
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
     grid-template-areas: 
         "sidebar"
         "main";
     height: calc(100vh - 32px);
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0 16px; /* Padding lateral para que no se pegue en móvil */
+    box-sizing: border-box; /* Para que el padding no afecte el ancho */
 }
 
 #viewLiveDashboard .sidebar {
@@ -633,30 +555,167 @@ body.light-theme .app-branding { color: var(--branding-color); }
 
 #viewLiveDashboard .main-content {
     grid-area: main;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0; /* Arreglo para flexbox */
 }
-		
+
+.dashboard-kpi-container {
+    display: flex;
+    flex-wrap: wrap; /* Permite que las tarjetas se acomoden en filas */
+    gap: 16px;
+    justify-content: center; /* Centra las tarjetas */
+    width: 100%;
+}
+
+.kpi-card {
+    background-color: var(--surface-hover-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    
+    /* --- LÓGICA RESPONSIVA DE TARJETAS --- */
+    /* Móvil: 2 tarjetas por fila */
+    flex: 1 1 calc(50% - 8px); /* 50% menos la mitad del gap */
+    min-width: 160px; /* Ancho mínimo para que no se vean mal */
+    max-width: calc(50% - 8px);
+}
+
+.kpi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.kpi-header h4 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+}
+
+.kpi-meta {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.kpi-card h1 {
+    font-size: 3.5rem;
+    color: var(--text-primary);
+    margin: 10px 0;
+    text-align: center;
+    font-weight: 700;
+}
+
+.kpi-progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background-color: var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.kpi-progress-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 6px;
+    background-color: var(--success-color);
+    transition: width 0.5s ease-in-out;
+    box-shadow: 0 0 10px var(--success-color);
+}
+
+.progress-bar-green { background-color: var(--success-color); box-shadow: 0 0 10px var(--success-color); }
+.progress-bar-yellow { background-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+.progress-bar-red { background-color: var(--danger-color); box-shadow: 0 0 10px var(--danger-color); }
+
+.kpi-percent {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: right;
+    margin-top: 4px;
+}
+
+#liveFeedContainer p {
+    font-size: 0.9rem;
+    margin: 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+#liveFeedContainer p:last-child {
+    border-bottom: none;
+}
+
+/* --- Media Queries para pantallas más grandes --- */
+
+/* Tablets (3 tarjetas) */
+@media (min-width: 768px) {
+    .kpi-card {
+        flex: 1 1 calc(33.333% - 11px); /* 33% menos ~mitad del gap */
+        max-width: calc(33.333% - 11px);
+    }
+}
+
+/* Desktops (4 tarjetas) */
+@media (min-width: 1024px) {
+    .kpi-card {
+        flex: 1 1 calc(25% - 12px); /* 25% menos mitad del gap */
+        max-width: calc(25% - 12px);
+    }
+}
+
+/* --- FIN: Estilos del Nuevo Dashboard --- */
+
+/* Estilos @media (max-width: 900px) que ya tenías */
 @media (max-width: 900px), (max-height: 450px) {
-            body { overflow-y: auto; padding: 8px; }
-            .app-header { margin-bottom: 16px; }
-            .app-branding { font-size: 2rem; }
-            .app-title { font-size: 1rem; }
-            .main-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; gap: 12px; padding-top: 0; }
-            .sidebar { height: auto; }
-            .main-content { min-height: 50vh; gap: 12px; min-width: 0; }
-            .card { padding: 16px; }
-            .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            table th, table td { padding: 8px 10px; font-size: 0.8rem; text-align: center; }
-            #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; }
-            .modal-content { width: 95%; max-height: 85vh; display: flex; flex-direction: column; }
-            #modalBody { overflow-y: auto; }
-            .param-item, .area-item { grid-template-columns: 1fr; gap: 8px; text-align: left; }
-            .param-item .btn-danger, .area-item .btn-danger { justify-self: end; }
-            .param-value-container { grid-column: 1; }
-            #fibraReportContainer .fibra-grid { grid-template-columns: 1fr; }
-            .table-grid-container { grid-template-columns: 1fr; }
-            #addPackerForm { grid-template-columns: 1fr; }
-            #packerList li { grid-template-columns: 1fr; text-align: center; gap: 4px; }
-        }
+    body { overflow-y: auto; padding: 8px; }
+    .app-header { margin-bottom: 16px; }
+    .app-branding { font-size: 2rem; }
+    .app-title { font-size: 1rem; }
+    
+    /* APLICAMOS EL MISMO ESTILO GENERAL A TODOS LOS main-container EN MÓVIL */
+    .main-container { 
+        grid-template-columns: 1fr; 
+        grid-template-rows: auto 1fr; 
+        height: auto; 
+        gap: 12px; 
+        padding-top: 0; 
+        /* Añadimos esto para asegurar que #viewLiveDashboard se comporte igual */
+        width: 100%;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* SOBREESCRIBIMOS el padding lateral solo para #viewLiveDashboard en móvil */
+    #viewLiveDashboard .main-container {
+        padding: 0; 
+    }
+
+    .sidebar { height: auto; }
+    .main-content { min-height: 50vh; gap: 12px; min-width: 0; }
+    .card { padding: 16px; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table th, table td { padding: 8px 10px; font-size: 0.8rem; text-align: center; }
+    #summaryContainer table th:first-child, #summaryContainer table td:first-child { text-align: left; }
+    .modal-content { width: 95%; max-height: 85vh; display: flex; flex-direction: column; }
+    #modalBody { overflow-y: auto; }
+    .param-item, .area-item { grid-template-columns: 1fr; gap: 8px; text-align: left; }
+    .param-item .btn-danger, .area-item .btn-danger { justify-self: end; }
+    .param-value-container { grid-column: 1; }
+    #fibraReportContainer .fibra-grid { grid-template-columns: 1fr; }
+    .table-grid-container { grid-template-columns: 1fr; }
+    #addPackerForm { grid-template-columns: 1fr; }
+    #packerList li { grid-template-columns: 1fr; text-align: center; gap: 4px; }
+}
     </style>
 </head>
 <body class="dark-theme">
