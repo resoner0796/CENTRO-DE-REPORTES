@@ -3174,8 +3174,11 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         // --- INICIO: LÓGICA DEL REPORTE SEMANAL 20% ---
         // --- Lógica para el Reporte Semanal 20% ---
 function abrirModalReporteSemanal() {
+	// Obtenemos las opciones de turno del dropdown principal para reusarlas
+	const turnoOptions = doc('prod20_turno').innerHTML;
+
 	const modalHTML = `
-		<div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
+		<div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
 			<div>
 				<label for="semanal_fecha_inicio" style="font-size: 0.9rem; font-weight: 500;">Fecha de Inicio</label>
 				<input type="date" id="semanal_fecha_inicio">
@@ -3184,7 +3187,13 @@ function abrirModalReporteSemanal() {
 				<label for="semanal_fecha_fin" style="font-size: 0.9rem; font-weight: 500;">Fecha de Fin</label>
 				<input type="date" id="semanal_fecha_fin">
 			</div>
-		</div>
+			<div>
+				<label for="semanal_turnos" style="font-size: 0.9rem; font-weight: 500;">Turnos</label>
+				<select id="semanal_turnos" multiple style="min-height: 80px; padding: 8px;">
+					${turnoOptions}
+				</select>
+			</div>
+			</div>
 
 		<button id="generarReporteSemanalBtn" class="btn" style="width: 100%;">Generar Reporte Semanal</button>
 
@@ -3204,27 +3213,42 @@ function abrirModalReporteSemanal() {
 				<h5>Ranking de Empleados</h5>
 				<div class="table-wrapper">
 					<table id="rankingTable20">
-						<thead><tr><th>Cargando...</th></tr></thead>
+						<thead><tr><th>Selecciona filtros y genera un reporte...</th></tr></thead>
 						<tbody></tbody>
 					</table>
 				</div>
 			</div>
 		</div>
-		`;
+	`;
 
 	showModal('Reporte Semanal 20%', modalHTML);
 
-	// Configuración de fechas (sin cambios)
+	// Configuración de fechas
 	const hoy = new Date();
 	const haceUnaSemana = new Date();
 	haceUnaSemana.setDate(hoy.getDate() - 6);
 	doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
 	doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
 
-	// Listener para generar reporte (sin cambios)
+	// --- INICIO: Pre-seleccionar el turno actual en el multi-select ---
+	const currentShift = getAutoCurrentShift();
+	const turnoSelect = doc('semanal_turnos');
+	if (turnoSelect.options.namedItem(currentShift)) {
+		turnoSelect.options.namedItem(currentShift).selected = true;
+	} else {
+		// Fallback por si el turno (ej. T45) no tiene un ID, lo busca por valor
+		for (let option of turnoSelect.options) {
+			if (option.value === currentShift) {
+				option.selected = true;
+				break;
+			}
+		}
+	}
+	// --- FIN: Pre-selección ---
+
+
 	doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
 	
-	// --- INICIO: NUEVOS Listeners para los botones de las vistas ---
 	const btnComparativa = doc('btnComparativaTurnos');
 	const btnRanking = doc('btnRankingSemanal');
 	const viewComparativa = doc('viewComparativa');
@@ -3243,189 +3267,229 @@ function abrirModalReporteSemanal() {
 		viewComparativa.classList.remove('active');
 		viewRanking.classList.add('active');
 	});
-	// --- FIN: NUEVOS Listeners ---
 }
+
 async function consultarReporteSemanal() {
-    const btn = doc('generarReporteSemanalBtn');
-    btn.disabled = true;
-    btn.textContent = 'Generando...';
+	const btn = doc('generarReporteSemanalBtn');
+	btn.disabled = true;
+	btn.textContent = 'Generando...';
 
-    const fechaInicio = doc('semanal_fecha_inicio').value;
-    const fechaFin = doc('semanal_fecha_fin').value;
+	const fechaInicio = doc('semanal_fecha_inicio').value;
+	const fechaFin = doc('semanal_fecha_fin').value;
+	
+	// --- INICIO: Leer los turnos seleccionados ---
+	const selectedShifts = Array.from(doc('semanal_turnos').selectedOptions).map(opt => opt.value);
 
-    if (!fechaInicio || !fechaFin) {
-        alert('Por favor, selecciona un rango de fechas.');
-        btn.disabled = false;
-        btn.textContent = 'Generar Reporte Semanal';
-        return;
-    }
+	if (!fechaInicio || !fechaFin) {
+		alert('Por favor, selecciona un rango de fechas.');
+		btn.disabled = false;
+		btn.textContent = 'Generar Reporte Semanal';
+		return;
+	}
+	
+	if (selectedShifts.length === 0) {
+		alert('Por favor, selecciona al menos un turno.');
+		btn.disabled = false;
+		btn.textContent = 'Generar Reporte Semanal';
+		return;
+	}
+	// --- FIN: Lectura de turnos ---
 
-    const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
-    const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
-    fechaFinDate.setDate(fechaFinDate.getDate() + 1);
-    fechaFinDate.setHours(6, 29, 59, 999);
+	const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+	const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
+	fechaFinDate.setDate(fechaFinDate.getDate() + 1);
+	fechaFinDate.setHours(6, 29, 59, 999);
 
-    try {
-        const snapshot = await db.collection('produccion_20_historico')
-            .where('Fecha y hora', '>=', fechaInicioDate)
-            .where('Fecha y hora', '<=', fechaFinDate)
-            .get();
+	try {
+		const snapshot = await db.collection('produccion_20_historico')
+			.where('Fecha y hora', '>=', fechaInicioDate)
+			.where('Fecha y hora', '<=', fechaFinDate)
+			.get();
 
-        const datosAgrupadosPorDia = {};
-        const datosRanking = {};
-        const labelsFechas = new Set();
+		const datosAgrupadosPorDia = {};
+		const datosRanking = {};
+		const labelsFechas = new Set();
+		const turnosEncontrados = new Set(); // Para saber qué columnas crear en la gráfica
 
-        snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            const fechaHora = data['Fecha y hora'].toDate();
+		snapshot.forEach(docSnap => {
+			const data = docSnap.data();
+			const fechaHora = data['Fecha y hora'].toDate();
+			const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
 
-            const { dateKey } = getWorkShiftAndDate(fechaHora);
+			// --- INICIO: ¡EL FILTRO PRINCIPAL! ---
+			// Solo procesa si la fecha está en el rango Y el turno está en los seleccionados
+			if (selectedShifts.includes(shift) && dateKey >= fechaInicio && dateKey <= fechaFin) {
+				labelsFechas.add(dateKey);
+				turnosEncontrados.add(shift);
 
-            if (dateKey >= fechaInicio && dateKey <= fechaFin) {
-                labelsFechas.add(dateKey);
+				const catalogo = data['Catalogo'] || '';
+				const digit = catalogo.substring(3, 4).toUpperCase();
+				const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
+				const cantidad = Number(data['Cantidad']) || 1;
+				const terminacionesTotales = terminacionesPorPieza * cantidad;
+				const empleado = data['Empleado'] || 'N/A';
 
-                const catalogo = data['Catalogo'] || '';
-                const digit = catalogo.substring(3, 4).toUpperCase();
-                const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
-                const cantidad = Number(data['Cantidad']) || 1;
-                const terminacionesTotales = terminacionesPorPieza * cantidad;
-                const empleado = data['Empleado'] || 'N/A';
+				// --- INICIO: Agregación para la gráfica (por turno) ---
+				if (!datosAgrupadosPorDia[dateKey]) datosAgrupadosPorDia[dateKey] = {};
+				if (!datosAgrupadosPorDia[dateKey][shift]) datosAgrupadosPorDia[dateKey][shift] = 0;
+				datosAgrupadosPorDia[dateKey][shift] += terminacionesTotales;
+				// --- FIN: Agregación gráfica ---
 
-                if (!datosAgrupadosPorDia[dateKey]) {
-                    datosAgrupadosPorDia[dateKey] = { piezas: 0, terminaciones: 0 };
-                }
-                datosAgrupadosPorDia[dateKey].piezas += cantidad;
-                datosAgrupadosPorDia[dateKey].terminaciones += terminacionesTotales;
+				// --- INICIO: Agregación para el ranking (por empleado) ---
+				if (!datosRanking[empleado]) {
+					datosRanking[empleado] = { piezas: 0, terminaciones: 0, turno: shift };
+				}
+				datosRanking[empleado].piezas += cantidad;
+				datosRanking[empleado].terminaciones += terminacionesTotales;
+				// --- FIN: Agregación ranking ---
+			}
+			// --- FIN: FILTRO PRINCIPAL ---
+		});
 
-                if (!datosRanking[empleado]) {
-                    datosRanking[empleado] = { piezas: 0, terminaciones: 0 };
-                }
-                datosRanking[empleado].piezas += cantidad;
-                datosRanking[empleado].terminaciones += terminacionesTotales;
-            }
-        });
+		const fechasOrdenadas = Array.from(labelsFechas).sort();
+		const turnosOrdenados = Array.from(turnosEncontrados).sort();
 
-        const fechasOrdenadas = Array.from(labelsFechas).sort();
+		// Pasamos los turnos encontrados a la gráfica
+		renderGraficaSemanal20(datosAgrupadosPorDia, fechasOrdenadas, turnosOrdenados);
+		// El ranking ya viene filtrado por los turnos
+		renderRankingSemanal20(datosRanking);
 
-        renderGraficaSemanal20(datosAgrupadosPorDia, fechasOrdenadas);
-        renderRankingSemanal20(datosRanking);
-
-    } catch (e) {
-        console.error("Error consultando reporte semanal:", e);
-        alert("No se pudo generar el reporte.");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Generar Reporte Semanal';
-    }
+	} catch (e) {
+		console.error("Error consultando reporte semanal:", e);
+		alert("No se pudo generar el reporte.");
+	} finally {
+		btn.disabled = false;
+		btn.textContent = 'Generar Reporte Semanal';
+	}
 }
 
 // --- Función renderGraficaSemanal20 ---
-function renderGraficaSemanal20(datos, labels) {
-    const ctx = doc('graficaSemanal20').getContext('2d');
-    if (graficaSemanalInstance) graficaSemanalInstance.destroy();
+function renderGraficaSemanal20(datos, labels, turnos) {
+	const ctx = doc('graficaSemanal20').getContext('2d');
+	if (graficaSemanalInstance) graficaSemanalInstance.destroy();
 
-    const piezasData = labels.map(fecha => datos[fecha]?.piezas || 0);
-    const terminacionesData = labels.map(fecha => datos[fecha]?.terminaciones || 0);
+	// --- INICIO: Lógica para mapear colores a turnos ---
+	const colors = [
+		'rgba(54, 162, 235, 0.7)',  // Azul para T45
+		'rgba(255, 99, 132, 0.7)',  // Rojo para T46
+		'rgba(75, 192, 192, 0.7)',  // Verde/Aqua para T47
+		'rgba(255, 206, 86, 0.7)'   // Amarillo para T48
+	];
+	const turnosMap = { 'T45': 0, 'T46': 1, 'T47': 2, 'T48': 3 };
+	// --- FIN: Lógica de colores ---
 
-    graficaSemanalInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels.map(f =>
-                new Date(f + 'T12:00:00').toLocaleDateString('es-MX', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                })
-            ),
-            datasets: [
-                {
-                    label: 'Piezas',
-                    data: piezasData,
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)'
-                },
-                {
-                    label: 'Terminaciones',
-                    data: terminacionesData,
-                    backgroundColor: 'rgba(75, 192, 192, 0.7)'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { color: 'var(--chart-tick-color)' },
-                    grid: { color: 'var(--chart-grid-color)', drawOnChartArea: false },
-                    title: { display: true, text: 'Total', color: 'var(--chart-tick-color)' },
-                    afterDataLimits: scale => scale.max = scale.max * 1.15
-                },
-                x: {
-                    ticks: { color: 'var(--chart-tick-color)' },
-                    grid: { color: 'var(--chart-grid-color)' },
-                    categoryPercentage: 0.7,
-                    barPercentage: 0.9
-                }
-            },
-            plugins: {
-                legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
-                datalabels: {
-                    display: true,
-                    anchor: 'end',
-                    align: 'top',
-                    offset: 8,
-                    backgroundColor: ctx => document.body.classList.contains('dark-theme')
-                        ? 'rgba(40, 43, 48, 0.75)'
-                        : 'rgba(255, 255, 255, 0.75)',
-                    borderColor: ctx => ctx.dataset.backgroundColor,
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    color: ctx => document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827',
-                    padding: { top: 2, bottom: 2, left: 5, right: 5 },
-                    font: { weight: 'bold', size: 10 },
-                    formatter: v => v > 0 ? v.toLocaleString() : ''
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
+	// --- INICIO: Creación de Datasets por Turno ---
+	const datasets = turnos.map(turno => ({
+		label: `Terminaciones ${turno}`,
+		data: labels.map(fecha => (datos[fecha] && datos[fecha][turno]) ? datos[fecha][turno] : 0),
+		backgroundColor: colors[turnosMap[turno] % colors.length]
+	}));
+	// --- FIN: Creación de Datasets ---
 
-    updateChartTheme();
+	graficaSemanalInstance = new Chart(ctx, {
+		type: 'bar',
+		data: {
+			labels: labels.map(f =>
+				new Date(f + 'T12:00:00').toLocaleDateString('es-MX', {
+					weekday: 'short',
+					month: 'short',
+					day: 'numeric'
+				})
+			),
+			datasets: datasets // Usamos los nuevos datasets
+		},
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			scales: {
+				y: {
+					beginAtZero: true,
+					ticks: { color: 'var(--chart-tick-color)' },
+					grid: { color: 'var(--chart-grid-color)', drawOnChartArea: false },
+					title: { display: true, text: 'Total Terminaciones', color: 'var(--chart-tick-color)' }, // Título del eje Y
+					afterDataLimits: scale => scale.max = scale.max * 1.15
+				},
+				x: {
+					ticks: { color: 'var(--chart-tick-color)' },
+					grid: { color: 'var(--chart-grid-color)' },
+					categoryPercentage: 0.7,
+					barPercentage: 0.9
+				}
+			},
+			plugins: {
+				legend: { position: 'top', labels: { color: 'var(--text-primary)' } },
+				datalabels: {
+					display: true,
+					anchor: 'end',
+					align: 'top',
+					offset: 8,
+					backgroundColor: ctx => document.body.classList.contains('dark-theme')
+						? 'rgba(40, 43, 48, 0.75)'
+						: 'rgba(255, 255, 255, 0.75)',
+					borderColor: ctx => ctx.dataset.backgroundColor,
+					borderWidth: 1,
+					borderRadius: 4,
+					color: ctx => document.body.classList.contains('dark-theme') ? '#F1F5F9' : '#111827',
+					padding: { top: 2, bottom: 2, left: 5, right: 5 },
+					font: { weight: 'bold', size: 10 },
+					formatter: v => v > 0 ? v.toLocaleString() : ''
+				}
+			}
+		},
+		plugins: [ChartDataLabels]
+	});
+
+	updateChartTheme();
 }
 
 // --- Ranking Semanal ---
 function renderRankingSemanal20(datosRanking) {
-    const table = doc('rankingTable20');
-    if (!table) return;
+	const table = doc('rankingTable20');
+	if (!table) return;
 
-    const rankingArray = Object.entries(datosRanking).map(([empleado, data]) => ({
-        empleado,
-        piezas: data.piezas,
-        terminaciones: data.terminaciones
-    }));
+	const rankingArray = Object.entries(datosRanking).map(([empleado, data]) => ({
+		empleado,
+		piezas: data.piezas,
+		terminaciones: data.terminaciones,
+		turno: data.turno // Añadimos el turno
+	}));
 
-    rankingArray.sort((a, b) => b.terminaciones - a.terminaciones);
+	// Ordenar por terminaciones
+	rankingArray.sort((a, b) => b.terminaciones - a.terminaciones);
 
-    let headerHtml = `<thead><tr><th>Empleado</th><th>Term.</th><th>Pzas.</th></tr></thead>`;
-    let bodyHtml = '<tbody>';
+	// Añadimos la columna Turno al header
+	let headerHtml = `<thead><tr><th>Empleado</th><th>Turno</th><th>Term.</th><th>Pzas.</th></tr></thead>`;
+	let bodyHtml = '<tbody>';
 
-    if (rankingArray.length === 0) {
-        bodyHtml += '<tr><td colspan="3" style="text-align: center;">Sin datos</td></tr>';
-    } else {
-        rankingArray.forEach(item => {
-            bodyHtml += `
-                <tr>
-                    <td>${item.empleado}</td>
-                    <td>${item.terminaciones.toLocaleString()}</td>
-                    <td>${item.piezas.toLocaleString()}</td>
-                </tr>
-            `;
-        });
-    }
+	if (rankingArray.length === 0) {
+		bodyHtml += '<tr><td colspan="4" style="text-align: center;">Sin datos para los filtros seleccionados</td></tr>';
+	} else {
+		rankingArray.forEach(item => {
+			bodyHtml += `
+				<tr>
+					<td>${item.empleado}</td>
+					<td>${item.turno}</td> 
+					<td>${item.terminaciones.toLocaleString()}</td>
+					<td>${item.piezas.toLocaleString()}</td>
+				</tr>
+			`;
+		});
+	}
 
-    bodyHtml += '</tbody>';
-    table.innerHTML = headerHtml + bodyHtml;
+	bodyHtml += '</tbody>';
+	table.innerHTML = headerHtml + bodyHtml;
+	
+	// --- APLICAR ESTILOS A LA NUEVA TABLA ---
+	// Hacemos que la 3ra y 4ta columna (Term. y Pzas.) se alineen a la derecha
+	table.querySelectorAll('th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4)').forEach(el => {
+		el.style.textAlign = 'right';
+		el.style.fontWeight = 'bold';
+	});
+	// Hacemos que la 2da columna (Turno) se centre
+	table.querySelectorAll('th:nth-child(2), td:nth-child(2)').forEach(el => {
+		el.style.textAlign = 'center';
+		el.style.fontWeight = 'normal';
+	});
 }
 // --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (después de consultarReporteSemanal) ---
 
