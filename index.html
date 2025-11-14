@@ -771,7 +771,15 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     justify-content: center;
     gap: 16px;
 }
-
+/* FIX REAL: Cancelar por completo el GRID heredado */
+#viewLiveDashboard .main-container {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 16px !important;
+    gap: 20px !important;
+}
 
 </style>
 </head>
