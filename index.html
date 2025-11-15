@@ -1742,8 +1742,6 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
                 doc('prodTarimas_turno').value = getAutoCurrentShift(); // Establece el turno
                 loadAreasForTarimasReport();
                 renderTarimasTable([]); // Limpia tabla
-              if(dashboardContainer) dashboardContainer.style.display = 'none'; // Ocultar dashboard
-              if(tableContainer) tableContainer.style.display = 'flex';     // Mostrar contenedor tabla
             } else if (viewKey === 'boxID') {
             // Se asegura de que el área para arrastrar archivos esté en su estado normal
             doc('fileDropAreaBoxID').style.borderColor = 'var(--border-color)';
