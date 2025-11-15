@@ -926,111 +926,151 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 		background-color: rgba(0, 0, 0, 0.1) !important;
 	}
    
-   /* =================================================
-   ESTILOS DEL RANKING SEMANAL (PODIO Y BARRAS)
+  /* =================================================
+   ESTILOS MODERNOS: RANKING CARDS & PODIO
    ================================================= */
 
-/* 1. PRIMER LUGAR (ORO) - CORREGIDO */
-/* Usamos !important para anular cualquier otra regla */
-body.dark-theme #rankingTable20 tbody tr.gold td {
-    background-color: #B8860B !important; /* Oro oscuro sólido */
-    color: #F1F5F9 !important;            /* Texto claro */
-    font-weight: 700 !important;
-}
-/* Modo Claro */
-body.light-theme #rankingTable20 tbody tr.gold td {
-    background-color: #FFD700 !important; /* Oro brillante */
-    color: #111827 !important;            /* Texto oscuro */
-    font-weight: 700 !important;
+.ranking-card-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px;
 }
 
-/* 2. SEGUNDO LUGAR (PLATA) */
-body.dark-theme #rankingTable20 tbody tr.silver td {
-    background-color: #707070 !important; /* Plata oscura */
-    color: var(--text-primary) !important;
-    font-weight: 600;
-}
-body.light-theme #rankingTable20 tbody tr.silver td {
-    background-color: #C0C0C0 !important; /* Plata brillante */
-    color: #111827 !important; /* Texto oscuro */
-    font-weight: 600;
-}
-
-/* 3. TERCER LUGAR (BRONCE) */
-body.dark-theme #rankingTable20 tbody tr.bronze td {
-    background-color: #8C531F !important; /* Bronce oscuro */
-    color: var(--text-primary) !important;
-    font-weight: 600;
-}
-body.light-theme #rankingTable20 tbody tr.bronze td {
-    background-color: #CD7F32 !important; /* Bronce brillante */
-    color: #FFFFFF !important; /* Texto blanco */
-    font-weight: 600;
+.ranking-card {
+    display: grid;
+    grid-template-columns: 40px 1fr 1.5fr; /* Posición | Datos | Stats */
+    align-items: center;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 12px 16px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
 }
 
-/* 4. Filas normales (del 4to lugar en adelante) 
-   ESTA REGLA REEMPLAZA A LA QUE TE DIJE QUE BORRARAS */
-#rankingTable20 tbody tr:not(.gold):not(.silver):not(.bronze):nth-child(odd) td {
+.ranking-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* Posición (Círculo) */
+.rank-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     background-color: var(--surface-hover-color);
-}
-/* Esta anula el hover de las filas impares que SÍ son del podio */
-#rankingTable20 tbody tr.gold:nth-child(odd) td,
-#rankingTable20 tbody tr.silver:nth-child(odd) td,
-#rankingTable20 tbody tr.bronze:nth-child(odd) td {
-    /* No hagas nada, deja que el color del podio mande */
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.9rem;
 }
 
+/* Info Empleado */
+.emp-info {
+    display: flex;
+    flex-direction: column;
+    padding-left: 12px;
+}
+.emp-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+.emp-turno {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--surface-hover-color);
+    padding: 2px 6px;
+    border-radius: 4px;
+    width: fit-content;
+    margin-top: 4px;
+}
 
-/* 5. Estilos para las Barras de Progreso */
-.progress-bar-container {
-    min-width: 100px;
-    background-color: rgba(0, 0, 0, 0.2); /* Fondo oscuro transparente */
+/* Stats y Barra */
+.emp-stats-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.emp-metrics {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+.metric-val { font-weight: 700; }
+
+/* PODIO - COLORES Y EFECTOS */
+.ranking-card.gold {
+    background: linear-gradient(145deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));
+    border: 1px solid #FFD700;
+}
+.ranking-card.gold .rank-badge {
+    background-color: #FFD700;
+    color: #000;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+}
+
+.ranking-card.silver {
+    background: linear-gradient(145deg, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05));
+    border: 1px solid #C0C0C0;
+}
+.ranking-card.silver .rank-badge {
+    background-color: #C0C0C0;
+    color: #000;
+}
+
+.ranking-card.bronze {
+    background: linear-gradient(145deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05));
+    border: 1px solid #CD7F32;
+}
+.ranking-card.bronze .rank-badge {
+    background-color: #CD7F32;
+    color: #fff;
+}
+
+/* Barra de Progreso en Tarjeta */
+.card-progress-bg {
+    width: 100%;
+    height: 8px;
+    background-color: rgba(0,0,0,0.2);
     border-radius: 4px;
     overflow: hidden;
-    height: 18px;
-    border: 1px solid rgba(0,0,0,0.1);
-    margin: 2px 0;
 }
-
-/* Fondo de barra más claro en el podio para que se note */
-tr.gold .progress-bar-container,
-tr.silver .progress-bar-container,
-tr.bronze .progress-bar-container {
-    background-color: rgba(255, 255, 255, 0.3);
-    border: 1px solid rgba(0,0,0,0.2);
-}
-
-.progress-bar {
+.card-progress-fill {
     height: 100%;
-    background-color: var(--success-color); /* Verde del sistema */
-    color: var(--primary-text-color); /* Texto del sistema */
-    text-align: center;
-    line-height: 18px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    white-space: nowrap;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-    display: block;
-    transition: width 0.5s ease-in-out;
+    background-color: var(--success-color);
+    border-radius: 4px;
+    width: 0;
+    transition: width 1s ease-out;
 }
+/* Colores de barra para el podio */
+.ranking-card.gold .card-progress-fill { background-color: #FFD700; }
+.ranking-card.silver .card-progress-fill { background-color: #C0C0C0; }
+.ranking-card.bronze .card-progress-fill { background-color: #CD7F32; }
 
-/* Barras personalizadas para el podio (para que combinen) */
-tr.gold .progress-bar   { background-color: #333 !important; color: #FFD700; }
-tr.silver .progress-bar { background-color: #444 !important; }
-tr.bronze .progress-bar { background-color: #FFF !important; color: #8C531F; text-shadow: none;}
-
-/* 6. Estilos de la tabla (los que ya tenías, pero actualizados) */
-#rankingTable20 th:nth-child(4), /* Term. */
-#rankingTable20 td:nth-child(4),
-#rankingTable20 th:nth-child(5), /* Pzas. */
-#rankingTable20 td:nth-child(5) {
-	text-align: right;
-	font-weight: bold;
+/* --- MODO EXPORTACIÓN (IMPORTANTE) --- */
+.export-mode #exportWrapper {
+    display: grid !important;
+    grid-template-columns: 1.5fr 1fr !important; /* Gráfica ancha, Ranking angosto */
+    gap: 20px !important;
+    background-color: var(--bg-gradient) !important; /* Fondo limpio */
+    padding: 20px !important;
+    border-radius: 12px;
 }
-#rankingTable20 th:nth-child(3), /* Turno */
-#rankingTable20 td:nth-child(3) {
-    text-align: center;
-    font-weight: normal;
+.export-mode .modal-view-content {
+    display: block !important; /* Forzar visibilidad */
+}
+.export-mode #modalTabsContainer {
+    display: none !important; /* Ocultar tabs */
+}
+.export-mode .modal-ranking-wrapper {
+    max-height: none !important; /* Quitar scroll para ver todo */
+    overflow: visible !important;
 }
 
 </style>
@@ -3417,99 +3457,94 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         // --- INICIO: LÓGICA DEL REPORTE SEMANAL 20% ---
         // --- Lógica para el Reporte Semanal 20% ---
 function abrirModalReporteSemanal() {
-	// Obtenemos las opciones de turno del dropdown principal para reusarlas
-	const turnoOptions = doc('prod20_turno').innerHTML;
+    const turnoOptions = doc('prod20_turno').innerHTML;
 
-	const modalHTML = `
-		<div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: end;">
-			<div>
-				<label for="semanal_fecha_inicio" style="font-size: 0.9rem; font-weight: 500;">Fecha de Inicio</label>
-				<input type="date" id="semanal_fecha_inicio">
-			</div>
-			<div>
-				<label for="semanal_fecha_fin" style="font-size: 0.9rem; font-weight: 500;">Fecha de Fin</label>
-				<input type="date" id="semanal_fecha_fin">
-			</div>
-			<div>
-				<label for="semanal_turnos" style="font-size: 0.9rem; font-weight: 500;">Turnos</label>
-				<select id="semanal_turnos" multiple style="min-height: 80px; padding: 8px;">
-					${turnoOptions}
-				</select>
-			</div>
-			</div>
+    const modalHTML = `
+        <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 20px; align-items: end;">
+            <div>
+                <label style="font-size: 0.8rem; color: var(--text-secondary);">Inicio</label>
+                <input type="date" id="semanal_fecha_inicio">
+            </div>
+            <div>
+                <label style="font-size: 0.8rem; color: var(--text-secondary);">Fin</label>
+                <input type="date" id="semanal_fecha_fin">
+            </div>
+            <div>
+                <label style="font-size: 0.8rem; color: var(--text-secondary);">Turnos</label>
+                <select id="semanal_turnos" multiple style="height: 38px; padding: 4px;">
+                    ${turnoOptions}
+                </select>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button id="generarReporteSemanalBtn" class="btn" style="padding: 0 20px; height: 38px;">Generar</button>
+                <button id="exportarReporteCompletoBtn" class="btn btn-glass" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Exportar Comparativa + Ranking">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+            </div>
+        </div>
 
-		<button id="generarReporteSemanalBtn" class="btn" style="width: 100%;">Generar Reporte Semanal</button>
+        <div class="modal-view-tabs" id="modalTabsContainer">
+            <button id="btnComparativaTurnos" class="modal-tab-btn active">Comparativa</button>
+            <button id="btnRankingSemanal" class="modal-tab-btn">Ranking</button>
+        </div>
 
-		<div class="modal-view-tabs">
-			<button id="btnComparativaTurnos" class="modal-tab-btn active">Comparativa de turnos</button>
-			<button id="btnRankingSemanal" class="modal-tab-btn">Ranking Semanal</button>
-		</div>
+        <div id="exportWrapper" style="position: relative;">
+            
+            <div id="viewComparativa" class="modal-view-content active">
+                <div class="modal-chart-wrapper" style="background: var(--surface-color); border-radius: 12px; padding: 10px; border: 1px solid var(--border-color);">
+                    <canvas id="graficaSemanal20"></canvas>
+                </div>
+            </div>
 
-		<div id="viewComparativa" class="modal-view-content active">
-			<div class="modal-chart-wrapper">
-				<canvas id="graficaSemanal20"></canvas>
-			</div>
-		</div>
+            <div id="viewRanking" class="modal-view-content">
+                <div class="modal-ranking-wrapper">
+                    <div id="rankingList" class="ranking-card-container">
+                        <p style="text-align:center; color:var(--text-secondary); margin-top:20px;">Genera el reporte para ver el ranking.</p>
+                    </div>
+                </div>
+            </div>
 
-		<div id="viewRanking" class="modal-view-content">
-			<div class="modal-ranking-wrapper">
-				<h5>Ranking de Empleados</h5>
-				<div class="table-wrapper">
-					<table id="rankingTable20">
-						<thead><tr><th>Selecciona filtros y genera un reporte...</th></tr></thead>
-						<tbody></tbody>
-					</table>
-				</div>
-			</div>
-		</div>
-	`;
+        </div>
+    `;
 
-	showModal('Reporte Semanal 20%', modalHTML);
+    showModal('Reporte Semanal 20%', modalHTML);
 
-	// Configuración de fechas
-	const hoy = new Date();
-	const haceUnaSemana = new Date();
-	haceUnaSemana.setDate(hoy.getDate() - 6);
-	doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
-	doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
+    // --- Configuración Inicial (Fechas y Turnos) ---
+    const hoy = new Date();
+    const haceUnaSemana = new Date();
+    haceUnaSemana.setDate(hoy.getDate() - 6);
+    doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
+    doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
 
-	// --- INICIO: Pre-seleccionar el turno actual en el multi-select ---
-	const currentShift = getAutoCurrentShift();
-	const turnoSelect = doc('semanal_turnos');
-	if (turnoSelect.options.namedItem(currentShift)) {
-		turnoSelect.options.namedItem(currentShift).selected = true;
-	} else {
-		// Fallback por si el turno (ej. T45) no tiene un ID, lo busca por valor
-		for (let option of turnoSelect.options) {
-			if (option.value === currentShift) {
-				option.selected = true;
-				break;
-			}
-		}
-	}
-	// --- FIN: Pre-selección ---
+    const currentShift = getAutoCurrentShift();
+    const turnoSelect = doc('semanal_turnos');
+    // Lógica simple para preseleccionar
+    for (let option of turnoSelect.options) {
+        if (option.value === currentShift) option.selected = true;
+    }
 
+    // --- Listeners ---
+    doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
+    doc('exportarReporteCompletoBtn').addEventListener('click', exportarReporteCompleto); // <--- NUEVO LISTENER
 
-	doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
-	
-	const btnComparativa = doc('btnComparativaTurnos');
-	const btnRanking = doc('btnRankingSemanal');
-	const viewComparativa = doc('viewComparativa');
-	const viewRanking = doc('viewRanking');
+    const btnComparativa = doc('btnComparativaTurnos');
+    const btnRanking = doc('btnRankingSemanal');
+    const viewComparativa = doc('viewComparativa');
+    const viewRanking = doc('viewRanking');
 
-	btnComparativa.addEventListener('click', () => {
-		btnComparativa.classList.add('active');
-		btnRanking.classList.remove('active');
-		viewComparativa.classList.add('active');
-		viewRanking.classList.remove('active');
-	});
+    btnComparativa.addEventListener('click', () => {
+        btnComparativa.classList.add('active');
+        btnRanking.classList.remove('active');
+        viewComparativa.classList.add('active');
+        viewRanking.classList.remove('active');
+    });
 
-	btnRanking.addEventListener('click', () => {
-		btnComparativa.classList.remove('active');
-		btnRanking.classList.add('active');
-		viewComparativa.classList.remove('active');
-		viewRanking.classList.add('active');
-	});
+    btnRanking.addEventListener('click', () => {
+        btnComparativa.classList.remove('active');
+        btnRanking.classList.add('active');
+        viewComparativa.classList.remove('active');
+        viewRanking.classList.add('active');
+    });
 }
 
 async function consultarReporteSemanal() {
@@ -3687,80 +3722,61 @@ function renderGraficaSemanal20(datos, labels, turnos) {
 // --- Ranking Semanal ---
 // --- Ranking Semanal ---
 function renderRankingSemanal20(datosRanking) {
-	const table = doc('rankingTable20');
-	if (!table) return;
+    const container = doc('rankingList');
+    if (!container) return;
 
-	const rankingArray = Object.entries(datosRanking).map(([empleado, data]) => ({
-		empleado,
-		piezas: data.piezas,
-		terminaciones: data.terminaciones,
-		turno: data.turno
-	}));
+    // Convertir a array
+    const rankingArray = Object.entries(datosRanking).map(([empleado, data]) => ({
+        empleado,
+        piezas: data.piezas,
+        terminaciones: data.terminaciones,
+        turno: data.turno
+    }));
 
-	// Ordenar por terminaciones
-	rankingArray.sort((a, b) => b.terminaciones - a.terminaciones);
+    // Ordenar
+    rankingArray.sort((a, b) => b.terminaciones - a.terminaciones);
 
-	// --- INICIO: LÓGICA DE PODIO Y BARRAS ---
-	// 1. Obtener el máximo de terminaciones para la barra
-	const maxTerminaciones = rankingArray.length > 0 ? rankingArray[0].terminaciones : 0;
-	
-	// 2. Añadir la nueva columna al header
-	let headerHtml = `<thead><tr>
-		<th>Pos.</th>
-		<th>Empleado</th>
-		<th>Turno</th>
-		<th>Term.</th>
-		<th>Pzas.</th>
-		<th>Rendimiento</th>
-	</tr></thead>`;
-	// --- FIN: LÓGICA ---
+    if (rankingArray.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:var(--text-secondary);">Sin datos para los filtros seleccionados.</p>';
+        return;
+    }
 
-	let bodyHtml = '<tbody>';
+    const maxTerminaciones = rankingArray[0].terminaciones;
+    let cardsHtml = '';
 
-	if (rankingArray.length === 0) {
-		bodyHtml += '<tr><td colspan="6" style="text-align: center;">Sin datos para los filtros seleccionados</td></tr>';
-	} else {
-		rankingArray.forEach((item, index) => {
-			
-			// --- INICIO: LÓGICA DE PODIO Y BARRAS ---
-			// 3. Asignar clase de podio
-			let rankClass = '';
-			if (index === 0) rankClass = 'gold';
-			else if (index === 1) rankClass = 'silver';
-			else if (index === 2) rankClass = 'bronze';
-			
-			// 4. Calcular porcentaje para la barra
-			const porcentaje = maxTerminaciones > 0 ? (item.terminaciones / maxTerminaciones) * 100 : 0;
-			// --- FIN: LÓGICA ---
-			
-			// 5. Construir la fila
-			bodyHtml += `
-				<tr class="${rankClass}">
-					<td style="text-align: center; font-weight: bold;">${index + 1}</td>
-					<td>${item.empleado}</td>
-					<td style="text-align: center;">${item.turno}</td> 
-					<td style="text-align: right; font-weight: bold;">${item.terminaciones.toLocaleString()}</td>
-					<td style="text-align: right;">${item.piezas.toLocaleString()}</td>
-					<td>
-						<div class="progress-bar-container">
-							<div class="progress-bar" style="width: ${porcentaje.toFixed(1)}%;">
-								${porcentaje.toFixed(0)}%
-							</div>
-						</div>
-					</td>
-				</tr>
-			`;
-		});
-	}
+    rankingArray.forEach((item, index) => {
+        let rankClass = '';
+        let medal = index + 1;
+        
+        if (index === 0) { rankClass = 'gold'; medal = '🥇'; }
+        else if (index === 1) { rankClass = 'silver'; medal = '🥈'; }
+        else if (index === 2) { rankClass = 'bronze'; medal = '🥉'; }
 
-	bodyHtml += '</tbody>';
-	table.innerHTML = headerHtml + bodyHtml;
-	
-	// --- APLICAR ESTILOS A LA NUEVA TABLA ---
-	// Esto es para que las columnas numéricas queden bien
-	table.querySelectorAll('th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5)').forEach(el => {
-		el.style.textAlign = 'right';
-	});
+        const porcentaje = maxTerminaciones > 0 ? (item.terminaciones / maxTerminaciones) * 100 : 0;
+
+        cardsHtml += `
+            <div class="ranking-card ${rankClass}">
+                <div class="rank-badge">${medal}</div>
+                
+                <div class="emp-info">
+                    <span class="emp-name">${item.empleado}</span>
+                    <span class="emp-turno">${item.turno}</span>
+                </div>
+
+                <div class="emp-stats-wrapper">
+                    <div class="emp-metrics">
+                        <span>${item.terminaciones.toLocaleString()} <small>Term.</small></span>
+                        <span style="opacity:0.7;">${item.piezas.toLocaleString()} <small>Pzas.</small></span>
+                    </div>
+                    <div class="card-progress-bg">
+                        <div class="card-progress-fill" style="width: ${porcentaje}%;"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = cardsHtml;
 }
 // --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (después de consultarReporteSemanal) ---
 
@@ -5125,6 +5141,53 @@ function renderProductionChart(data, shiftStartTime, turno) {
         chart.update();
     });
 }
+
+async function exportarReporteCompleto() {
+    const wrapper = doc('exportWrapper');
+    const modalContent = doc('modalContent');
+    const btn = doc('exportarReporteCompletoBtn');
+    
+    if (!wrapper) return;
+
+    // 1. Preparar UI para la foto
+    btn.disabled = true;
+    // Añadimos una clase al cuerpo del modal para cambiar el layout temporalmente
+    modalContent.classList.add('export-mode');
+    
+    // Forzamos un reflow/repaint rápido
+    await new Promise(r => setTimeout(r, 100));
+
+    // Definir colores de fondo según el tema para que la imagen no salga transparente
+    const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+    const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
+
+    try {
+        // 2. Capturar
+        const canvas = await html2canvas(wrapper, {
+            backgroundColor: bgColor,
+            scale: 2, // Mejor calidad
+            useCORS: true,
+            logging: false
+        });
+
+        // 3. Descargar
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/jpeg', 0.9);
+        
+        const fInicio = doc('semanal_fecha_inicio').value;
+        const fFin = doc('semanal_fecha_fin').value;
+        link.download = `Reporte_Semanal_Completo_${fInicio}_al_${fFin}.jpg`;
+        link.click();
+
+    } catch (e) {
+        console.error("Error al exportar reporte completo:", e);
+        alert("Hubo un error al generar la imagen.");
+    } finally {
+        // 4. Restaurar UI
+        modalContent.classList.remove('export-mode');
+        btn.disabled = false;
+    }
+
 
         function exportChartAsJPG() {
             const chartContainer = doc('chartContainer');
