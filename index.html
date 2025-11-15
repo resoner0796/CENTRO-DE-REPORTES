@@ -897,44 +897,57 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     padding: 0 !important;
     grid-template-columns: none !important;
 }
-    /* Estilos para el Podio */
-    .gold {
-        background-color: #FFD700; /* Oro */
-        font-weight: bold;
-        color: #333;
-    }
-    .silver {
-        background-color: #C0C0C0; /* Plata */
-        font-weight: bold;
-        color: #333;
-    }
-    .bronze {
-        background-color: #CD7F32; /* Bronce */
-        font-weight: bold;
-        color: #333;
-    }
+    /* Estilos para el Podio del Ranking */
+    #rankingTable20 tbody tr.gold td {
+		background-color: rgba(255, 215, 0, 0.3) !important; /* Oro con transparencia */
+		color: var(--text-primary);
+		font-weight: 600;
+	}
+	#rankingTable20 tbody tr.silver td {
+		background-color: rgba(192, 192, 192, 0.3) !important; /* Plata con transparencia */
+		color: var(--text-primary);
+	}
+	#rankingTable20 tbody tr.bronze td {
+		background-color: rgba(205, 127, 50, 0.3) !important; /* Bronce con transparencia */
+		color: var(--text-primary);
+	}
+	
+	/* Para que el hover no opaque el color del podio */
+	#rankingTable20 tbody tr.gold:hover td,
+	#rankingTable20 tbody tr.silver:hover td,
+	#rankingTable20 tbody tr.bronze:hover td {
+		background-color: rgba(255, 255, 255, 0.15) !important;
+	}
+	body.light-theme #rankingTable20 tbody tr.gold:hover td,
+	body.light-theme #rankingTable20 tbody tr.silver:hover td,
+	body.light-theme #rankingTable20 tbody tr.bronze:hover td {
+		background-color: rgba(0, 0, 0, 0.1) !important;
+	}
 
-    /* Estilos para las Barras de Progreso */
-    .progress-bar-container {
-        width: 100px; /* Ancho fijo para la barra */
-        background-color: #e0e0e0;
-        border-radius: 5px;
-        overflow: hidden; /* Para que el contenido no se salga */
-        height: 20px; /* Altura de la barra */
-        margin: 5px 0;
-    }
+    /* Estilos para las Barras de Progreso */
+    .progress-bar-container {
+		min-width: 120px; /* Ancho mínimo */
+		background-color: var(--surface-hover-color);
+		border-radius: 6px;
+		overflow: hidden;
+		height: 20px;
+		border: 1px solid var(--border-color);
+		margin: 2px 0;
+    }
 
-    .progress-bar {
-        height: 100%;
-        background-color: #4CAF50; /* Verde, puedes cambiarlo */
-        color: white;
-        text-align: center;
-        line-height: 20px; /* Centrar texto verticalmente */
-        font-size: 0.8em;
-        transition: width 0.5s ease-in-out; /* Animación suave al cambiar el ancho */
-        white-space: nowrap; /* Evita que el texto se rompa */
-        overflow: hidden; /* Oculta texto si la barra es muy pequeña */
-    }
+    .progress-bar {
+		height: 100%;
+		background-color: var(--success-color); /* Usa tu color de éxito */
+		color: var(--primary-text-color); /* Usa tu color de texto primario */
+		text-align: center;
+		line-height: 20px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		transition: width 0.5s ease-in-out;
+		white-space: nowrap;
+		overflow: hidden;
+		text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+    }
 
 </style>
 </head>
@@ -3416,99 +3429,96 @@ function abrirModalReporteSemanal() {
 }
 
 async function consultarReporteSemanal() {
-    console.log("Consultando reporte semanal...");
-    const file = document.getElementById('excelFile').files[0];
-    if (!file) {
-        alert('Por favor, selecciona un archivo Excel.');
-        return;
-    }
+	const btn = doc('generarReporteSemanalBtn');
+	btn.disabled = true;
+	btn.textContent = 'Generando...';
 
-    try {
-        const data = await readExcelFile(file);
-        const config = params['901_config']; // Asegúrate de que esto apunta a la config correcta para este reporte
+	const fechaInicio = doc('semanal_fecha_inicio').value;
+	const fechaFin = doc('semanal_fecha_fin').value;
+	
+	const selectedShifts = Array.from(doc('semanal_turnos').selectedOptions).map(opt => opt.value);
 
-        const sheetName = '901'; // O el nombre de la hoja que tenga los datos del 901
-        const sheetData = data[sheetName];
+	if (!fechaInicio || !fechaFin) {
+		alert('Por favor, selecciona un rango de fechas.');
+		btn.disabled = false;
+		btn.textContent = 'Generar Reporte Semanal';
+		return;
+	}
+	
+	if (selectedShifts.length === 0) {
+		alert('Por favor, selecciona al menos un turno.');
+		btn.disabled = false;
+		btn.textContent = 'Generar Reporte Semanal';
+		return;
+	}
 
-        if (!sheetData) {
-            alert(`No se encontró la hoja '${sheetName}' en el archivo Excel.`);
-            return;
-        }
+	const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+	const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
+	fechaFinDate.setDate(fechaFinDate.getDate() + 1);
+	fechaFinDate.setHours(6, 29, 59, 999);
 
-        // --- Extracción de datos (igual que antes) ---
-        const startIndex = 2; // Asumiendo que los datos útiles empiezan en la fila 3 (índice 2)
-        const entries = sheetData.slice(startIndex).map(row => ({
-            area: row[0], // Columna A
-            line: row[1], // Columna B
-            empleado: row[3], // Columna D
-            terminaciones: parseInt(row[10] || 0), // Columna K (Terminaciones), con fallback a 0
-            piezas: parseInt(row[11] || 0) // Columna L (Piezas), con fallback a 0
-        }));
+	try {
+		// --- INICIO: Crear Mapa de Empleados ---
+		const empleadosList = params.produccion_20_empleados_config.empleados || [];
+		const empleadoMap = new Map(empleadosList.map(emp => [String(emp.id).toUpperCase(), emp.nombre]));
+		// --- FIN: Crear Mapa ---
 
-        // --- Filtrar por área "901" (esto ya lo teníamos) ---
-        const filteredEntries = entries.filter(entry => entry.area === '901' && entry.empleado && entry.empleado !== '');
+		const snapshot = await db.collection('produccion_20_historico')
+			.where('Fecha y hora', '>=', fechaInicioDate)
+			.where('Fecha y hora', '<=', fechaFinDate)
+			.get();
 
-        // --- Agrupar por empleado y sumar terminaciones (ranking) ---
-        const employeeRankingMap = new Map();
-        filteredEntries.forEach(entry => {
-            const current = employeeRankingMap.get(entry.empleado) || { terminaciones: 0, piezas: 0 };
-            current.terminaciones += entry.terminaciones;
-            current.piezas += entry.piezas;
-            employeeRankingMap.set(entry.empleado, current);
-        });
+		const datosAgrupadosPorDia = {};
+		const datosRanking = {};
+		const labelsFechas = new Set();
+		const turnosEncontrados = new Set();
 
-        let employeeRanking = Array.from(employeeRankingMap.entries()).map(([empleado, data]) => ({
-            empleado,
-            terminaciones: data.terminaciones,
-            piezas: data.piezas
-        }));
+		snapshot.forEach(docSnap => {
+			const data = docSnap.data();
+			const fechaHora = data['Fecha y hora'].toDate();
+			const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
 
-        // --- Ordenar de mayor a menor terminaciones ---
-        employeeRanking.sort((a, b) => b.terminaciones - a.terminaciones);
+			if (selectedShifts.includes(shift) && dateKey >= fechaInicio && dateKey <= fechaFin) {
+				labelsFechas.add(dateKey);
+				turnosEncontrados.add(shift);
 
-        // --- GENERACIÓN DE LA TABLA CON MEJORAS VISUALES ---
-        const tableBody = document.getElementById('reportTableBody');
-        tableBody.innerHTML = ''; // Limpiar tabla existente
+				const catalogo = data['Catalogo'] || '';
+				const digit = catalogo.substring(3, 4).toUpperCase();
+				const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
+				const cantidad = Number(data['Cantidad']) || 1;
+				const terminacionesTotales = terminacionesPorPieza * cantidad;
+				
+				// --- INICIO: Traducción de ID a Nombre ---
+				const empleadoNum = String(data['Empleado'] || 'N/A').toUpperCase();
+				const empleado = empleadoMap.get(empleadoNum) || empleadoNum; // Usa el nombre o el número como fallback
+				// --- FIN: Traducción ---
 
-        // Calcular el máximo de terminaciones para las barras de rendimiento
-        const maxTerminaciones = employeeRanking.length > 0 ? employeeRanking[0].terminaciones : 0;
+				if (!datosAgrupadosPorDia[dateKey]) datosAgrupadosPorDia[dateKey] = {};
+				if (!datosAgrupadosPorDia[dateKey][shift]) datosAgrupadosPorDia[dateKey][shift] = 0;
+				datosAgrupadosPorDia[dateKey][shift] += terminacionesTotales;
 
-        employeeRanking.forEach((item, index) => {
-            const row = tableBody.insertRow();
-            let rankClass = '';
-            if (index === 0) {
-                rankClass = 'gold';
-            } else if (index === 1) {
-                rankClass = 'silver';
-            } else if (index === 2) {
-                rankClass = 'bronze';
-            }
-            if (rankClass) {
-                row.classList.add(rankClass);
-            }
+				if (!datosRanking[empleado]) {
+					// Guardamos el nombre (o ID) y el turno
+					datosRanking[empleado] = { piezas: 0, terminaciones: 0, turno: shift };
+				}
+				datosRanking[empleado].piezas += cantidad;
+				datosRanking[empleado].terminaciones += terminacionesTotales;
+			}
+		});
 
-            row.insertCell().textContent = index + 1; // Posición
-            row.insertCell().textContent = item.empleado; // Empleado
-            row.insertCell().textContent = item.terminaciones.toLocaleString(); // Terminaciones (formateado)
-            row.insertCell().textContent = item.piezas.toLocaleString(); // Piezas (formateado)
+		const fechasOrdenadas = Array.from(labelsFechas).sort();
+		const turnosOrdenados = Array.from(turnosEncontrados).sort();
 
-            // --- Barra de Rendimiento ---
-            const rendimientoCell = row.insertCell();
-            const porcentaje = maxTerminaciones > 0 ? (item.terminaciones / maxTerminaciones) * 100 : 0;
-            rendimientoCell.innerHTML = `
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: ${porcentaje.toFixed(2)}%;">
-                        ${porcentaje.toFixed(1)}%
-                    </div>
-                </div>
-            `;
-        });
+		renderGraficaSemanal20(datosAgrupadosPorDia, fechasOrdenadas, turnosOrdenados);
+		renderRankingSemanal20(datosRanking);
 
-        switchView('reportView'); // Mostrar la vista del reporte
-    } catch (error) {
-        console.error("Error al procesar el archivo Excel para el reporte semanal:", error);
-        alert('Ocurrió un error al procesar el archivo. Asegúrate de que el formato es correcto.');
-    }
+	} catch (e) {
+		console.error("Error consultando reporte semanal:", e);
+		alert("No se pudo generar el reporte.");
+	} finally {
+		btn.disabled = false;
+		btn.textContent = 'Generar Reporte Semanal';
+	}
 }
 
 // --- Función renderGraficaSemanal20 ---
@@ -3591,6 +3601,7 @@ function renderGraficaSemanal20(datos, labels, turnos) {
 }
 
 // --- Ranking Semanal ---
+// --- Ranking Semanal ---
 function renderRankingSemanal20(datosRanking) {
 	const table = doc('rankingTable20');
 	if (!table) return;
@@ -3599,26 +3610,60 @@ function renderRankingSemanal20(datosRanking) {
 		empleado,
 		piezas: data.piezas,
 		terminaciones: data.terminaciones,
-		turno: data.turno // Añadimos el turno
+		turno: data.turno
 	}));
 
 	// Ordenar por terminaciones
 	rankingArray.sort((a, b) => b.terminaciones - a.terminaciones);
 
-	// Añadimos la columna Turno al header
-	let headerHtml = `<thead><tr><th>Empleado</th><th>Turno</th><th>Term.</th><th>Pzas.</th></tr></thead>`;
+	// --- INICIO: LÓGICA DE PODIO Y BARRAS ---
+	// 1. Obtener el máximo de terminaciones para la barra
+	const maxTerminaciones = rankingArray.length > 0 ? rankingArray[0].terminaciones : 0;
+	
+	// 2. Añadir la nueva columna al header
+	let headerHtml = `<thead><tr>
+		<th>Pos.</th>
+		<th>Empleado</th>
+		<th>Turno</th>
+		<th>Term.</th>
+		<th>Pzas.</th>
+		<th>Rendimiento</th>
+	</tr></thead>`;
+	// --- FIN: LÓGICA ---
+
 	let bodyHtml = '<tbody>';
 
 	if (rankingArray.length === 0) {
-		bodyHtml += '<tr><td colspan="4" style="text-align: center;">Sin datos para los filtros seleccionados</td></tr>';
+		bodyHtml += '<tr><td colspan="6" style="text-align: center;">Sin datos para los filtros seleccionados</td></tr>';
 	} else {
-		rankingArray.forEach(item => {
+		rankingArray.forEach((item, index) => {
+			
+			// --- INICIO: LÓGICA DE PODIO Y BARRAS ---
+			// 3. Asignar clase de podio
+			let rankClass = '';
+			if (index === 0) rankClass = 'gold';
+			else if (index === 1) rankClass = 'silver';
+			else if (index === 2) rankClass = 'bronze';
+			
+			// 4. Calcular porcentaje para la barra
+			const porcentaje = maxTerminaciones > 0 ? (item.terminaciones / maxTerminaciones) * 100 : 0;
+			// --- FIN: LÓGICA ---
+			
+			// 5. Construir la fila
 			bodyHtml += `
-				<tr>
+				<tr class="${rankClass}">
+					<td style="text-align: center; font-weight: bold;">${index + 1}</td>
 					<td>${item.empleado}</td>
-					<td>${item.turno}</td> 
-					<td>${item.terminaciones.toLocaleString()}</td>
-					<td>${item.piezas.toLocaleString()}</td>
+					<td style="text-align: center;">${item.turno}</td> 
+					<td style="text-align: right; font-weight: bold;">${item.terminaciones.toLocaleString()}</td>
+					<td style="text-align: right;">${item.piezas.toLocaleString()}</td>
+					<td>
+						<div class="progress-bar-container">
+							<div class="progress-bar" style="width: ${porcentaje.toFixed(1)}%;">
+								${porcentaje.toFixed(0)}%
+							</div>
+						</div>
+					</td>
 				</tr>
 			`;
 		});
@@ -3628,15 +3673,9 @@ function renderRankingSemanal20(datosRanking) {
 	table.innerHTML = headerHtml + bodyHtml;
 	
 	// --- APLICAR ESTILOS A LA NUEVA TABLA ---
-	// Hacemos que la 3ra y 4ta columna (Term. y Pzas.) se alineen a la derecha
-	table.querySelectorAll('th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4)').forEach(el => {
+	// Esto es para que las columnas numéricas queden bien
+	table.querySelectorAll('th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5)').forEach(el => {
 		el.style.textAlign = 'right';
-		el.style.fontWeight = 'bold';
-	});
-	// Hacemos que la 2da columna (Turno) se centre
-	table.querySelectorAll('th:nth-child(2), td:nth-child(2)').forEach(el => {
-		el.style.textAlign = 'center';
-		el.style.fontWeight = 'normal';
 	});
 }
 // --- PEGA ESTA FUNCIÓN NUEVA Y COMPLETA (después de consultarReporteSemanal) ---
