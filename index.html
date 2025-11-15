@@ -897,57 +897,37 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     padding: 0 !important;
     grid-template-columns: none !important;
 }
-    /* Estilos para el Podio del Ranking */
+    /* Estilos para el Podio del Ranking (Corregido) */
     #rankingTable20 tbody tr.gold td {
-		background-color: rgba(255, 215, 0, 0.3) !important; /* Oro con transparencia */
-		color: var(--text-primary);
+		background-color: rgba(255, 215, 0, 0.4) !important; /* Oro (un poco más fuerte) */
+		color: #111827 !important; /* FORZAR TEXTO OSCURO para contraste */
 		font-weight: 600;
 	}
 	#rankingTable20 tbody tr.silver td {
-		background-color: rgba(192, 192, 192, 0.3) !important; /* Plata con transparencia */
+		background-color: rgba(192, 192, 192, 0.3) !important; /* Plata */
 		color: var(--text-primary);
 	}
 	#rankingTable20 tbody tr.bronze td {
-		background-color: rgba(205, 127, 50, 0.3) !important; /* Bronce con transparencia */
+		background-color: rgba(205, 127, 50, 0.3) !important; /* Bronce */
 		color: var(--text-primary);
 	}
 	
-	/* Para que el hover no opaque el color del podio */
-	#rankingTable20 tbody tr.gold:hover td,
-	#rankingTable20 tbody tr.silver:hover td,
-	#rankingTable20 tbody tr.bronze:hover td {
-		background-color: rgba(255, 255, 255, 0.15) !important;
+	/* Hover para el podio */
+	#rankingTable20 tbody tr.gold:hover td {
+		background-color: rgba(255, 215, 0, 0.2) !important; /* Hover de oro */
 	}
-	body.light-theme #rankingTable20 tbody tr.gold:hover td,
+	#rankingTable20 tbody tr.silver:hover td {
+		background-color: rgba(192, 192, 192, 0.15) !important;
+	}
+	#rankingTable20 tbody tr.bronze:hover td {
+		background-color: rgba(205, 127, 50, 0.15) !important;
+	}
+	
+	/* En light-theme, el hover de plata y bronce debe ser más oscuro */
 	body.light-theme #rankingTable20 tbody tr.silver:hover td,
 	body.light-theme #rankingTable20 tbody tr.bronze:hover td {
 		background-color: rgba(0, 0, 0, 0.1) !important;
 	}
-
-    /* Estilos para las Barras de Progreso */
-    .progress-bar-container {
-		min-width: 120px; /* Ancho mínimo */
-		background-color: var(--surface-hover-color);
-		border-radius: 6px;
-		overflow: hidden;
-		height: 20px;
-		border: 1px solid var(--border-color);
-		margin: 2px 0;
-    }
-
-    .progress-bar {
-		height: 100%;
-		background-color: var(--success-color); /* Usa tu color de éxito */
-		color: var(--primary-text-color); /* Usa tu color de texto primario */
-		text-align: center;
-		line-height: 20px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		transition: width 0.5s ease-in-out;
-		white-space: nowrap;
-		overflow: hidden;
-		text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
-    }
 
 </style>
 </head>
