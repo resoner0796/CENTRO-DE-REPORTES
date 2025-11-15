@@ -3543,7 +3543,6 @@ function abrirModalReporteSemanal() {
         viewRanking.classList.add('active');
     });
 }
-
 async function consultarReporteSemanal() {
 	const btn = doc('generarReporteSemanalBtn');
 	btn.disabled = true;
@@ -5184,6 +5183,7 @@ async function exportarReporteCompleto() {
         modalContent.classList.remove('export-mode');
         btn.disabled = false;
     }
+}
 
 
         function exportChartAsJPG() {
