@@ -854,9 +854,6 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 	text-align: right;
 	font-weight: bold;
 }
-#rankingTable20 tbody tr:nth-child(odd) {
-	background-color: var(--surface-hover-color);
-}
 
 /* Ocultar layout viejo (por si acaso) */
 .modal-semanal-layout {
@@ -928,6 +925,113 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 	body.light-theme #rankingTable20 tbody tr.bronze:hover td {
 		background-color: rgba(0, 0, 0, 0.1) !important;
 	}
+   
+   /* =================================================
+   ESTILOS DEL RANKING SEMANAL (PODIO Y BARRAS)
+   ================================================= */
+
+/* 1. PRIMER LUGAR (ORO) - CORREGIDO */
+/* Usamos !important para anular cualquier otra regla */
+body.dark-theme #rankingTable20 tbody tr.gold td {
+    background-color: #B8860B !important; /* Oro oscuro sólido */
+    color: #F1F5F9 !important;            /* Texto claro */
+    font-weight: 700 !important;
+}
+/* Modo Claro */
+body.light-theme #rankingTable20 tbody tr.gold td {
+    background-color: #FFD700 !important; /* Oro brillante */
+    color: #111827 !important;            /* Texto oscuro */
+    font-weight: 700 !important;
+}
+
+/* 2. SEGUNDO LUGAR (PLATA) */
+body.dark-theme #rankingTable20 tbody tr.silver td {
+    background-color: #707070 !important; /* Plata oscura */
+    color: var(--text-primary) !important;
+    font-weight: 600;
+}
+body.light-theme #rankingTable20 tbody tr.silver td {
+    background-color: #C0C0C0 !important; /* Plata brillante */
+    color: #111827 !important; /* Texto oscuro */
+    font-weight: 600;
+}
+
+/* 3. TERCER LUGAR (BRONCE) */
+body.dark-theme #rankingTable20 tbody tr.bronze td {
+    background-color: #8C531F !important; /* Bronce oscuro */
+    color: var(--text-primary) !important;
+    font-weight: 600;
+}
+body.light-theme #rankingTable20 tbody tr.bronze td {
+    background-color: #CD7F32 !important; /* Bronce brillante */
+    color: #FFFFFF !important; /* Texto blanco */
+    font-weight: 600;
+}
+
+/* 4. Filas normales (del 4to lugar en adelante) 
+   ESTA REGLA REEMPLAZA A LA QUE TE DIJE QUE BORRARAS */
+#rankingTable20 tbody tr:not(.gold):not(.silver):not(.bronze):nth-child(odd) td {
+    background-color: var(--surface-hover-color);
+}
+/* Esta anula el hover de las filas impares que SÍ son del podio */
+#rankingTable20 tbody tr.gold:nth-child(odd) td,
+#rankingTable20 tbody tr.silver:nth-child(odd) td,
+#rankingTable20 tbody tr.bronze:nth-child(odd) td {
+    /* No hagas nada, deja que el color del podio mande */
+}
+
+
+/* 5. Estilos para las Barras de Progreso */
+.progress-bar-container {
+    min-width: 100px;
+    background-color: rgba(0, 0, 0, 0.2); /* Fondo oscuro transparente */
+    border-radius: 4px;
+    overflow: hidden;
+    height: 18px;
+    border: 1px solid rgba(0,0,0,0.1);
+    margin: 2px 0;
+}
+
+/* Fondo de barra más claro en el podio para que se note */
+tr.gold .progress-bar-container,
+tr.silver .progress-bar-container,
+tr.bronze .progress-bar-container {
+    background-color: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(0,0,0,0.2);
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--success-color); /* Verde del sistema */
+    color: var(--primary-text-color); /* Texto del sistema */
+    text-align: center;
+    line-height: 18px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    display: block;
+    transition: width 0.5s ease-in-out;
+}
+
+/* Barras personalizadas para el podio (para que combinen) */
+tr.gold .progress-bar   { background-color: #333 !important; color: #FFD700; }
+tr.silver .progress-bar { background-color: #444 !important; }
+tr.bronze .progress-bar { background-color: #FFF !important; color: #8C531F; text-shadow: none;}
+
+/* 6. Estilos de la tabla (los que ya tenías, pero actualizados) */
+#rankingTable20 th:nth-child(4), /* Term. */
+#rankingTable20 td:nth-child(4),
+#rankingTable20 th:nth-child(5), /* Pzas. */
+#rankingTable20 td:nth-child(5) {
+	text-align: right;
+	font-weight: bold;
+}
+#rankingTable20 th:nth-child(3), /* Turno */
+#rankingTable20 td:nth-child(3) {
+    text-align: center;
+    font-weight: normal;
+}
 
 </style>
 </head>
