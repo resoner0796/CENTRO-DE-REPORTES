@@ -3533,10 +3533,11 @@ function abrirModalReporteSemanal() {
                 <input type="date" id="semanal_fecha_fin">
             </div>
             <div>
-                <label style="font-size: 0.8rem; color: var(--text-secondary);">Turnos</label>
-                <select id="semanal_turnos" multiple style="height: 38px; padding: 4px;">
+                <label style="font-size: 0.8rem; color: var(--text-secondary);">Turnos (Selecciona varios)</label>
+                <select id="semanal_turnos" multiple style="height: 100px; padding: 4px; overflow-y: auto; background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px;">
                     ${turnoOptions}
                 </select>
+                <p style="font-size: 0.7rem; color: var(--text-dark); margin: 2px 0 0 0;">* Haz clic para activar/desactivar</p>
             </div>
             <div style="display: flex; gap: 8px;">
                 <button id="generarReporteSemanalBtn" class="btn" style="padding: 0 20px; height: 38px;">Generar</button>
@@ -3572,6 +3573,22 @@ function abrirModalReporteSemanal() {
 
     showModal('Reporte Semanal 20%', modalHTML);
 
+    // --- TRUCO JAVASCRIPT: SELECCIÓN MÚLTIPLE SIN CTRL ---
+    const selectTurnos = doc('semanal_turnos');
+    selectTurnos.addEventListener('mousedown', function(e) {
+        e.preventDefault(); // Evita que el navegador borre la selección anterior
+        
+        const option = e.target;
+        if (option.tagName === 'OPTION') {
+            // Cambia el estado de selección (si estaba seleccionado lo quita, si no, lo pone)
+            option.selected = !option.selected;
+            
+            // Dispara el evento change manualmente por si acaso
+            const event = new Event('change');
+            this.dispatchEvent(event);
+        }
+    });
+
     // --- Configuración Inicial (Fechas y Turnos) ---
     const hoy = new Date();
     const haceUnaSemana = new Date();
@@ -3580,15 +3597,14 @@ function abrirModalReporteSemanal() {
     doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
 
     const currentShift = getAutoCurrentShift();
-    const turnoSelect = doc('semanal_turnos');
-    // Lógica simple para preseleccionar
-    for (let option of turnoSelect.options) {
+    // Pre-seleccionar el turno actual
+    for (let option of selectTurnos.options) {
         if (option.value === currentShift) option.selected = true;
     }
 
     // --- Listeners ---
     doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
-    doc('exportarReporteCompletoBtn').addEventListener('click', exportarReporteCompleto); // <--- NUEVO LISTENER
+    doc('exportarReporteCompletoBtn').addEventListener('click', exportarReporteCompleto);
 
     const btnComparativa = doc('btnComparativaTurnos');
     const btnRanking = doc('btnRankingSemanal');
@@ -3609,6 +3625,7 @@ function abrirModalReporteSemanal() {
         viewRanking.classList.add('active');
     });
 }
+
 async function consultarReporteSemanal() {
 	const btn = doc('generarReporteSemanalBtn');
 	btn.disabled = true;
