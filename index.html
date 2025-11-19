@@ -1152,27 +1152,27 @@ body.dark-theme .export-mode p {
     background-color: var(--surface-color);
     border: 1px solid var(--border-color);
     color: var(--text-secondary);
-    padding: 10px;
+    padding: 6px 10px; /* Menos relleno para que sean más pequeños */
     border-radius: 8px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 0.8rem; /* Letra un poco más chica */
+    font-weight: 600;  /* Texto un poco más gordito para que resalte */
     text-align: center;
     transition: all 0.2s ease;
-    user-select: none; /* Evita que se seleccione el texto */
+    user-select: none;
 }
 
+/* El hover y active se quedan igual, o puedes ajustarlos si quieres */
 .btn-turno-toggle:hover {
     background-color: var(--surface-hover-color);
 }
 
-/* Estado ACTIVO (Seleccionado) */
 .btn-turno-toggle.active {
-    background-color: var(--primary-color); /* O usa var(--success-color) si prefieres verde */
-    color: var(--primary-text-color); /* Texto blanco o negro según tema */
+    background-color: var(--primary-color);
+    color: var(--primary-text-color);
     border-color: var(--primary-color);
-    font-weight: 600;
-    box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2); /* Sombra más sutil */
+    transform: translateY(-1px); /* Pequeño efecto de "levantado" */
 }
 
 </style>
@@ -3569,11 +3569,11 @@ function abrirModalReporteSemanal() {
             
             <div>
                 <label style="font-size: 0.8rem; color: var(--text-secondary); display:block; margin-bottom:4px;">Turnos</label>
-                <div class="turno-grid" id="contenedorTurnos">
-                    <div class="btn-turno-toggle" data-value="T45">T45 (Día L-M)</div>
-                    <div class="btn-turno-toggle" data-value="T46">T46 (Noche L-M)</div>
-                    <div class="btn-turno-toggle" data-value="T47">T47 (Día J-D)</div>
-                    <div class="btn-turno-toggle" data-value="T48">T48 (Noche J-D)</div>
+                <div class="turno-grid" id="contenedorTurnos" style="grid-template-columns: repeat(4, 1fr); gap: 6px;"> 
+                    <div class="btn-turno-toggle" data-value="T45">T45</div>
+                    <div class="btn-turno-toggle" data-value="T46">T46</div>
+                    <div class="btn-turno-toggle" data-value="T47">T47</div>
+                    <div class="btn-turno-toggle" data-value="T48">T48</div>
                 </div>
             </div>
 
@@ -3608,34 +3608,28 @@ function abrirModalReporteSemanal() {
 
     showModal('Reporte Semanal 20%', modalHTML);
 
-    // --- LÓGICA DE LOS BOTONES TOGGLE ---
+    // ... (El resto de la lógica de botones y listeners sigue idéntico) ...
     const botonesTurno = document.querySelectorAll('.btn-turno-toggle');
     const currentShift = getAutoCurrentShift();
 
     botonesTurno.forEach(btn => {
-        // 1. Pre-seleccionar el turno actual
         if (btn.dataset.value === currentShift) {
             btn.classList.add('active');
         }
-
-        // 2. Agregar evento Click para prender/apagar
         btn.addEventListener('click', () => {
             btn.classList.toggle('active');
         });
     });
 
-    // --- Configuración de Fechas ---
     const hoy = new Date();
     const haceUnaSemana = new Date();
     haceUnaSemana.setDate(hoy.getDate() - 6);
     doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
     doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
 
-    // --- Listeners normales ---
     doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
     doc('exportarReporteCompletoBtn').addEventListener('click', exportarReporteCompleto);
 
-    // --- Tabs ---
     const btnComparativa = doc('btnComparativaTurnos');
     const btnRanking = doc('btnRankingSemanal');
     const viewComparativa = doc('viewComparativa');
