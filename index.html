@@ -1083,24 +1083,60 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 .ranking-card.silver .card-progress-fill { background-color: #C0C0C0; }
 .ranking-card.bronze .card-progress-fill { background-color: #CD7F32; }
 
-/* --- MODO EXPORTACIÓN (IMPORTANTE) --- */
+/* =========================================
+   ESTILOS MODO EXPORTACIÓN (FIX DEFINITIVO)
+   ========================================= */
+
+/* Cuando se activa el modo exportación, forzamos un ancho fijo grande 
+   para que la imagen salga de alta calidad y todo quepa */
 .export-mode #exportWrapper {
     display: grid !important;
-    grid-template-columns: 1.5fr 1fr !important; /* Gráfica ancha, Ranking angosto */
-    gap: 20px !important;
-    background-color: var(--bg-gradient) !important; /* Fondo limpio */
-    padding: 20px !important;
+    grid-template-columns: 1.2fr 0.8fr !important; /* Gráfica 60% - Ranking 40% */
+    gap: 30px !important;
+    background-color: var(--bg-gradient) !important; /* Fondo del tema actual */
+    padding: 30px !important;
     border-radius: 12px;
+    width: 1200px !important; /* FORZAR ANCHO FIJO para que no dependa de tu pantalla */
+    margin: 0 auto !important;
+    position: fixed !important; /* Sacarlo del flujo normal momentáneamente */
+    top: 0;
+    left: 0;
+    z-index: -100; /* Esconderlo detrás mientras se toma la foto */
 }
+
+/* Forzar que ambas pestañas se vean a la vez */
 .export-mode .modal-view-content {
-    display: block !important; /* Forzar visibilidad */
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    width: 100% !important;
 }
-.export-mode #modalTabsContainer {
-    display: none !important; /* Ocultar tabs */
+
+/* Ocultar los botones de las pestañas en la foto */
+.export-mode-parent .modal-view-tabs {
+    display: none !important;
 }
-.export-mode .modal-ranking-wrapper {
-    max-height: none !important; /* Quitar scroll para ver todo */
+
+/* QUITAR EL SCROLL DEL RANKING para que salgan todos los empleados */
+.export-mode .modal-ranking-wrapper,
+.export-mode #rankingList {
+    max-height: none !important;
     overflow: visible !important;
+    height: auto !important;
+}
+
+/* Ajustar la gráfica para que se vea bien en la foto */
+.export-mode .modal-chart-wrapper {
+    height: 500px !important; /* Altura fija para la imagen */
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Ajuste para texto en imagen oscura */
+body.dark-theme .export-mode h5, 
+body.dark-theme .export-mode span,
+body.dark-theme .export-mode p {
+    color: #ffffff !important;
 }
 
 </style>
@@ -5169,49 +5205,76 @@ function renderProductionChart(data, shiftStartTime, turno) {
 }
 
 async function exportarReporteCompleto() {
-    const wrapper = doc('exportWrapper');
-    const modalContent = doc('modalContent');
-    const btn = doc('exportarReporteCompletoBtn');
+    const wrapper = document.getElementById('exportWrapper');
+    const modalContent = document.getElementById('modalContent'); // Necesitamos el padre para ocultar los tabs
+    const btn = document.getElementById('exportarReporteCompletoBtn');
     
     if (!wrapper) return;
 
     // 1. Preparar UI para la foto
     btn.disabled = true;
-    // Añadimos una clase al cuerpo del modal para cambiar el layout temporalmente
-    modalContent.classList.add('export-mode');
-    
-    // Forzamos un reflow/repaint rápido
-    await new Promise(r => setTimeout(r, 100));
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '📸'; // Indicador visual
 
-    // Definir colores de fondo según el tema para que la imagen no salga transparente
-    const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
-    const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
+    // Añadimos clases para cambiar el layout
+    modalContent.classList.add('export-mode-parent'); // Para ocultar tabs
+    wrapper.classList.add('export-mode'); // Para reacomodar gráfica y ranking
+    
+    // IMPORTANTE: Forzar redimensionamiento de la gráfica para que llene el nuevo espacio
+    if (graficaSemanalInstance) {
+        graficaSemanalInstance.resize();
+    }
+
+    // Esperamos un poco para que el navegador procese los cambios de estilo y la gráfica se redibuje
+    await new Promise(r => setTimeout(r, 800));
+
+    // Definir color de fondo (para evitar transparencias raras)
+    const isDark = document.body.classList.contains('dark-theme');
+    const bgColor = isDark ? '#1f2937' : '#ffffff';
 
     try {
-        // 2. Capturar
+        // 2. Capturar con html2canvas
+        // Usamos window.scrollTo para evitar problemas si el usuario bajó en la página
+        const scrollY = window.scrollY;
+        
         const canvas = await html2canvas(wrapper, {
             backgroundColor: bgColor,
-            scale: 2, // Mejor calidad
+            scale: 2, // Doble resolución para que se vea nítido
             useCORS: true,
-            logging: false
+            logging: false,
+            width: 1200, // Coincide con el CSS
+            windowWidth: 1200,
+            onclone: (clonedDoc) => {
+                // Truco: Asegurar que en el clon todo sea visible
+                const clonedWrapper = clonedDoc.getElementById('exportWrapper');
+                clonedWrapper.style.display = 'grid';
+            }
         });
 
         // 3. Descargar
         const link = document.createElement('a');
         link.href = canvas.toDataURL('image/jpeg', 0.9);
         
-        const fInicio = doc('semanal_fecha_inicio').value;
-        const fFin = doc('semanal_fecha_fin').value;
+        const fInicio = document.getElementById('semanal_fecha_inicio').value;
+        const fFin = document.getElementById('semanal_fecha_fin').value;
         link.download = `Reporte_Semanal_Completo_${fInicio}_al_${fFin}.jpg`;
         link.click();
 
     } catch (e) {
         console.error("Error al exportar reporte completo:", e);
-        alert("Hubo un error al generar la imagen.");
+        alert("Hubo un error al generar la imagen. Intenta de nuevo.");
     } finally {
-        // 4. Restaurar UI
-        modalContent.classList.remove('export-mode');
+        // 4. Restaurar UI (Super importante)
+        wrapper.classList.remove('export-mode');
+        modalContent.classList.remove('export-mode-parent');
+        
+        // Regresar la gráfica a su tamaño normal
+        if (graficaSemanalInstance) {
+            graficaSemanalInstance.resize();
+        }
+        
         btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 }
 
