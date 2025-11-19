@@ -1139,6 +1139,42 @@ body.dark-theme .export-mode p {
     color: #ffffff !important;
 }
 
+
+/* --- ESTILOS MODERNOS PARA SELECTOR DE TURNOS (TOGGLE CHIPS) --- */
+.turno-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Dos columnas */
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.btn-turno-toggle {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-align: center;
+    transition: all 0.2s ease;
+    user-select: none; /* Evita que se seleccione el texto */
+}
+
+.btn-turno-toggle:hover {
+    background-color: var(--surface-hover-color);
+}
+
+/* Estado ACTIVO (Seleccionado) */
+.btn-turno-toggle.active {
+    background-color: var(--primary-color); /* O usa var(--success-color) si prefieres verde */
+    color: var(--primary-text-color); /* Texto blanco o negro según tema */
+    border-color: var(--primary-color);
+    font-weight: 600;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    transform: scale(1.02);
+}
+
 </style>
 </head>
 <body class="dark-theme">
@@ -3520,28 +3556,30 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
         // --- INICIO: LÓGICA DEL REPORTE SEMANAL 20% ---
         // --- Lógica para el Reporte Semanal 20% ---
 function abrirModalReporteSemanal() {
-    const turnoOptions = doc('prod20_turno').innerHTML;
-
     const modalHTML = `
-        <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 20px; align-items: end;">
+        <div class="controles-semanales" style="display: grid; grid-template-columns: 1fr 1fr 1.5fr auto; gap: 12px; margin-bottom: 20px; align-items: start;">
             <div>
-                <label style="font-size: 0.8rem; color: var(--text-secondary);">Inicio</label>
-                <input type="date" id="semanal_fecha_inicio">
+                <label style="font-size: 0.8rem; color: var(--text-secondary); display:block; margin-bottom:4px;">Inicio</label>
+                <input type="date" id="semanal_fecha_inicio" style="width:100%;">
             </div>
             <div>
-                <label style="font-size: 0.8rem; color: var(--text-secondary);">Fin</label>
-                <input type="date" id="semanal_fecha_fin">
+                <label style="font-size: 0.8rem; color: var(--text-secondary); display:block; margin-bottom:4px;">Fin</label>
+                <input type="date" id="semanal_fecha_fin" style="width:100%;">
             </div>
+            
             <div>
-                <label style="font-size: 0.8rem; color: var(--text-secondary);">Turnos (Selecciona varios)</label>
-                <select id="semanal_turnos" multiple style="height: 100px; padding: 4px; overflow-y: auto; background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px;">
-                    ${turnoOptions}
-                </select>
-                <p style="font-size: 0.7rem; color: var(--text-dark); margin: 2px 0 0 0;">* Haz clic para activar/desactivar</p>
+                <label style="font-size: 0.8rem; color: var(--text-secondary); display:block; margin-bottom:4px;">Turnos</label>
+                <div class="turno-grid" id="contenedorTurnos">
+                    <div class="btn-turno-toggle" data-value="T45">T45 (Día L-M)</div>
+                    <div class="btn-turno-toggle" data-value="T46">T46 (Noche L-M)</div>
+                    <div class="btn-turno-toggle" data-value="T47">T47 (Día J-D)</div>
+                    <div class="btn-turno-toggle" data-value="T48">T48 (Noche J-D)</div>
+                </div>
             </div>
-            <div style="display: flex; gap: 8px;">
+
+            <div style="display: flex; gap: 8px; align-self: end;">
                 <button id="generarReporteSemanalBtn" class="btn" style="padding: 0 20px; height: 38px;">Generar</button>
-                <button id="exportarReporteCompletoBtn" class="btn btn-glass" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Exportar Comparativa + Ranking">
+                <button id="exportarReporteCompletoBtn" class="btn btn-glass" style="height: 38px; width: 38px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Exportar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 </button>
             </div>
@@ -3553,13 +3591,11 @@ function abrirModalReporteSemanal() {
         </div>
 
         <div id="exportWrapper" style="position: relative;">
-            
             <div id="viewComparativa" class="modal-view-content active">
                 <div class="modal-chart-wrapper" style="background: var(--surface-color); border-radius: 12px; padding: 10px; border: 1px solid var(--border-color);">
                     <canvas id="graficaSemanal20"></canvas>
                 </div>
             </div>
-
             <div id="viewRanking" class="modal-view-content">
                 <div class="modal-ranking-wrapper">
                     <div id="rankingList" class="ranking-card-container">
@@ -3567,156 +3603,143 @@ function abrirModalReporteSemanal() {
                     </div>
                 </div>
             </div>
-
         </div>
     `;
 
     showModal('Reporte Semanal 20%', modalHTML);
 
-    // --- TRUCO JAVASCRIPT: SELECCIÓN MÚLTIPLE SIN CTRL ---
-    const selectTurnos = doc('semanal_turnos');
-    selectTurnos.addEventListener('mousedown', function(e) {
-        e.preventDefault(); // Evita que el navegador borre la selección anterior
-        
-        const option = e.target;
-        if (option.tagName === 'OPTION') {
-            // Cambia el estado de selección (si estaba seleccionado lo quita, si no, lo pone)
-            option.selected = !option.selected;
-            
-            // Dispara el evento change manualmente por si acaso
-            const event = new Event('change');
-            this.dispatchEvent(event);
+    // --- LÓGICA DE LOS BOTONES TOGGLE ---
+    const botonesTurno = document.querySelectorAll('.btn-turno-toggle');
+    const currentShift = getAutoCurrentShift();
+
+    botonesTurno.forEach(btn => {
+        // 1. Pre-seleccionar el turno actual
+        if (btn.dataset.value === currentShift) {
+            btn.classList.add('active');
         }
+
+        // 2. Agregar evento Click para prender/apagar
+        btn.addEventListener('click', () => {
+            btn.classList.toggle('active');
+        });
     });
 
-    // --- Configuración Inicial (Fechas y Turnos) ---
+    // --- Configuración de Fechas ---
     const hoy = new Date();
     const haceUnaSemana = new Date();
     haceUnaSemana.setDate(hoy.getDate() - 6);
     doc('semanal_fecha_fin').value = hoy.toISOString().split('T')[0];
     doc('semanal_fecha_inicio').value = haceUnaSemana.toISOString().split('T')[0];
 
-    const currentShift = getAutoCurrentShift();
-    // Pre-seleccionar el turno actual
-    for (let option of selectTurnos.options) {
-        if (option.value === currentShift) option.selected = true;
-    }
-
-    // --- Listeners ---
+    // --- Listeners normales ---
     doc('generarReporteSemanalBtn').addEventListener('click', consultarReporteSemanal);
     doc('exportarReporteCompletoBtn').addEventListener('click', exportarReporteCompleto);
 
+    // --- Tabs ---
     const btnComparativa = doc('btnComparativaTurnos');
     const btnRanking = doc('btnRankingSemanal');
     const viewComparativa = doc('viewComparativa');
     const viewRanking = doc('viewRanking');
 
     btnComparativa.addEventListener('click', () => {
-        btnComparativa.classList.add('active');
-        btnRanking.classList.remove('active');
-        viewComparativa.classList.add('active');
-        viewRanking.classList.remove('active');
+        btnComparativa.classList.add('active'); btnRanking.classList.remove('active');
+        viewComparativa.classList.add('active'); viewRanking.classList.remove('active');
     });
-
     btnRanking.addEventListener('click', () => {
-        btnComparativa.classList.remove('active');
-        btnRanking.classList.add('active');
-        viewComparativa.classList.remove('active');
-        viewRanking.classList.add('active');
+        btnComparativa.classList.remove('active'); btnRanking.classList.add('active');
+        viewComparativa.classList.remove('active'); viewRanking.classList.add('active');
     });
 }
 
 async function consultarReporteSemanal() {
-	const btn = doc('generarReporteSemanalBtn');
-	btn.disabled = true;
-	btn.textContent = 'Generando...';
+    const btn = doc('generarReporteSemanalBtn');
+    btn.disabled = true;
+    btn.textContent = 'Generando...';
 
-	const fechaInicio = doc('semanal_fecha_inicio').value;
-	const fechaFin = doc('semanal_fecha_fin').value;
-	
-	const selectedShifts = Array.from(doc('semanal_turnos').selectedOptions).map(opt => opt.value);
+    const fechaInicio = doc('semanal_fecha_inicio').value;
+    const fechaFin = doc('semanal_fecha_fin').value;
+    
+    // --- CAMBIO AQUÍ: Leer los botones activos en lugar del select ---
+    const selectedShifts = Array.from(document.querySelectorAll('.btn-turno-toggle.active'))
+                                .map(btn => btn.dataset.value);
+    // --------------------------------------------------------------
 
-	if (!fechaInicio || !fechaFin) {
-		alert('Por favor, selecciona un rango de fechas.');
-		btn.disabled = false;
-		btn.textContent = 'Generar Reporte Semanal';
-		return;
-	}
-	
-	if (selectedShifts.length === 0) {
-		alert('Por favor, selecciona al menos un turno.');
-		btn.disabled = false;
-		btn.textContent = 'Generar Reporte Semanal';
-		return;
-	}
+    if (!fechaInicio || !fechaFin) {
+        alert('Por favor, selecciona un rango de fechas.');
+        btn.disabled = false;
+        btn.textContent = 'Generar Reporte Semanal';
+        return;
+    }
+    
+    if (selectedShifts.length === 0) {
+        alert('Por favor, selecciona al menos un turno.');
+        btn.disabled = false;
+        btn.textContent = 'Generar Reporte Semanal';
+        return;
+    }
 
-	const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
-	const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
-	fechaFinDate.setDate(fechaFinDate.getDate() + 1);
-	fechaFinDate.setHours(6, 29, 59, 999);
+    const fechaInicioDate = new Date(`${fechaInicio}T00:00:00`);
+    const fechaFinDate = new Date(`${fechaFin}T00:00:00`);
+    fechaFinDate.setDate(fechaFinDate.getDate() + 1);
+    fechaFinDate.setHours(6, 29, 59, 999);
 
-	try {
-		// --- INICIO: Crear Mapa de Empleados ---
-		const empleadosList = params.produccion_20_empleados_config.empleados || [];
-		const empleadoMap = new Map(empleadosList.map(emp => [String(emp.id).toUpperCase(), emp.nombre]));
-		// --- FIN: Crear Mapa ---
+    try {
+        const empleadosList = params.produccion_20_empleados_config.empleados || [];
+        const empleadoMap = new Map(empleadosList.map(emp => [String(emp.id).toUpperCase(), emp.nombre]));
 
-		const snapshot = await db.collection('produccion_20_historico')
-			.where('Fecha y hora', '>=', fechaInicioDate)
-			.where('Fecha y hora', '<=', fechaFinDate)
-			.get();
+        const snapshot = await db.collection('produccion_20_historico')
+            .where('Fecha y hora', '>=', fechaInicioDate)
+            .where('Fecha y hora', '<=', fechaFinDate)
+            .get();
 
-		const datosAgrupadosPorDia = {};
-		const datosRanking = {};
-		const labelsFechas = new Set();
-		const turnosEncontrados = new Set();
+        const datosAgrupadosPorDia = {};
+        const datosRanking = {};
+        const labelsFechas = new Set();
+        const turnosEncontrados = new Set();
 
-		snapshot.forEach(docSnap => {
-			const data = docSnap.data();
-			const fechaHora = data['Fecha y hora'].toDate();
-			const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const fechaHora = data['Fecha y hora'].toDate();
+            const { shift, dateKey } = getWorkShiftAndDate(fechaHora);
 
-			if (selectedShifts.includes(shift) && dateKey >= fechaInicio && dateKey <= fechaFin) {
-				labelsFechas.add(dateKey);
-				turnosEncontrados.add(shift);
+            if (selectedShifts.includes(shift) && dateKey >= fechaInicio && dateKey <= fechaFin) {
+                labelsFechas.add(dateKey);
+                turnosEncontrados.add(shift);
 
-				const catalogo = data['Catalogo'] || '';
-				const digit = catalogo.substring(3, 4).toUpperCase();
-				const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
-				const cantidad = Number(data['Cantidad']) || 1;
-				const terminacionesTotales = terminacionesPorPieza * cantidad;
-				
-				// --- INICIO: Traducción de ID a Nombre ---
-				const empleadoNum = String(data['Empleado'] || 'N/A').toUpperCase();
-				const empleado = empleadoMap.get(empleadoNum) || empleadoNum; // Usa el nombre o el número como fallback
-				// --- FIN: Traducción ---
+                const catalogo = data['Catalogo'] || '';
+                const digit = catalogo.substring(3, 4).toUpperCase();
+                const terminacionesPorPieza = digit === 'T' ? 12 : parseInt(digit, 10) || 0;
+                const cantidad = Number(data['Cantidad']) || 1;
+                const terminacionesTotales = terminacionesPorPieza * cantidad;
+                
+                const empleadoNum = String(data['Empleado'] || 'N/A').toUpperCase();
+                const empleado = empleadoMap.get(empleadoNum) || empleadoNum; 
 
-				if (!datosAgrupadosPorDia[dateKey]) datosAgrupadosPorDia[dateKey] = {};
-				if (!datosAgrupadosPorDia[dateKey][shift]) datosAgrupadosPorDia[dateKey][shift] = 0;
-				datosAgrupadosPorDia[dateKey][shift] += terminacionesTotales;
+                if (!datosAgrupadosPorDia[dateKey]) datosAgrupadosPorDia[dateKey] = {};
+                if (!datosAgrupadosPorDia[dateKey][shift]) datosAgrupadosPorDia[dateKey][shift] = 0;
+                datosAgrupadosPorDia[dateKey][shift] += terminacionesTotales;
 
-				if (!datosRanking[empleado]) {
-					// Guardamos el nombre (o ID) y el turno
-					datosRanking[empleado] = { piezas: 0, terminaciones: 0, turno: shift };
-				}
-				datosRanking[empleado].piezas += cantidad;
-				datosRanking[empleado].terminaciones += terminacionesTotales;
-			}
-		});
+                if (!datosRanking[empleado]) {
+                    datosRanking[empleado] = { piezas: 0, terminaciones: 0, turno: shift };
+                }
+                datosRanking[empleado].piezas += cantidad;
+                datosRanking[empleado].terminaciones += terminacionesTotales;
+            }
+        });
 
-		const fechasOrdenadas = Array.from(labelsFechas).sort();
-		const turnosOrdenados = Array.from(turnosEncontrados).sort();
+        const fechasOrdenadas = Array.from(labelsFechas).sort();
+        const turnosOrdenados = Array.from(turnosEncontrados).sort();
 
-		renderGraficaSemanal20(datosAgrupadosPorDia, fechasOrdenadas, turnosOrdenados);
-		renderRankingSemanal20(datosRanking);
+        renderGraficaSemanal20(datosAgrupadosPorDia, fechasOrdenadas, turnosOrdenados);
+        renderRankingSemanal20(datosRanking);
 
-	} catch (e) {
-		console.error("Error consultando reporte semanal:", e);
-		alert("No se pudo generar el reporte.");
-	} finally {
-		btn.disabled = false;
-		btn.textContent = 'Generar Reporte Semanal';
-	}
+    } catch (e) {
+        console.error("Error consultando reporte semanal:", e);
+        alert("No se pudo generar el reporte.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generar Reporte Semanal';
+    }
 }
 
 // --- Función renderGraficaSemanal20 ---
