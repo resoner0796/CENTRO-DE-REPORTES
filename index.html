@@ -1084,52 +1084,46 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
 .ranking-card.bronze .card-progress-fill { background-color: #CD7F32; }
 
 /* =========================================
-   ESTILOS MODO EXPORTACIÓN (FIX DEFINITIVO)
+   ESTILOS MODO EXPORTACIÓN (FIX HORIZONTAL)
    ========================================= */
 
-/* Cuando se activa el modo exportación, forzamos un ancho fijo grande 
-   para que la imagen salga de alta calidad y todo quepa */
 .export-mode #exportWrapper {
     display: grid !important;
-    grid-template-columns: 1.2fr 0.8fr !important; /* Gráfica 60% - Ranking 40% */
+    grid-template-columns: 1.5fr 1fr !important; /* 60% Gráfica - 40% Ranking */
     gap: 30px !important;
-    background-color: var(--bg-gradient) !important; /* Fondo del tema actual */
+    
+    /* FORZAR TAMAÑO DE ESCRITORIO */
+    width: 1200px !important;  /* <-- ESTO ES LO QUE LO OBLIGA A SER HORIZONTAL */
+    height: auto !important;
+    
+    background-color: var(--bg-gradient) !important;
     padding: 30px !important;
     border-radius: 12px;
-    width: 1200px !important; /* FORZAR ANCHO FIJO para que no dependa de tu pantalla */
-    margin: 0 auto !important;
-    position: fixed !important; /* Sacarlo del flujo normal momentáneamente */
+    
+    /* Sacarlo del flujo normal para que no afecte tu vista en el cel */
+    position: fixed !important; 
     top: 0;
     left: 0;
-    z-index: -100; /* Esconderlo detrás mientras se toma la foto */
+    z-index: -1000; /* Lo mandamos al fondo mientras toma la foto */
 }
 
-/* Forzar que ambas pestañas se vean a la vez */
-.export-mode .modal-view-content {
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    width: 100% !important;
-}
-
-/* Ocultar los botones de las pestañas en la foto */
-.export-mode-parent .modal-view-tabs {
-    display: none !important;
-}
-
-/* QUITAR EL SCROLL DEL RANKING para que salgan todos los empleados */
-.export-mode .modal-ranking-wrapper,
-.export-mode #rankingList {
+/* Asegurar que el ranking se vea completo sin scroll */
+.export-mode .modal-ranking-wrapper {
     max-height: none !important;
     overflow: visible !important;
-    height: auto !important;
 }
 
-/* Ajustar la gráfica para que se vea bien en la foto */
+/* Ajustar altura de la gráfica para que se vea bien */
 .export-mode .modal-chart-wrapper {
-    height: 500px !important; /* Altura fija para la imagen */
+    height: 500px !important;
     border: none !important;
     box-shadow: none !important;
+}
+
+/* Asegurar visibilidad de pestañas */
+.export-mode .modal-view-content {
+    display: block !important;
+
 }
 
 /* Ajuste para texto en imagen oscura */
@@ -5206,49 +5200,40 @@ function renderProductionChart(data, shiftStartTime, turno) {
 
 async function exportarReporteCompleto() {
     const wrapper = document.getElementById('exportWrapper');
-    const modalContent = document.getElementById('modalContent'); // Necesitamos el padre para ocultar los tabs
+    const modalContent = document.getElementById('modalContent'); 
     const btn = document.getElementById('exportarReporteCompletoBtn');
     
     if (!wrapper) return;
 
-    // 1. Preparar UI para la foto
+    // 1. Preparar UI
     btn.disabled = true;
     const originalText = btn.innerHTML;
-    btn.innerHTML = '📸'; // Indicador visual
+    btn.innerHTML = '⏳'; // Indicador de carga
 
-    // Añadimos clases para cambiar el layout
-    modalContent.classList.add('export-mode-parent'); // Para ocultar tabs
-    wrapper.classList.add('export-mode'); // Para reacomodar gráfica y ranking
+    // Activar modo exportación (esto aplica el CSS de 1200px)
+    modalContent.classList.add('export-mode-parent'); 
+    wrapper.classList.add('export-mode'); 
     
-    // IMPORTANTE: Forzar redimensionamiento de la gráfica para que llene el nuevo espacio
+    // Forzar redimensionamiento de la gráfica para llenar el nuevo ancho
     if (graficaSemanalInstance) {
         graficaSemanalInstance.resize();
     }
 
-    // Esperamos un poco para que el navegador procese los cambios de estilo y la gráfica se redibuje
-    await new Promise(r => setTimeout(r, 800));
+    // Esperar un momento para que el layout se acomode
+    await new Promise(r => setTimeout(r, 500));
 
-    // Definir color de fondo (para evitar transparencias raras)
-    const isDark = document.body.classList.contains('dark-theme');
-    const bgColor = isDark ? '#1f2937' : '#ffffff';
+    const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+    const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
 
     try {
-        // 2. Capturar con html2canvas
-        // Usamos window.scrollTo para evitar problemas si el usuario bajó en la página
-        const scrollY = window.scrollY;
-        
+        // 2. Capturar con parámetros de ancho forzado
         const canvas = await html2canvas(wrapper, {
             backgroundColor: bgColor,
-            scale: 2, // Doble resolución para que se vea nítido
+            scale: 2, 
             useCORS: true,
             logging: false,
-            width: 1200, // Coincide con el CSS
-            windowWidth: 1200,
-            onclone: (clonedDoc) => {
-                // Truco: Asegurar que en el clon todo sea visible
-                const clonedWrapper = clonedDoc.getElementById('exportWrapper');
-                clonedWrapper.style.display = 'grid';
-            }
+            width: 1200,       // <-- IMPORTANTE: Captura 1200px de ancho
+            windowWidth: 1200  // <-- IMPORTANTE: Simula ventana de 1200px
         });
 
         // 3. Descargar
@@ -5261,16 +5246,15 @@ async function exportarReporteCompleto() {
         link.click();
 
     } catch (e) {
-        console.error("Error al exportar reporte completo:", e);
-        alert("Hubo un error al generar la imagen. Intenta de nuevo.");
+        console.error("Error al exportar:", e);
+        alert("Error al generar la imagen.");
     } finally {
-        // 4. Restaurar UI (Super importante)
+        // 4. Restaurar todo a la normalidad
         wrapper.classList.remove('export-mode');
         modalContent.classList.remove('export-mode-parent');
         
-        // Regresar la gráfica a su tamaño normal
         if (graficaSemanalInstance) {
-            graficaSemanalInstance.resize();
+            graficaSemanalInstance.resize(); // Regresa la gráfica al tamaño del cel
         }
         
         btn.disabled = false;
