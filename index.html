@@ -217,6 +217,36 @@ th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; vertica
     padding: 8px 5px;
     text-align: center;
 }
+/* --- AJUSTE PARA TABLAS DE PRODUCCIÓN POR FIBRA --- */
+#fibraReportContainer .sub-table {
+    width: 100%;
+    table-layout: fixed; /* Mantiene las columnas estables */
+    font-size: 0.75rem;  /* Letra un poco más chica para que quepa todo */
+}
+
+#fibraReportContainer .sub-table th,
+#fibraReportContainer .sub-table td {
+    padding: 4px 6px;   /* Menos relleno para ahorrar espacio */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Puntos suspensivos si el texto es muy largo */
+    white-space: nowrap;    /* Evita que el texto se rompa en varias líneas a lo pendejo */
+}
+
+/* Específico para la columna de Catálogo (la segunda) */
+#fibraReportContainer .sub-table th:nth-child(2),
+#fibraReportContainer .sub-table td:nth-child(2) {
+    width: 55%; /* Dale más espacio al catálogo */
+    white-space: normal; /* Permite que el catálogo se divida en 2 líneas si es necesario */
+    word-break: break-word;
+}
+
+/* Específico para la columna de Piezas (la tercera) */
+#fibraReportContainer .sub-table th:nth-child(3),
+#fibraReportContainer .sub-table td:nth-child(3) {
+    width: 20%;
+    text-align: center;
+}
+
 .table-grid-container table th:nth-child(1), .table-grid-container table td:nth-child(1),
 .table-grid-container table th:nth-child(2), .table-grid-container table td:nth-child(2),
 .table-grid-container table th:nth-child(3), .table-grid-container table td:nth-child(3) {
