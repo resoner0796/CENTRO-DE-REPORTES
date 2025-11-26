@@ -324,9 +324,9 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
 
         // --- BLOQUE 1: MODAL DE CONFIGURACIÓN ACTUALIZADO ---
 
+// --- MODAL DE CONFIGURACIÓN CORREGIDO (LISTENERS EXACTOS) ---
 function showTerminacionesConfigModal() {
     const config = params.terminaciones_config;
-    // Aseguramos que exista el objeto de reglas
     if (!config.fiber_rules) config.fiber_rules = {};
 
     const content = `
@@ -367,7 +367,7 @@ function showTerminacionesConfigModal() {
                 <select id="ruleAreaSelect" class="filter-input" style="padding:8px;">
                     <option value="" disabled selected>Selecciona un área...</option>
                 </select>
-                <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:5px;">Define cómo leer las fibras según el catálogo.</p>
+                <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:5px;">Define cómo leer las fibras. Pon <strong>Len: 0</strong> para usar el Multiplicador como valor fijo.</p>
             </div>
             <div id="rulesContainer" style="border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; min-height: 200px; max-height: 300px; overflow-y: auto;">
                 <p style="text-align:center; color:var(--text-dark); margin-top: 20px;">Primero selecciona un área arriba.</p>
@@ -391,12 +391,12 @@ function showTerminacionesConfigModal() {
         if (btn.dataset.tab === 'reglas') updateRuleAreaSelect();
     }));
 
-    // Lógica botón Añadir Fila (Tabs normales)
+    // Lógica Añadir Fila (Tabs 1-4)
     modalBody.querySelector('.addBtn').addEventListener('click', () => {
         const activeTab = modalBody.querySelector('.tab-content.active');
         if (activeTab.id === 'tab-areas') activeTab.querySelector('.area-list').insertAdjacentHTML('beforeend', createAreaItemHTML('', ''));
         else if (activeTab.id === 'tab-final') activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createFinalColHTML('', 'source', ''));
-        else if (activeTab.id === 'tab-reglas') { /* Nada aquí */ }
+        else if (activeTab.id === 'tab-reglas') { /* Nada */ }
         else activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createSourceColHTML('', ''));
     });
 
@@ -410,7 +410,6 @@ function showTerminacionesConfigModal() {
     function updateRuleAreaSelect() {
         const currentVal = areaSelect.value;
         areaSelect.innerHTML = '<option value="DEFAULT">DEFAULT (General)</option>';
-        // Obtener áreas del Tab 3
         const areaInputs = document.querySelectorAll('#tab-areas .area-name');
         const uniqueAreas = new Set();
         areaInputs.forEach(input => { if(input.value) uniqueAreas.add(input.value.trim().toUpperCase()); });
@@ -433,7 +432,7 @@ function showTerminacionesConfigModal() {
     function renderRulesForArea(area) {
         const rules = config.fiber_rules[area] || [];
         if (rules.length === 0) {
-            rulesContainer.innerHTML = '<p style="text-align:center; font-style:italic; opacity:0.7;">No hay reglas específicas. Se usará el cálculo por defecto (4to dígito).</p>';
+            rulesContainer.innerHTML = '<p style="text-align:center; font-style:italic; opacity:0.7;">No hay reglas específicas. Se usará el cálculo por defecto.</p>';
         } else {
             rulesContainer.innerHTML = '<ul class="param-list">' + rules.map(r => createRuleItemHTML(r)).join('') + '</ul>';
         }
@@ -446,7 +445,7 @@ function showTerminacionesConfigModal() {
         renderRulesForArea(area);
     });
 
-    // Listeners delegados para inputs de reglas
+    // --- LISTENERS CORREGIDOS (AQUÍ ESTÁ LA MAGIA) ---
     rulesContainer.addEventListener('input', (e) => {
         const item = e.target.closest('.rule-item');
         if (!item) return;
@@ -455,9 +454,24 @@ function showTerminacionesConfigModal() {
         const rule = config.fiber_rules[area][index];
 
         if (e.target.classList.contains('rule-prefix')) rule.prefix = e.target.value.toUpperCase();
-        if (e.target.classList.contains('rule-start')) rule.start = parseInt(e.target.value) || 1;
-        if (e.target.classList.contains('rule-len')) rule.length = parseInt(e.target.value) || 1;
-        if (e.target.classList.contains('rule-mult')) rule.multiplier = parseInt(e.target.value) || 1;
+        
+        if (e.target.classList.contains('rule-start')) {
+            const val = parseInt(e.target.value);
+            rule.start = isNaN(val) ? 4 : val;
+        }
+        
+        if (e.target.classList.contains('rule-len')) {
+            const val = parseInt(e.target.value);
+            // CORRECCIÓN: Si es NaN (vacío) pon 1, pero si es 0, déjalo ser 0.
+            rule.length = isNaN(val) ? 1 : val; 
+        }
+        
+        if (e.target.classList.contains('rule-mult')) {
+            const val = parseInt(e.target.value);
+            // CORRECCIÓN: Igual aquí, permite el 0 si quisieras (aunque raro en mult)
+            rule.multiplier = isNaN(val) ? 1 : val;
+        }
+        
         if (e.target.classList.contains('rule-check')) rule.t_equals_12 = e.target.checked;
     });
 
@@ -473,13 +487,23 @@ function showTerminacionesConfigModal() {
 }
 
 // Helper HTML para cada regla (incluye multiplicador para el caso DFB)
+// --- HELPER HTML CORREGIDO (RESPETA EL 0) ---
 function createRuleItemHTML(rule) {
+    // Validación estricta: Solo usa 1 si el valor es null o undefined. Si es 0, se queda 0.
+    const lengthValue = (rule.length !== undefined && rule.length !== null) ? rule.length : 1;
+    const multValue = (rule.multiplier !== undefined && rule.multiplier !== null) ? rule.multiplier : 1;
+    const startValue = (rule.start !== undefined && rule.start !== null) ? rule.start : 4;
+
     return `
     <li class="rule-item" style="display: grid; grid-template-columns: 1.2fr 0.8fr 0.8fr 0.8fr auto auto; gap: 6px; align-items: center; padding: 8px; background: var(--surface-hover-color); margin-bottom: 6px; border-radius: 6px;">
         <input type="text" class="rule-prefix" placeholder="Prefijo (ej. DFB)" value="${rule.prefix || ''}" title="Empieza con...">
-        <input type="number" class="rule-start" placeholder="Pos" value="${rule.start || 4}" title="Posición inicial">
-        <input type="number" class="rule-len" placeholder="Len" value="${rule.length || 1}" title="Longitud">
-        <input type="number" class="rule-mult" placeholder="x" value="${rule.multiplier || 1}" title="Multiplicador (ej: 2 para DFB)">
+        
+        <input type="number" class="rule-start" placeholder="Pos" value="${startValue}" title="Posición inicial">
+        
+        <input type="number" class="rule-len" placeholder="Len" value="${lengthValue}" title="Longitud (0 para valor fijo)">
+        
+        <input type="number" class="rule-mult" placeholder="x" value="${multValue}" title="Multiplicador (o Valor Fijo si Len=0)">
+        
         <label style="font-size:0.7rem; display:flex; align-items:center; gap:2px; cursor:pointer;">
             <input type="checkbox" class="rule-check" ${rule.t_equals_12 ? 'checked' : ''}> T=12
         </label>
