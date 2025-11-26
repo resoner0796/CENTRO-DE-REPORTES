@@ -3658,7 +3658,69 @@ async function exportarReporteCompleto() {
         function evaluateAuto(type, row){/*...tu código original...*/ }
         function renderTerminacionesTable(data){/*...tu código original...*/ }
         function filterTerminacionesTable(){/*...tu código original...*/ }
-        window.copyToClipboard = (text, element) => {/*...tu código original...*/};
+        // --- FUNCIÓN CORREGIDA PARA COPIAR AL PORTAPAPELES ---
+window.copyToClipboard = async (text, element) => {
+    if (!text) return;
+
+    try {
+        // Intento 1: API Moderna (La forma correcta hoy en día)
+        await navigator.clipboard.writeText(text);
+        mostrarFeedbackVisual(element);
+    } catch (err) {
+        console.warn('Fallo API moderna, intentando método legacy...', err);
+        
+        // Intento 2: Fallback (Método clásico creando un textarea invisible)
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Aseguramos que no se vea
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            
+            textArea.focus();
+            textArea.select();
+            
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful) {
+                mostrarFeedbackVisual(element);
+            } else {
+                console.error('No se pudo copiar el texto.');
+            }
+        } catch (fallbackErr) {
+            console.error('Error crítico al copiar:', fallbackErr);
+            alert('No se pudo copiar al portapapeles. Por favor copie manualmente.');
+        }
+    }
+};
+
+// Función auxiliar para dar feedback visual (cambia el texto a "Copiado!" y luego regresa)
+function mostrarFeedbackVisual(element) {
+    if (!element) return;
+    
+    const originalText = element.innerText;
+    const originalColor = element.style.color;
+    const originalWeight = element.style.fontWeight;
+
+    // Efecto visual
+    element.innerText = '¡Copiado!';
+    element.style.color = 'var(--success-color, #4ade80)'; // Usa tu variable de éxito o un verde default
+    element.style.fontWeight = 'bold';
+    element.style.cursor = 'default';
+    element.style.pointerEvents = 'none'; // Evita doble clic rápido
+
+    setTimeout(() => {
+        element.innerText = originalText;
+        element.style.color = originalColor;
+        element.style.fontWeight = originalWeight;
+        element.style.cursor = 'pointer';
+        element.style.pointerEvents = 'auto';
+    }, 1000); // Dura 1 segundo el mensaje
+}
         function renderTerminacionesSummary(data){/*...tu código original...*/ }
         function exportSummaryAsJPG(){/*...tu código original...*/ }
         // --- FIN: LÓGICA REPORTE TERMINACIONES ---
