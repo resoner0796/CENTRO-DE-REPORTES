@@ -3786,8 +3786,7 @@ async function exportarReporteCompleto() {
 // =======================================================================================
 
 
-// 2. Función Principal (Cerebro con reglas específicas)
-// --- BLOQUE 3: CEREBRO DINÁMICO (SIN HARDCODE) ---
+// --- BLOQUE 3: CEREBRO DINÁMICO (CON SOPORTE PARA VALORES FIJOS) ---
 
 async function processTerminacionesReport() {
     if (!reportData.zpptwc || !reportData.coois) return;
@@ -3831,7 +3830,7 @@ async function processTerminacionesReport() {
         // Copiar columnas
         config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
 
-        // --- LÓGICA DINÁMICA (LEE DEL MODAL) ---
+        // --- LÓGICA DINÁMICA (CON SOPORTE PARA VALOR FIJO) ---
         const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
         
         if (autoFibrasCol) {
@@ -3839,31 +3838,33 @@ async function processTerminacionesReport() {
             const catalogo = (finalRow['Catalogo'] || '').trim().toUpperCase();
             let fibras = 0;
 
-            // 1. Buscamos reglas para esta área, o las DEFAULT
+            // 1. Buscamos reglas
             const rules = (config.fiber_rules && config.fiber_rules[area]) ? config.fiber_rules[area] : (config.fiber_rules?.['DEFAULT'] || []);
-            
-            // 2. Buscamos la primera regla que coincida con el prefijo
-            // (Si prefijo es "", coincide con todo - util para reglas genéricas al final)
             const matchedRule = rules.find(r => catalogo.startsWith(r.prefix || ''));
 
             if (matchedRule) {
-                // Aplicar regla configurada
-                // Verificamos 'T'
-                const startIdx = (matchedRule.start || 4) - 1;
-                const checkChar = catalogo.substring(startIdx, startIdx + 1);
-
-                if (matchedRule.t_equals_12 && checkChar === 'T') {
-                    fibras = 12;
+                // --- AQUÍ ESTÁ EL CAMBIO: SOPORTE PARA VALOR FIJO ---
+                // Si Longitud (Len) es 0, ignoramos el catálogo y usamos el Multiplicador como valor fijo.
+                if (parseInt(matchedRule.length) === 0) {
+                    fibras = parseInt(matchedRule.multiplier) || 0;
                 } else {
-                    const extracted = formulaHelpers.EXTRAER_FIBRAS(catalogo, matchedRule.start, matchedRule.length);
-                    const mult = matchedRule.multiplier || 1;
-                    fibras = extracted * mult;
+                    // Lógica normal de extracción
+                    const startIdx = (matchedRule.start || 4) - 1;
+                    const checkChar = catalogo.substring(startIdx, startIdx + 1);
+
+                    if (matchedRule.t_equals_12 && checkChar === 'T') {
+                        fibras = 12;
+                    } else {
+                        const extracted = formulaHelpers.EXTRAER_FIBRAS(catalogo, matchedRule.start, matchedRule.length);
+                        const mult = matchedRule.multiplier || 1;
+                        fibras = extracted * mult;
+                    }
                 }
             } else {
-                // Fallback: Si no hay reglas, usamos lógica estándar (4to dígito)
+                // Fallback estándar
                 const char = catalogo.substring(3, 4);
                 if (char === 'T') fibras = 12;
-                else if (char === 'G') fibras = 24; 
+                else if (char === 'G') fibras = 24;
                 else {
                     const num = parseInt(char, 10);
                     fibras = isNaN(num) ? 0 : num;
@@ -3896,7 +3897,6 @@ async function processTerminacionesReport() {
     renderTerminacionesTable(finalData);
     renderTerminacionesSummary(finalData);
 }
-
 // 3. Renderizar Tabla
 function renderTerminacionesTable(data) {
     const tableElement = doc('dataTableTerminaciones');
