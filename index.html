@@ -517,36 +517,75 @@
     </div>
 </div>        
         <div id="viewTerminaciones">
-            <div class="main-container">
-                <aside class="sidebar animated-startup" style="animation-delay: 0.1s;"><div class="card" style="height: 100%; display: flex; flex-direction: column;"><div class="sidebar-header"><h3>Panel de Control</h3><div>
-                    <button class="backToMenuBtn icon-btn" title="Regresar al Menú"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
-                    <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
-                        <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                        <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                    </button>
-                    <button class="settingsBtn icon-btn" title="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
-                </div></div>
-                    <div id="fileDropAreaZpptwc" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;"><h4>Reporte SAP (Zpptwc)</h4><p>Arrastra el primer archivo aquí</p></div><input type="file" id="fileInputZpptwc" accept=".xlsx, .xls" style="display: none;">
-                    <div id="fileDropAreaCoois" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center;"><h4>Reporte SAP (Coois)</h4><p>Arrastra el segundo archivo aquí</p></div><input type="file" id="fileInputCoois" accept=".xlsx, .xls" style="display: none;">
-                </div></aside>
-                <main class="main-content animated-startup" style="animation-delay: 0.2s;">
-                    <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Terminaciones</h2></header>
-                    <div class="card" id="summaryContainer">
-                        <div class="summary-header">
-                            <h3>Resumen de Terminaciones</h3>
-                        </div>
-                        <p>Cargue los archivos para ver el resumen.</p>
+    <div class="main-container">
+        <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+            <div class="card" style="height: 100%; display: flex; flex-direction: column; gap: 16px;">
+                <div class="sidebar-header">
+                    <h3>Panel de Control</h3>
+                    <div>
+                        <button class="backToMenuBtn icon-btn" title="Regresar al Menú">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                        </button>
+                        <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                            <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                        </button>
+                        <button class="settingsBtn icon-btn" title="Configuración">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </button>
                     </div>
-                    <div class="card table-container">
-                        <div class="table-wrapper">
-                            <table id="dataTableTerminaciones"><thead><tr><th>Carga los dos reportes de SAP para generar el informe</th></tr></thead><tbody></tbody></table>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        </div>
-    </div>
+                </div>
 
+                <div class="consulta-section" style="border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.9rem;">Consultar Histórico</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-secondary); display:block; margin-bottom:4px;">Desde</label>
+                            <input type="date" id="term_fecha_inicio" class="filter-input" style="padding: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: var(--text-secondary); display:block; margin-bottom:4px;">Hasta</label>
+                            <input type="date" id="term_fecha_fin" class="filter-input" style="padding: 8px;">
+                        </div>
+                    </div>
+                    <button id="consultarTerminacionesHistoricoBtn" class="btn" style="width: 100%; padding: 10px; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        Consultar Rango
+                    </button>
+                </div>
+
+                <h4 style="margin: 0; color: var(--text-secondary); font-size: 0.85rem;">Procesar Archivos Nuevos</h4>
+                
+                <div id="fileDropAreaZpptwc" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center; min-height: 80px;">
+                    <h4 style="font-size: 0.9rem; color: var(--text-primary);">1. SAP Zpptwc</h4>
+                    <p style="font-size: 0.8rem;">Click o Arrastrar</p>
+                </div>
+                <input type="file" id="fileInputZpptwc" accept=".xlsx, .xls" style="display: none;">
+                
+                <div id="fileDropAreaCoois" class="file-drop-area" style="flex-grow: 1; display:flex; flex-direction: column; justify-content:center; min-height: 80px;">
+                    <h4 style="font-size: 0.9rem; color: var(--text-primary);">2. SAP Coois</h4>
+                    <p style="font-size: 0.8rem;">Click o Arrastrar</p>
+                </div>
+                <input type="file" id="fileInputCoois" accept=".xlsx, .xls" style="display: none;">
+            </div>
+        </aside>
+
+        <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+            <header class="app-header"><h1 class="app-branding">CORNING</h1><h2 class="app-title">Reporte de Terminaciones</h2></header>
+            <div class="card" id="summaryContainer">
+                <div class="summary-header">
+                    <h3>Resumen de Terminaciones</h3>
+                </div>
+                <p>Cargue los archivos o consulte por fecha para ver el resumen.</p>
+            </div>
+            <div class="card table-container">
+                <div class="table-wrapper">
+                    <table id="dataTableTerminaciones"><thead><tr><th>Resultados...</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
     <div id="modalOverlay" class="modal-overlay"><div id="modalContent" class="modal-content"><span id="modalClose" class="modal-close">&times;</span><h2 id="modalTitle" class="modal-title"></h2><div id="modalBody" style="margin-top:16px; color: var(--text-secondary);"></div></div></div>
     
     <script src="js/app.js"></script>
