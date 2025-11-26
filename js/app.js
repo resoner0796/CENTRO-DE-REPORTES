@@ -3652,79 +3652,280 @@ async function exportarReporteCompleto() {
         }
         
 
-        // --- INICIO: LÓGICA REPORTE TERMINACIONES ---
-        async function processTerminacionesReport(){/*...tu código original...*/ }
-        function evaluateFormula(formula, row){/*...tu código original...*/ }
-        function evaluateAuto(type, row){/*...tu código original...*/ }
-        function renderTerminacionesTable(data){/*...tu código original...*/ }
-        function filterTerminacionesTable(){/*...tu código original...*/ }
-        // --- FUNCIÓN CORREGIDA PARA COPIAR AL PORTAPAPELES ---
-window.copyToClipboard = async (text, element) => {
-    if (!text) return;
+        // =======================================================================================
+// --- INICIO: LÓGICA REPORTE TERMINACIONES (CON COPY RESTAURADO) ---
+// =======================================================================================
 
-    try {
-        // Intento 1: API Moderna (La forma correcta hoy en día)
-        await navigator.clipboard.writeText(text);
-        mostrarFeedbackVisual(element);
-    } catch (err) {
-        console.warn('Fallo API moderna, intentando método legacy...', err);
-        
-        // Intento 2: Fallback (Método clásico creando un textarea invisible)
-        try {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            
-            // Aseguramos que no se vea
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            textArea.style.top = "0";
-            document.body.appendChild(textArea);
-            
-            textArea.focus();
-            textArea.select();
-            
-            const successful = document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            if (successful) {
-                mostrarFeedbackVisual(element);
-            } else {
-                console.error('No se pudo copiar el texto.');
-            }
-        } catch (fallbackErr) {
-            console.error('Error crítico al copiar:', fallbackErr);
-            alert('No se pudo copiar al portapapeles. Por favor copie manualmente.');
+// 1. Helpers para fórmulas
+const formulaHelpers = {
+    EXTRAER: (text, start, length) => (typeof text !== 'string' || text === null) ? '' : String(text).substring(start - 1, start - 1 + length),
+    EXTRAER_FIBRAS: (text, start, length) => {
+        if (typeof text !== 'string' || text === null) return 0;
+        const code = String(text).substring(start - 1, start - 1 + length).toUpperCase();
+        if (!code) return 0;
+        switch (code) {
+            case '1': return 1; case '2': return 2; case '3': return 3; case '4': return 4;
+            case '5': return 5; case '6': return 6; case '7': return 7; case '8': return 8;
+            case '9': return 9; case 'A': return 1; case 'B': return 2; case 'C': return 4;
+            case 'D': return 6; case 'E': return 8; case 'F': return 12; case 'G': return 24;
+            case 'T': return 12; default: const num = parseFloat(code); return isNaN(num) ? 0 : num;
         }
-    }
+    },
+    IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse,
 };
 
-// Función auxiliar para dar feedback visual (cambia el texto a "Copiado!" y luego regresa)
-function mostrarFeedbackVisual(element) {
-    if (!element) return;
-    
-    const originalText = element.innerText;
-    const originalColor = element.style.color;
-    const originalWeight = element.style.fontWeight;
+// 2. Función Principal (Cerebro con reglas específicas)
+async function processTerminacionesReport() {
+    if (!reportData.zpptwc || !reportData.coois) return;
 
-    // Efecto visual
-    element.innerText = '¡Copiado!';
-    element.style.color = 'var(--success-color, #4ade80)'; // Usa tu variable de éxito o un verde default
-    element.style.fontWeight = 'bold';
-    element.style.cursor = 'default';
-    element.style.pointerEvents = 'none'; // Evita doble clic rápido
+    const config = params.terminaciones_config;
+    const joinKey = 'Orden';
 
-    setTimeout(() => {
-        element.innerText = originalText;
-        element.style.color = originalColor;
-        element.style.fontWeight = originalWeight;
-        element.style.cursor = 'pointer';
-        element.style.pointerEvents = 'auto';
-    }, 1000); // Dura 1 segundo el mensaje
+    if (!config.zpptwc_cols.some(c => c.key === joinKey) || !config.coois_cols.some(c => c.key === joinKey)) {
+        showModal('Error de Configuración', '<p>Asegúrese de mapear una columna con el nombre clave "Orden" en ambos reportes.</p>');
+        return;
+    }
+
+    const cooisMap = new Map(reportData.coois.map(row => [String(row[joinKey] || '').replace(/^0+/, ''), row]));
+
+    const finalData = reportData.zpptwc.map(zpptwcRow => {
+        const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
+        const cooisRow = cooisMap.get(cleanOrder) || {};
+        
+        let merged = { ...zpptwcRow, ...cooisRow };
+        let finalRow = {};
+
+        for (const key in merged) {
+            let value = merged[key];
+            if (typeof value === 'string') value = value.trim();
+            if (key === 'Orden' || key === 'Material' || key === 'Operacion') {
+                finalRow[key] = String(value || '').replace(/^0+/, '');
+            } else if (key === 'Fecha' && value instanceof Date) {
+                const d = value;
+                finalRow[key] = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            } else {
+                finalRow[key] = value;
+            }
+        }
+
+        const areaCode = finalRow[config.area_config.source_col];
+        const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
+        finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
+
+        config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
+
+        // --- LÓGICA DE CÁLCULO RECUPERADA ---
+        const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
+        if (autoFibrasCol) {
+            const area = (finalRow['Area'] || '').trim();
+            const catalogo = finalRow['Catalogo'] || '';
+            let fibras = 0;
+
+            if (area === 'UNAP LEGACY') { 
+                fibras = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); 
+            }
+            else if (area === 'MPORT FLEX') { 
+                fibras = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2); 
+            }
+            else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); }
+            else if (area === 'NON STD') { fibras = 2; }
+            else if (area === 'SPECIALTY') { fibras = 12; }
+            else if (area === 'MULTIPORT') {
+                const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
+                if (catalogo.startsWith('DFB')) { fibras = extractedFibers * 2; } 
+                else { fibras = extractedFibers; }
+            }
+            else if (area === 'EVOLV MTB DEMARC') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1); }
+            else if (area === 'MOB LEGACY') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2); }
+            else if (area === 'MTB DEMARC') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2); }
+            
+            finalRow[autoFibrasCol.key] = fibras;
+        }
+
+        const autoFamiliaCol = config.final_cols.find(c => c.type === 'familia_auto');
+        if (autoFamiliaCol) { finalRow[autoFamiliaCol.key] = formulaHelpers.EXTRAER(finalRow['Catalogo'], 1, 3); }
+
+        const autoTermCol = config.final_cols.find(c => c.type === 'terminaciones_auto');
+        if (autoTermCol) {
+            const fibras = finalRow['Fibras'] || 0;
+            const cantidad = parseFloat(finalRow['Cantidad']) || 0;
+            finalRow[autoTermCol.key] = fibras * cantidad;
+        }
+
+        if (finalRow['Terminaciones'] !== undefined) {
+            let value = parseFloat(finalRow['Terminaciones']);
+            finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
+        }
+        return finalRow;
+    });
+
+    renderTerminacionesTable(finalData);
+    renderTerminacionesSummary(finalData);
 }
-        function renderTerminacionesSummary(data){/*...tu código original...*/ }
-        function exportSummaryAsJPG(){/*...tu código original...*/ }
-        // --- FIN: LÓGICA REPORTE TERMINACIONES ---
 
+// 3. Renderizar Tabla
+function renderTerminacionesTable(data) {
+    const tableElement = doc('dataTableTerminaciones');
+    const config = params.terminaciones_config.final_cols;
+    if (!config || config.length === 0) return;
+    const allHeaders = config.map(c => c.key);
+    
+    let html = '<thead><tr>';
+    allHeaders.forEach(header => { html += `<th>${header}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    data.forEach(row => {
+        html += '<tr>';
+        allHeaders.forEach(header => { 
+            const value = row[header] ?? '';
+            // Aquí habilitamos el copiado para GR u Orden
+            if (header.toUpperCase() === 'GR' || header.toUpperCase() === 'ORDEN') {
+                 html += `<td class="copyable" onclick="copyToClipboard('${String(value).replace(/'/g, "\\'")}', this)" title="Haz clic para copiar">${value}</td>`;
+            } else {
+                html += `<td>${value}</td>`;
+            }
+        });
+        html += '</tr>';
+    });
+    tableElement.innerHTML = html + '</tbody>';
+}
+
+// 4. Filtro de Tabla
+function filterTerminacionesTable() {
+    const table = doc('dataTableTerminaciones');
+    const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({ columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')), value: i.value.toLowerCase() }));
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        let shouldShow = true;
+        filters.forEach(filter => {
+            if (filter.value) {
+                const cell = row.children[filter.columnIndex];
+                if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) shouldShow = false;
+            }
+        });
+        row.style.display = shouldShow ? '' : 'none';
+    });
+}
+
+// 5. Renderizar Resumen
+function renderTerminacionesSummary(data) {
+    const container = doc('summaryContainer');
+    if (!data || data.length === 0) {
+        container.innerHTML = `<div class="summary-header"><h3>Resumen de Terminaciones</h3></div><p>No hay datos para mostrar.</p>`;
+        return;
+    }
+    const pivot = {};
+    const dates = new Set();
+    
+    data.forEach(row => {
+        const area = row['Area'] || 'Sin Área';
+        const fecha = row['Fecha'] || 'Sin Fecha';
+        const terminaciones = row['Terminaciones'] || 0;
+        if (typeof terminaciones === 'number' && terminaciones > 0) {
+            dates.add(fecha);
+            if (!pivot[area]) pivot[area] = {};
+            if (!pivot[area][fecha]) pivot[area][fecha] = 0;
+            pivot[area][fecha] += terminaciones;
+        }
+    });
+
+    const sortedDates = [...dates].sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
+    
+    let summaryHTML = `<div class="summary-header"><h3>Resumen de Terminaciones</h3><button id="exportSummaryBtn" class="icon-btn" title="Exportar como JPG"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div><div id="summaryTableWrapper" class="table-wrapper"><table><thead><tr><th>Área</th>`;
+    sortedDates.forEach(date => { summaryHTML += `<th>${date}</th>`; });
+    summaryHTML += `<th>Total General</th></tr></thead><tbody>`;
+
+    let colTotals = {};
+    sortedDates.forEach(date => colTotals[date] = 0);
+    let grandTotal = 0;
+    const sortedAreas = Object.keys(pivot).sort();
+
+    for (const area of sortedAreas) {
+        let rowTotal = 0;
+        summaryHTML += `<tr><td>${area}</td>`;
+        sortedDates.forEach(date => {
+            const value = pivot[area][date] || 0;
+            summaryHTML += `<td>${value.toLocaleString()}</td>`;
+            rowTotal += value;
+            colTotals[date] += value;
+        });
+        summaryHTML += `<td class="grand-total">${rowTotal.toLocaleString()}</td></tr>`;
+        grandTotal += rowTotal;
+    }
+
+    summaryHTML += `<tr class="grand-total"><td>Total General</td>`;
+    sortedDates.forEach(date => { summaryHTML += `<td>${colTotals[date].toLocaleString()}</td>`; });
+    summaryHTML += `<td>${grandTotal.toLocaleString()}</td></tr></tbody></table></div>`;
+
+    container.innerHTML = summaryHTML;
+    const exportBtn = doc('exportSummaryBtn');
+    if(exportBtn) exportBtn.addEventListener('click', exportSummaryAsJPG);
+}
+
+// 6. Función de Copiado al Portapapeles (RESTAURADA PARA 901 Y TERMINACIONES)
+window.copyToClipboard = (text, element) => {
+    if (!text) return;
+    const originalText = element.textContent;
+    const originalColor = element.style.color;
+    
+    // Intento principal
+    navigator.clipboard.writeText(text).then(() => {
+        showCopyFeedback(element, originalText, originalColor);
+    }).catch(err => {
+        // Fallback para navegadores viejos o sin HTTPS
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showCopyFeedback(element, originalText, originalColor);
+        } catch (e) {
+            console.error('No se pudo copiar', e);
+        }
+    });
+};
+
+function showCopyFeedback(element, originalText, originalColor) {
+    element.textContent = '¡Copiado!';
+    element.style.color = 'var(--success-color)';
+    setTimeout(() => {
+        element.textContent = originalText;
+        element.style.color = originalColor;
+    }, 1500);
+}
+
+// 7. Exportar Imagen
+function exportSummaryAsJPG() {
+    const summaryCard = doc('summaryContainer');
+    const exportBtn = doc('exportSummaryBtn');
+    if (!summaryCard || typeof html2canvas === 'undefined') return;
+
+    exportBtn.disabled = true;
+    exportBtn.style.visibility = 'hidden';
+    const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+    const bgColor = theme === 'dark' ? '#22252a' : '#f9fafb';
+
+    html2canvas(summaryCard, { backgroundColor: bgColor, scale: 2, useCORS: true, onclone: (clonedDoc) => {
+        const clonedCard = clonedDoc.getElementById('summaryContainer');
+        const clonedWrapper = clonedCard.querySelector('.table-wrapper');
+        clonedCard.style.padding = '16px';
+        if (clonedWrapper) { clonedWrapper.style.overflow = 'visible'; clonedWrapper.style.width = 'auto'; }
+    }}).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'Resumen_Terminaciones.jpg';
+        link.href = canvas.toDataURL('image/jpeg', 0.95);
+        link.click();
+    }).finally(() => {
+        exportBtn.style.visibility = 'visible';
+        exportBtn.disabled = false;
+    });
+}
+
+// =======================================================================================
+// --- FIN: LÓGICA REPORTE TERMINACIONES ---
+// =======================================================================================
 
         // --- INICIO: LÓGICA REPORTE 901 ---
         async function handle901File(file) {
