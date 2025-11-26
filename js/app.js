@@ -82,7 +82,19 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
         let weeklyProductionChart = null;
         let liveListener = null; // El "listener" que escucha en vivo
         let liveProductionChart = null; // La gráfica de barras en vivo
+// --- INICIALIZACIÓN DE TERMINACIONES (Poner junto a tus otros listeners) ---
+const todayTerm = new Date();
+const lastWeekTerm = new Date();
+lastWeekTerm.setDate(todayTerm.getDate() - 6);
 
+// Poner fechas por defecto
+if(doc('term_fecha_inicio')) doc('term_fecha_inicio').value = lastWeekTerm.toISOString().split('T')[0];
+if(doc('term_fecha_fin')) doc('term_fecha_fin').value = todayTerm.toISOString().split('T')[0];
+
+// Activar el botón de consulta
+if(doc('consultarTerminacionesHistoricoBtn')) {
+    doc('consultarTerminacionesHistoricoBtn').addEventListener('click', consultarTerminacionesHistorico);
+}
 
         // --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
         function switchView(viewKey) {
@@ -3806,12 +3818,10 @@ async function exportarReporteCompleto() {
         
 
         // =======================================================================================
-// --- INICIO: LÓGICA REPORTE TERMINACIONES (CON COPY RESTAURADO) ---
+// --- INICIO: LÓGICA REPORTE TERMINACIONES (CEREBRO DINÁMICO + BD + CONSULTA) ---
 // =======================================================================================
 
-
-// --- BLOQUE 3: CEREBRO DINÁMICO (CON SOPORTE PARA VALORES FIJOS) ---
-
+// 1. Procesamiento de Archivos (Calcula y Guarda)
 async function processTerminacionesReport() {
     if (!reportData.zpptwc || !reportData.coois) return;
 
@@ -3839,8 +3849,9 @@ async function processTerminacionesReport() {
             if (key === 'Orden' || key === 'Material' || key === 'Operacion') {
                 finalRow[key] = String(value || '').replace(/^0+/, '');
             } else if (key === 'Fecha' && value instanceof Date) {
-                const d = value;
-                finalRow[key] = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                // IMPORTANTE: Guardamos la fecha como OBJETO para que Firestore la entienda,
+                // luego la convertimos a texto para la tabla.
+                finalRow[key] = value; 
             } else {
                 finalRow[key] = value;
             }
@@ -3851,10 +3862,10 @@ async function processTerminacionesReport() {
         const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
         finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
 
-        // Copiar columnas
+        // Copiar columnas fuente
         config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
 
-        // --- LÓGICA DINÁMICA (CON SOPORTE PARA VALOR FIJO) ---
+        // --- LÓGICA DINÁMICA (Lee configuración del engrane) ---
         const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
         
         if (autoFibrasCol) {
@@ -3862,13 +3873,12 @@ async function processTerminacionesReport() {
             const catalogo = (finalRow['Catalogo'] || '').trim().toUpperCase();
             let fibras = 0;
 
-            // 1. Buscamos reglas
+            // Buscar reglas para esta área o DEFAULT
             const rules = (config.fiber_rules && config.fiber_rules[area]) ? config.fiber_rules[area] : (config.fiber_rules?.['DEFAULT'] || []);
             const matchedRule = rules.find(r => catalogo.startsWith(r.prefix || ''));
 
             if (matchedRule) {
-                // --- AQUÍ ESTÁ EL CAMBIO: SOPORTE PARA VALOR FIJO ---
-                // Si Longitud (Len) es 0, ignoramos el catálogo y usamos el Multiplicador como valor fijo.
+                // --- TRUCO VALOR FIJO: Si Len es 0, usa el Multiplicador directo ---
                 if (parseInt(matchedRule.length) === 0) {
                     fibras = parseInt(matchedRule.multiplier) || 0;
                 } else {
@@ -3885,7 +3895,7 @@ async function processTerminacionesReport() {
                     }
                 }
             } else {
-                // Fallback estándar
+                // Fallback estándar (4to dígito)
                 const char = catalogo.substring(3, 4);
                 if (char === 'T') fibras = 12;
                 else if (char === 'G') fibras = 24;
@@ -3918,10 +3928,120 @@ async function processTerminacionesReport() {
         return finalRow;
     });
 
-    renderTerminacionesTable(finalData);
-    renderTerminacionesSummary(finalData);
+    // Preparar datos para visualización (convertir fecha Date -> String DD/MM/YYYY)
+    const dataVisual = finalData.map(row => {
+        const r = {...row};
+        if (r['Fecha'] instanceof Date) {
+            r['Fecha'] = `${String(r['Fecha'].getDate()).padStart(2,'0')}/${String(r['Fecha'].getMonth()+1).padStart(2,'0')}/${r['Fecha'].getFullYear()}`;
+        }
+        return r;
+    });
+
+    renderTerminacionesTable(dataVisual);
+    renderTerminacionesSummary(dataVisual);
+
+    // NUEVO: Guardar en Base de Datos automáticamente
+    saveTerminacionesToFirestore(finalData);
 }
-// 3. Renderizar Tabla
+
+// 2. Guardar en Firestore (Nueva Función)
+async function saveTerminacionesToFirestore(data) {
+    if (!data || data.length === 0) return;
+    
+    showModal('Guardando Histórico...', '<p>Subiendo registros procesados a la base de datos...</p>');
+    
+    const batchSize = 500;
+    let batches = [];
+    let currentBatch = db.batch();
+    let count = 0;
+
+    data.forEach((row) => {
+        // Usamos Orden como ID para evitar duplicados (sobreescribe si ya existe)
+        if (row['Orden']) {
+            const docRef = db.collection('terminaciones_historico').doc(String(row['Orden']));
+            
+            // Asegurar formato correcto para Firestore
+            const rowToSave = {...row};
+            if (rowToSave['Fecha'] instanceof Date) {
+                rowToSave['Fecha'] = firebase.firestore.Timestamp.fromDate(rowToSave['Fecha']);
+            }
+            
+            currentBatch.set(docRef, rowToSave, { merge: true });
+            count++;
+
+            if (count >= batchSize) {
+                batches.push(currentBatch.commit());
+                currentBatch = db.batch();
+                count = 0;
+            }
+        }
+    });
+
+    if (count > 0) batches.push(currentBatch.commit());
+
+    try {
+        await Promise.all(batches);
+        showModal('Éxito', `<p>Se guardaron <strong>${data.length}</strong> registros en el histórico.</p>`);
+    } catch (e) {
+        console.error("Error guardando:", e);
+        showModal('Error', '<p>Hubo un problema al guardar en la base de datos.</p>');
+    }
+}
+
+// 3. Consultar Histórico (Nueva Función)
+async function consultarTerminacionesHistorico() {
+    const fInicio = doc('term_fecha_inicio').value;
+    const fFin = doc('term_fecha_fin').value;
+    const btn = doc('consultarTerminacionesHistoricoBtn');
+
+    if (!fInicio || !fFin) {
+        alert("Por favor selecciona un rango de fechas.");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = 'Buscando...';
+
+    // Convertir fechas string a objetos Date para la consulta
+    const startDate = new Date(`${fInicio}T00:00:00`);
+    const endDate = new Date(`${fFin}T23:59:59`);
+
+    try {
+        const snapshot = await db.collection('terminaciones_historico')
+            .where('Fecha', '>=', firebase.firestore.Timestamp.fromDate(startDate))
+            .where('Fecha', '<=', firebase.firestore.Timestamp.fromDate(endDate))
+            .get();
+
+        if (snapshot.empty) {
+            renderTerminacionesTable([]);
+            renderTerminacionesSummary([]);
+            showModal('Sin Resultados', `<p>No se encontraron registros del ${fInicio} al ${fFin}.</p>`);
+        } else {
+            const data = [];
+            snapshot.forEach(docSnap => {
+                const d = docSnap.data();
+                // Convertir Timestamp de Firestore a String para la tabla
+                if (d['Fecha'] && d['Fecha'].toDate) {
+                    const dateObj = d['Fecha'].toDate();
+                    d['Fecha'] = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`;
+                }
+                data.push(d);
+            });
+            
+            // Renderizar tabla y resumen (esto crea tu tabla pivote automáticamente)
+            renderTerminacionesTable(data);
+            renderTerminacionesSummary(data);
+        }
+    } catch (e) {
+        console.error("Error consulta:", e);
+        showModal('Error', '<p>Error al consultar la base de datos.</p>');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Consultar Rango';
+    }
+}
+
+// 4. Renderizar Tabla
 function renderTerminacionesTable(data) {
     const tableElement = doc('dataTableTerminaciones');
     const config = params.terminaciones_config.final_cols;
@@ -3936,7 +4056,6 @@ function renderTerminacionesTable(data) {
         html += '<tr>';
         allHeaders.forEach(header => { 
             const value = row[header] ?? '';
-            // Aquí habilitamos el copiado para GR u Orden
             if (header.toUpperCase() === 'GR' || header.toUpperCase() === 'ORDEN') {
                  html += `<td class="copyable" onclick="copyToClipboard('${String(value).replace(/'/g, "\\'")}', this)" title="Haz clic para copiar">${value}</td>`;
             } else {
@@ -3948,7 +4067,7 @@ function renderTerminacionesTable(data) {
     tableElement.innerHTML = html + '</tbody>';
 }
 
-// 4. Filtro de Tabla
+// 5. Filtro de Tabla
 function filterTerminacionesTable() {
     const table = doc('dataTableTerminaciones');
     const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({ columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')), value: i.value.toLowerCase() }));
@@ -3965,7 +4084,7 @@ function filterTerminacionesTable() {
     });
 }
 
-// 5. Renderizar Resumen
+// 6. Renderizar Resumen (Tabla Pivote como la foto)
 function renderTerminacionesSummary(data) {
     const container = doc('summaryContainer');
     if (!data || data.length === 0) {
@@ -4020,17 +4139,15 @@ function renderTerminacionesSummary(data) {
     if(exportBtn) exportBtn.addEventListener('click', exportSummaryAsJPG);
 }
 
-// 6. Función de Copiado al Portapapeles (RESTAURADA PARA 901 Y TERMINACIONES)
+// 7. Función Global de Copiado
 window.copyToClipboard = (text, element) => {
     if (!text) return;
     const originalText = element.textContent;
     const originalColor = element.style.color;
     
-    // Intento principal
     navigator.clipboard.writeText(text).then(() => {
         showCopyFeedback(element, originalText, originalColor);
     }).catch(err => {
-        // Fallback para navegadores viejos o sin HTTPS
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -4039,9 +4156,7 @@ window.copyToClipboard = (text, element) => {
             document.execCommand('copy');
             document.body.removeChild(textarea);
             showCopyFeedback(element, originalText, originalColor);
-        } catch (e) {
-            console.error('No se pudo copiar', e);
-        }
+        } catch (e) { console.error(e); }
     });
 };
 
@@ -4054,7 +4169,7 @@ function showCopyFeedback(element, originalText, originalColor) {
     }, 1500);
 }
 
-// 7. Exportar Imagen
+// 8. Exportar Imagen
 function exportSummaryAsJPG() {
     const summaryCard = doc('summaryContainer');
     const exportBtn = doc('exportSummaryBtn');
@@ -4084,7 +4199,6 @@ function exportSummaryAsJPG() {
 // =======================================================================================
 // --- FIN: LÓGICA REPORTE TERMINACIONES ---
 // =======================================================================================
-
         // --- INICIO: LÓGICA REPORTE 901 ---
         async function handle901File(file) {
             const config = params['901_config'];
