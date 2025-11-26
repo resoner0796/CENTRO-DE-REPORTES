@@ -3656,23 +3656,6 @@ async function exportarReporteCompleto() {
 // --- INICIO: LÓGICA REPORTE TERMINACIONES (CON COPY RESTAURADO) ---
 // =======================================================================================
 
-// 1. Helpers para fórmulas
-const formulaHelpers = {
-    EXTRAER: (text, start, length) => (typeof text !== 'string' || text === null) ? '' : String(text).substring(start - 1, start - 1 + length),
-    EXTRAER_FIBRAS: (text, start, length) => {
-        if (typeof text !== 'string' || text === null) return 0;
-        const code = String(text).substring(start - 1, start - 1 + length).toUpperCase();
-        if (!code) return 0;
-        switch (code) {
-            case '1': return 1; case '2': return 2; case '3': return 3; case '4': return 4;
-            case '5': return 5; case '6': return 6; case '7': return 7; case '8': return 8;
-            case '9': return 9; case 'A': return 1; case 'B': return 2; case 'C': return 4;
-            case 'D': return 6; case 'E': return 8; case 'F': return 12; case 'G': return 24;
-            case 'T': return 12; default: const num = parseFloat(code); return isNaN(num) ? 0 : num;
-        }
-    },
-    IF: (condition, valueIfTrue, valueIfFalse) => condition ? valueIfTrue : valueIfFalse,
-};
 
 // 2. Función Principal (Cerebro con reglas específicas)
 async function processTerminacionesReport() {
