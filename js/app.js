@@ -3821,8 +3821,10 @@ async function exportarReporteCompleto() {
 // --- INICIO: LÓGICA REPORTE TERMINACIONES (CEREBRO DINÁMICO + BD + CONSULTA) ---
 // =======================================================================================
 
-// 1. Procesamiento de Archivos (Calcula y Guarda)
+// --- FUNCIÓN VERIFICADA Y COMPLETA (CEREBRO + VISUALIZACIÓN + PREPARACIÓN GUARDADO) ---
+
 async function processTerminacionesReport() {
+    // 1. Validaciones iniciales
     if (!reportData.zpptwc || !reportData.coois) return;
 
     const config = params.terminaciones_config;
@@ -3833,8 +3835,10 @@ async function processTerminacionesReport() {
         return;
     }
 
+    // 2. Mapa para cruce rápido de datos
     const cooisMap = new Map(reportData.coois.map(row => [String(row[joinKey] || '').replace(/^0+/, ''), row]));
 
+    // 3. Procesamiento fila por fila
     const finalData = reportData.zpptwc.map(zpptwcRow => {
         const cleanOrder = String(zpptwcRow[joinKey] || '').replace(/^0+/, '');
         const cooisRow = cooisMap.get(cleanOrder) || {};
@@ -3842,30 +3846,32 @@ async function processTerminacionesReport() {
         let merged = { ...zpptwcRow, ...cooisRow };
         let finalRow = {};
 
-        // Limpieza inicial
+        // Limpieza y unificación de datos
         for (const key in merged) {
             let value = merged[key];
             if (typeof value === 'string') value = value.trim();
+            
             if (key === 'Orden' || key === 'Material' || key === 'Operacion') {
                 finalRow[key] = String(value || '').replace(/^0+/, '');
             } else if (key === 'Fecha' && value instanceof Date) {
-                // IMPORTANTE: Guardamos la fecha como OBJETO para que Firestore la entienda,
-                // luego la convertimos a texto para la tabla.
+                // IMPORTANTE: Mantenemos el objeto Date puro para la Base de Datos
                 finalRow[key] = value; 
             } else {
                 finalRow[key] = value;
             }
         }
 
-        // Determinar Área
+        // Determinar Área según configuración del Tab 3
         const areaCode = finalRow[config.area_config.source_col];
         const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
         finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
 
-        // Copiar columnas fuente
+        // Copiar columnas directas
         config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
 
-        // --- LÓGICA DINÁMICA (Lee configuración del engrane) ---
+        // ============================================================
+        // AQUÍ ESTÁ TU CEREBRO DINÁMICO (Tab 5 del Engrane)
+        // ============================================================
         const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
         
         if (autoFibrasCol) {
@@ -3873,16 +3879,18 @@ async function processTerminacionesReport() {
             const catalogo = (finalRow['Catalogo'] || '').trim().toUpperCase();
             let fibras = 0;
 
-            // Buscar reglas para esta área o DEFAULT
+            // Buscamos las reglas configuradas para esta área
             const rules = (config.fiber_rules && config.fiber_rules[area]) ? config.fiber_rules[area] : (config.fiber_rules?.['DEFAULT'] || []);
+            // Buscamos coincidencia de prefijo
             const matchedRule = rules.find(r => catalogo.startsWith(r.prefix || ''));
 
             if (matchedRule) {
-                // --- TRUCO VALOR FIJO: Si Len es 0, usa el Multiplicador directo ---
+                // --- TRUCO: Si Longitud es 0, usamos el Multiplicador como VALOR FIJO ---
+                // (Esto arregla lo de NON STD y SPECIALTY)
                 if (parseInt(matchedRule.length) === 0) {
                     fibras = parseInt(matchedRule.multiplier) || 0;
                 } else {
-                    // Lógica normal de extracción
+                    // Lógica normal: Extraer dígitos y multiplicar
                     const startIdx = (matchedRule.start || 4) - 1;
                     const checkChar = catalogo.substring(startIdx, startIdx + 1);
 
@@ -3895,7 +3903,7 @@ async function processTerminacionesReport() {
                     }
                 }
             } else {
-                // Fallback estándar (4to dígito)
+                // Fallback estándar si no hay reglas (4to dígito)
                 const char = catalogo.substring(3, 4);
                 if (char === 'T') fibras = 12;
                 else if (char === 'G') fibras = 24;
@@ -3908,10 +3916,11 @@ async function processTerminacionesReport() {
             finalRow[autoFibrasCol.key] = fibras;
         }
 
-        // Familia y Terminaciones Totales
+        // Calcular Familia automáticamente
         const autoFamiliaCol = config.final_cols.find(c => c.type === 'familia_auto');
         if (autoFamiliaCol) { finalRow[autoFamiliaCol.key] = formulaHelpers.EXTRAER(finalRow['Catalogo'], 1, 3); }
 
+        // Calcular Terminaciones Totales
         const autoTermCol = config.final_cols.find(c => c.type === 'terminaciones_auto');
         if (autoTermCol) {
             const fibras = finalRow['Fibras'] || 0;
@@ -3919,7 +3928,7 @@ async function processTerminacionesReport() {
             finalRow[autoTermCol.key] = fibras * cantidad;
         }
 
-        // Limpieza final
+        // Limpieza final de números negativos o inválidos
         if (finalRow['Terminaciones'] !== undefined) {
             let value = parseFloat(finalRow['Terminaciones']);
             finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
@@ -3928,8 +3937,9 @@ async function processTerminacionesReport() {
         return finalRow;
     });
 
-    // Preparar datos para visualización (convertir fecha Date -> String DD/MM/YYYY)
-    const dataVisual = finalData.map(row => {
+    // 4. Renderizado Visual (Tabla y Resumen)
+    // Creamos una copia para visualización donde la fecha se convierte a texto bonito
+    const dataForTable = finalData.map(row => {
         const r = {...row};
         if (r['Fecha'] instanceof Date) {
             r['Fecha'] = `${String(r['Fecha'].getDate()).padStart(2,'0')}/${String(r['Fecha'].getMonth()+1).padStart(2,'0')}/${r['Fecha'].getFullYear()}`;
@@ -3937,18 +3947,18 @@ async function processTerminacionesReport() {
         return r;
     });
 
-    renderTerminacionesTable(dataVisual);
-    renderTerminacionesSummary(dataVisual);
+    renderTerminacionesTable(dataForTable);
+    renderTerminacionesSummary(dataForTable);
 
-    // NUEVO: Guardar en Base de Datos automáticamente
+    // 5. Guardado Automático en Base de Datos
+    // Pasamos 'finalData' (con fechas reales) y no 'dataForTable' (con fechas texto)
     saveTerminacionesToFirestore(finalData);
 }
-
 // 2. Guardar en Firestore (Nueva Función)
 async function saveTerminacionesToFirestore(data) {
     if (!data || data.length === 0) return;
     
-    showModal('Guardando Histórico...', '<p>Subiendo registros procesados a la base de datos...</p>');
+    showModal('Guardando Histórico...', '<p>Actualizando base de datos con ID único (Orden + Fecha)...</p>');
     
     const batchSize = 500;
     let batches = [];
@@ -3956,15 +3966,22 @@ async function saveTerminacionesToFirestore(data) {
     let count = 0;
 
     data.forEach((row) => {
-        // Usamos Orden como ID para evitar duplicados (sobreescribe si ya existe)
-        if (row['Orden']) {
-            const docRef = db.collection('terminaciones_historico').doc(String(row['Orden']));
+        if (row['Orden'] && row['Fecha'] instanceof Date) {
+            // --- CORRECCIÓN CRÍTICA ---
+            // Creamos un ID único combinando Orden y Fecha (YYYY-MM-DD)
+            // Esto permite tener la misma orden en días diferentes sin sobreescribir.
+            const year = row['Fecha'].getFullYear();
+            const month = String(row['Fecha'].getMonth() + 1).padStart(2, '0');
+            const day = String(row['Fecha'].getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
             
-            // Asegurar formato correcto para Firestore
+            // ID Único: ORDEN_FECHA (ej: 1000152_2025-11-24)
+            const uniqueId = `${String(row['Orden'])}_${dateStr}`;
+            const docRef = db.collection('terminaciones_historico').doc(uniqueId);
+            
+            // Preparamos el objeto asegurando Timestamp
             const rowToSave = {...row};
-            if (rowToSave['Fecha'] instanceof Date) {
-                rowToSave['Fecha'] = firebase.firestore.Timestamp.fromDate(rowToSave['Fecha']);
-            }
+            rowToSave['Fecha'] = firebase.firestore.Timestamp.fromDate(row['Fecha']);
             
             currentBatch.set(docRef, rowToSave, { merge: true });
             count++;
@@ -3981,7 +3998,7 @@ async function saveTerminacionesToFirestore(data) {
 
     try {
         await Promise.all(batches);
-        showModal('Éxito', `<p>Se guardaron <strong>${data.length}</strong> registros en el histórico.</p>`);
+        showModal('Éxito', `<p>Se guardaron/actualicaron <strong>${data.length}</strong> registros correctamente.</p>`);
     } catch (e) {
         console.error("Error guardando:", e);
         showModal('Error', '<p>Hubo un problema al guardar en la base de datos.</p>');
