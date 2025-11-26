@@ -4066,21 +4066,54 @@ async function consultarTerminacionesHistorico() {
 }
 
 // 4. Renderizar Tabla
+// --- FUNCIÓN DE RENDERIZADO (CON ORDENAMIENTO Y FILTROS) ---
 function renderTerminacionesTable(data) {
     const tableElement = doc('dataTableTerminaciones');
     const config = params.terminaciones_config.final_cols;
-    if (!config || config.length === 0) return;
+    
+    if (!config || config.length === 0) {
+        tableElement.innerHTML = '<thead><tr><th>Configure columnas</th></tr></thead><tbody></tbody>'; 
+        return; 
+    }
+    
+    // 1. ORDENAR DATOS (FECHA DESCENDENTE: MÁS RECIENTE ARRIBA)
+    data.sort((a, b) => {
+        const dateA = parseDate(a['Fecha']);
+        const dateB = parseDate(b['Fecha']);
+        return dateB - dateA; // b - a = Descendente
+    });
+
+    // Helper interno para leer la fecha (ya sea Texto o Date Object)
+    function parseDate(dateVal) {
+        if (dateVal instanceof Date) return dateVal;
+        if (typeof dateVal === 'string') {
+            // Asume formato DD/MM/YYYY
+            const parts = dateVal.split('/');
+            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+        return new Date(0); // Fecha muy vieja si falla
+    }
+
     const allHeaders = config.map(c => c.key);
     
+    // 2. CREAR HEADER CON INPUTS DE FILTRO
     let html = '<thead><tr>';
-    allHeaders.forEach(header => { html += `<th>${header}</th>`; });
+    allHeaders.forEach(header => { 
+        html += `
+            <th>
+                <span>${header}</span>
+                <input type="text" class="filter-input" placeholder="Buscar..." data-column="${header}" style="width:100%; margin-top:5px; padding:4px; box-sizing:border-box; font-size:0.8em; color:black;">
+            </th>`; 
+    });
     html += '</tr></thead><tbody>';
 
+    // 3. DIBUJAR FILAS
     data.forEach(row => {
         html += '<tr>';
         allHeaders.forEach(header => { 
             const value = row[header] ?? '';
-            if (header.toUpperCase() === 'GR' || header.toUpperCase() === 'ORDEN') {
+            // Habilitar copiado para GR u Orden
+            if (header.toUpperCase().includes('GR') || header.toUpperCase().includes('ORDEN')) {
                  html += `<td class="copyable" onclick="copyToClipboard('${String(value).replace(/'/g, "\\'")}', this)" title="Haz clic para copiar">${value}</td>`;
             } else {
                 html += `<td>${value}</td>`;
@@ -4088,22 +4121,47 @@ function renderTerminacionesTable(data) {
         });
         html += '</tr>';
     });
+    
     tableElement.innerHTML = html + '</tbody>';
+
+    // 4. ACTIVAR LOS LISTENERS DE LOS FILTROS
+    tableElement.querySelectorAll('.filter-input').forEach(input => {
+        input.addEventListener('keyup', filterTerminacionesTable);
+    });
 }
 
 // 5. Filtro de Tabla
+// --- FUNCIÓN DE FILTRADO (MULTI-COLUMNA) ---
 function filterTerminacionesTable() {
     const table = doc('dataTableTerminaciones');
-    const filters = Array.from(table.querySelectorAll('.filter-input')).map(i => ({ columnIndex: Array.from(i.closest('tr').children).indexOf(i.closest('th')), value: i.value.toLowerCase() }));
+    
+    // Obtenemos todos los filtros activos (donde el usuario escribió algo)
+    const inputs = Array.from(table.querySelectorAll('.filter-input'));
+    const activeFilters = inputs
+        .map((input, index) => ({
+            index: index, // El índice de la columna (0, 1, 2...)
+            value: input.value.toLowerCase().trim() // Lo que escribió el usuario
+        }))
+        .filter(f => f.value !== ""); // Solo nos importan los que tienen texto
+
     const rows = table.querySelectorAll('tbody tr');
+
     rows.forEach(row => {
         let shouldShow = true;
-        filters.forEach(filter => {
-            if (filter.value) {
-                const cell = row.children[filter.columnIndex];
-                if (!cell || !cell.textContent.toLowerCase().includes(filter.value)) shouldShow = false;
+
+        // Revisamos si la fila cumple con TODOS los filtros activos
+        for (const filter of activeFilters) {
+            const cell = row.children[filter.index];
+            if (!cell) continue;
+            
+            const cellText = cell.textContent.toLowerCase();
+            // Si el texto de la celda NO incluye lo que escribió el usuario...
+            if (!cellText.includes(filter.value)) {
+                shouldShow = false;
+                break; // Ya falló uno, no tiene caso seguir revisando
             }
-        });
+        }
+
         row.style.display = shouldShow ? '' : 'none';
     });
 }
