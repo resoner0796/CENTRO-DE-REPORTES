@@ -322,48 +322,170 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
             }
         }
 
-        function showTerminacionesConfigModal() {
-            const config = params.terminaciones_config;
-            const content = `
-                <div class="modal-tabs">
-                    <button class="tab-btn active" data-tab="zpptwc">1. Mapeo Zpptwc</button>
-                    <button class="tab-btn" data-tab="coois">2. Mapeo Coois</button>
-                    <button class="tab-btn" data-tab="areas">3. Mapeo de Áreas</button>
-                    <button class="tab-btn" data-tab="final">4. Columnas Finales</button>
-                </div>
-                <div id="tab-zpptwc" class="tab-content active"><p>Define un nombre clave y la letra de la columna para cada dato del reporte Zpptwc.</p><ul class="param-list">${(config.zpptwc_cols || []).map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul></div>
-                <div id="tab-coois" class="tab-content"><p>Define un nombre clave y la letra de la columna para cada dato del reporte Coois.</p><ul class="param-list">${(config.coois_cols || []).map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul></div>
-                <div id="tab-areas" class="tab-content">
-                    <div class="area-source-container">
-                        <label for="area-source-col">Columna Clave de Coois con Código de Área</label>
-                        <input type="text" id="area-source-col" placeholder="Ej. MRP" value="${(config.area_config || {}).source_col || ''}">
-                        <p>Usa el "Nombre Clave" (definido en la pestaña 2) de la columna del reporte Coois que contiene el código de área (ej. MRP).</p>
-                    </div>
-                    <ul class="area-list">${((config.area_config || {}).mappings || []).map(a => createAreaItemHTML(a.code, a.name)).join('')}</ul>
-                </div>
-                <div id="tab-final" class="tab-content"><p>Define las columnas que aparecerán en el reporte final. Para cálculos complejos, usa los tipos automáticos.</p><ul class="param-list">${(config.final_cols || []).map(p => createFinalColHTML(p.key, p.type, p.value)).join('')}</ul></div>
-                <button class="addBtn btn" style="width: auto; padding: 8px 16px;">Añadir Fila</button>
-                <button id="saveTerminacionesSettingsBtn" class="btn" style="margin-top: 20px; width: 100%;">Guardar Configuración</button>`;
-            showModal('Configurar Automatización de Terminaciones', content);
-            const modalBody = doc('modalBody');
-            modalBody.querySelectorAll('.tab-btn').forEach(button => button.addEventListener('click', () => { modalBody.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active')); button.classList.add('active'); doc(`tab-${button.dataset.tab}`).classList.add('active'); }));
-            modalBody.querySelector('.addBtn').addEventListener('click', () => { const activeTab = modalBody.querySelector('.tab-content.active'); if(activeTab.id === 'tab-areas') { activeTab.querySelector('.area-list').insertAdjacentHTML('beforeend', createAreaItemHTML('', '')); } else if(activeTab.id === 'tab-final') { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createFinalColHTML('', 'source', '')); } else { activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createSourceColHTML('', '')); } });
+        // --- BLOQUE 1: MODAL DE CONFIGURACIÓN ACTUALIZADO ---
 
-            const lists = modalBody.querySelectorAll('.param-list');
-            lists.forEach(list => {
-                list.addEventListener('dragstart', e => { if (e.target.classList.contains('param-item')) e.target.classList.add('dragging'); });
-                list.addEventListener('dragend', e => { if (e.target.classList.contains('param-item')) e.target.classList.remove('dragging'); });
-                list.addEventListener('dragover', e => {
-                    e.preventDefault();
-                    const draggingItem = list.querySelector('.dragging');
-                    if (!draggingItem) return;
-                    const afterElement = getDragAfterElement(list, e.clientY);
-                    if (afterElement == null) { list.appendChild(draggingItem); }
-                    else { list.insertBefore(draggingItem, afterElement); }
-                });
-            });
-            doc('saveTerminacionesSettingsBtn').addEventListener('click', saveTerminacionesSettings);
+function showTerminacionesConfigModal() {
+    const config = params.terminaciones_config;
+    // Aseguramos que exista el objeto de reglas
+    if (!config.fiber_rules) config.fiber_rules = {};
+
+    const content = `
+        <div class="modal-tabs">
+            <button class="tab-btn active" data-tab="zpptwc">1. Mapeo Zpptwc</button>
+            <button class="tab-btn" data-tab="coois">2. Mapeo Coois</button>
+            <button class="tab-btn" data-tab="areas">3. Mapeo de Áreas</button>
+            <button class="tab-btn" data-tab="final">4. Columnas Finales</button>
+            <button class="tab-btn" data-tab="reglas">5. Reglas Fibras</button>
+        </div>
+
+        <div id="tab-zpptwc" class="tab-content active">
+            <p>Define un nombre clave y la letra de la columna para Zpptwc.</p>
+            <ul class="param-list">${(config.zpptwc_cols || []).map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul>
+        </div>
+
+        <div id="tab-coois" class="tab-content">
+            <p>Define un nombre clave y la letra de la columna para Coois.</p>
+            <ul class="param-list">${(config.coois_cols || []).map(p => createSourceColHTML(p.key, p.excel_col)).join('')}</ul>
+        </div>
+
+        <div id="tab-areas" class="tab-content">
+            <div class="area-source-container">
+                <label>Columna Clave de Coois (ej. MRP)</label>
+                <input type="text" id="area-source-col" value="${(config.area_config || {}).source_col || ''}">
+            </div>
+            <ul class="area-list">${((config.area_config || {}).mappings || []).map(a => createAreaItemHTML(a.code, a.name)).join('')}</ul>
+        </div>
+
+        <div id="tab-final" class="tab-content">
+            <p>Columnas finales del reporte unificado.</p>
+            <ul class="param-list">${(config.final_cols || []).map(p => createFinalColHTML(p.key, p.type, p.value)).join('')}</ul>
+        </div>
+
+        <div id="tab-reglas" class="tab-content">
+            <div class="control-group" style="margin-bottom: 15px;">
+                <label>Seleccionar Área para Configurar:</label>
+                <select id="ruleAreaSelect" class="filter-input" style="padding:8px;">
+                    <option value="" disabled selected>Selecciona un área...</option>
+                </select>
+                <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:5px;">Define cómo leer las fibras según el catálogo.</p>
+            </div>
+            <div id="rulesContainer" style="border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; min-height: 200px; max-height: 300px; overflow-y: auto;">
+                <p style="text-align:center; color:var(--text-dark); margin-top: 20px;">Primero selecciona un área arriba.</p>
+            </div>
+            <button id="addRuleBtn" class="btn btn-glass" style="width:100%; margin-top:10px; display:none;">+ Añadir Regla</button>
+        </div>
+
+        <div class="modal-footer" style="display:flex; gap:10px; margin-top:20px;">
+            <button class="addBtn btn" style="flex:1;">Añadir Fila (Tabs 1-4)</button>
+            <button id="saveTerminacionesSettingsBtn" class="btn" style="flex:2;">Guardar Todo</button>
+        </div>`;
+
+    showModal('Configurar Terminaciones', content);
+
+    // Lógica de Tabs
+    const modalBody = doc('modalBody');
+    modalBody.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+        modalBody.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
+        btn.classList.add('active');
+        doc(`tab-${btn.dataset.tab}`).classList.add('active');
+        if (btn.dataset.tab === 'reglas') updateRuleAreaSelect();
+    }));
+
+    // Lógica botón Añadir Fila (Tabs normales)
+    modalBody.querySelector('.addBtn').addEventListener('click', () => {
+        const activeTab = modalBody.querySelector('.tab-content.active');
+        if (activeTab.id === 'tab-areas') activeTab.querySelector('.area-list').insertAdjacentHTML('beforeend', createAreaItemHTML('', ''));
+        else if (activeTab.id === 'tab-final') activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createFinalColHTML('', 'source', ''));
+        else if (activeTab.id === 'tab-reglas') { /* Nada aquí */ }
+        else activeTab.querySelector('.param-list').insertAdjacentHTML('beforeend', createSourceColHTML('', ''));
+    });
+
+    doc('saveTerminacionesSettingsBtn').addEventListener('click', saveTerminacionesSettings);
+
+    // --- LÓGICA PESTAÑA REGLAS ---
+    const areaSelect = doc('ruleAreaSelect');
+    const rulesContainer = doc('rulesContainer');
+    const addRuleBtn = doc('addRuleBtn');
+
+    function updateRuleAreaSelect() {
+        const currentVal = areaSelect.value;
+        areaSelect.innerHTML = '<option value="DEFAULT">DEFAULT (General)</option>';
+        // Obtener áreas del Tab 3
+        const areaInputs = document.querySelectorAll('#tab-areas .area-name');
+        const uniqueAreas = new Set();
+        areaInputs.forEach(input => { if(input.value) uniqueAreas.add(input.value.trim().toUpperCase()); });
+        
+        uniqueAreas.forEach(area => {
+            const opt = document.createElement('option');
+            opt.value = area;
+            opt.textContent = area;
+            areaSelect.appendChild(opt);
+        });
+        if(currentVal) areaSelect.value = currentVal;
+    }
+
+    areaSelect.addEventListener('change', () => {
+        const area = areaSelect.value;
+        addRuleBtn.style.display = 'block';
+        renderRulesForArea(area);
+    });
+
+    function renderRulesForArea(area) {
+        const rules = config.fiber_rules[area] || [];
+        if (rules.length === 0) {
+            rulesContainer.innerHTML = '<p style="text-align:center; font-style:italic; opacity:0.7;">No hay reglas específicas. Se usará el cálculo por defecto (4to dígito).</p>';
+        } else {
+            rulesContainer.innerHTML = '<ul class="param-list">' + rules.map(r => createRuleItemHTML(r)).join('') + '</ul>';
         }
+    }
+
+    addRuleBtn.addEventListener('click', () => {
+        const area = areaSelect.value;
+        if (!config.fiber_rules[area]) config.fiber_rules[area] = [];
+        config.fiber_rules[area].push({ prefix: '', start: 4, length: 1, t_equals_12: true, multiplier: 1 });
+        renderRulesForArea(area);
+    });
+
+    // Listeners delegados para inputs de reglas
+    rulesContainer.addEventListener('input', (e) => {
+        const item = e.target.closest('.rule-item');
+        if (!item) return;
+        const index = Array.from(item.parentNode.children).indexOf(item);
+        const area = areaSelect.value;
+        const rule = config.fiber_rules[area][index];
+
+        if (e.target.classList.contains('rule-prefix')) rule.prefix = e.target.value.toUpperCase();
+        if (e.target.classList.contains('rule-start')) rule.start = parseInt(e.target.value) || 1;
+        if (e.target.classList.contains('rule-len')) rule.length = parseInt(e.target.value) || 1;
+        if (e.target.classList.contains('rule-mult')) rule.multiplier = parseInt(e.target.value) || 1;
+        if (e.target.classList.contains('rule-check')) rule.t_equals_12 = e.target.checked;
+    });
+
+    rulesContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-del-rule')) {
+            const item = e.target.closest('.rule-item');
+            const index = Array.from(item.parentNode.children).indexOf(item);
+            const area = areaSelect.value;
+            config.fiber_rules[area].splice(index, 1);
+            renderRulesForArea(area);
+        }
+    });
+}
+
+// Helper HTML para cada regla (incluye multiplicador para el caso DFB)
+function createRuleItemHTML(rule) {
+    return `
+    <li class="rule-item" style="display: grid; grid-template-columns: 1.2fr 0.8fr 0.8fr 0.8fr auto auto; gap: 6px; align-items: center; padding: 8px; background: var(--surface-hover-color); margin-bottom: 6px; border-radius: 6px;">
+        <input type="text" class="rule-prefix" placeholder="Prefijo (ej. DFB)" value="${rule.prefix || ''}" title="Empieza con...">
+        <input type="number" class="rule-start" placeholder="Pos" value="${rule.start || 4}" title="Posición inicial">
+        <input type="number" class="rule-len" placeholder="Len" value="${rule.length || 1}" title="Longitud">
+        <input type="number" class="rule-mult" placeholder="x" value="${rule.multiplier || 1}" title="Multiplicador (ej: 2 para DFB)">
+        <label style="font-size:0.7rem; display:flex; align-items:center; gap:2px; cursor:pointer;">
+            <input type="checkbox" class="rule-check" ${rule.t_equals_12 ? 'checked' : ''}> T=12
+        </label>
+        <button class="btn-danger btn-del-rule" style="padding: 2px 6px;">X</button>
+    </li>`;
+}
 
         // --- REEMPLAZO 1: La UI del Modal ---
 function showProduccion20ConfigModal() {
@@ -591,27 +713,34 @@ async function saveProd20ConfigAndEmpleados() {
         function insertAtCursor(input, text) { const start = input.selectionStart; input.value = input.value.substring(0, start) + text + input.value.substring(input.selectionEnd); input.focus(); input.selectionEnd = start + text.length; }
         doc('modalOverlay').addEventListener('change', (e) => { if (e.target.classList.contains('param-type')) { const item = e.target.closest('.param-item'); const inputDiv = item.querySelector('div:not(.formula-helpers)'); const isAuto = ['fibras_auto', 'terminaciones_auto', 'familia_auto'].includes(e.target.value); if(inputDiv) inputDiv.classList.toggle('hidden', isAuto); } });
 
-        async function saveTerminacionesSettings() {
-            try {
-                const modalBody = document.getElementById('modalBody');
-                if (!modalBody) throw new Error("El cuerpo del modal no fue encontrado.");
-                const newConfig = {
-                    zpptwc_cols: Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), excel_col: el.querySelector('.param-excel-col').value.trim().toUpperCase() })),
-                    coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), excel_col: el.querySelector('.param-excel-col').value.trim().toUpperCase() })),
-                    area_config: {
-                        source_col: modalBody.querySelector('#area-source-col').value.trim(),
-                        mappings: Array.from(modalBody.querySelectorAll('#tab-areas .area-item')).map(el => ({ code: el.querySelector('.area-code').value, name: el.querySelector('.area-name').value }))
-                    },
-                    final_cols: Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), type: el.querySelector('.param-type').value, value: el.querySelector('.param-value-input').value.trim() })),
-                };
-                await db.collection('report_configs').doc('terminaciones_params_v2').set(newConfig);
-                params.terminaciones_config = newConfig;
-                showModal('Éxito', '<p>Configuración de Terminaciones guardada.</p>');
-            } catch(e) {
-                console.error("Error saving terminaciones settings:", e);
-                showModal('Error', '<p>No se pudo guardar la configuración. Detalles: ' + e.message + '</p>');
-            }
-        }
+        // --- BLOQUE 2: FUNCIÓN DE GUARDADO ACTUALIZADA ---
+
+async function saveTerminacionesSettings() {
+    try {
+        const modalBody = document.getElementById('modalBody');
+        if (!modalBody) throw new Error("Modal no encontrado");
+
+        const newConfig = {
+            zpptwc_cols: Array.from(modalBody.querySelectorAll('#tab-zpptwc .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), excel_col: el.querySelector('.param-excel-col').value.trim().toUpperCase() })),
+            coois_cols: Array.from(modalBody.querySelectorAll('#tab-coois .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), excel_col: el.querySelector('.param-excel-col').value.trim().toUpperCase() })),
+            area_config: {
+                source_col: modalBody.querySelector('#area-source-col').value.trim(),
+                mappings: Array.from(modalBody.querySelectorAll('#tab-areas .area-item')).map(el => ({ code: el.querySelector('.area-code').value, name: el.querySelector('.area-name').value }))
+            },
+            final_cols: Array.from(modalBody.querySelectorAll('#tab-final .param-item')).map(el => ({ key: el.querySelector('.param-key').value.trim(), type: el.querySelector('.param-type').value, value: el.querySelector('.param-value-input').value.trim() })),
+            
+            // AQUÍ SE GUARDAN LAS NUEVAS REGLAS
+            fiber_rules: params.terminaciones_config.fiber_rules || {}
+        };
+
+        await db.collection('report_configs').doc('terminaciones_params_v2').set(newConfig);
+        params.terminaciones_config = newConfig;
+        showModal('Éxito', '<p>Configuración guardada. Las reglas de fibras ahora son dinámicas.</p>');
+    } catch (e) {
+        console.error("Error guardando config:", e);
+        showModal('Error', '<p>No se pudo guardar: ' + e.message + '</p>');
+    }
+}
 
         // --- INICIO: CARGA DE DATOS (PARAMS Y ARCHIVOS) ---
         async function loadParams(configKey) {
@@ -3658,6 +3787,8 @@ async function exportarReporteCompleto() {
 
 
 // 2. Función Principal (Cerebro con reglas específicas)
+// --- BLOQUE 3: CEREBRO DINÁMICO (SIN HARDCODE) ---
+
 async function processTerminacionesReport() {
     if (!reportData.zpptwc || !reportData.coois) return;
 
@@ -3678,6 +3809,7 @@ async function processTerminacionesReport() {
         let merged = { ...zpptwcRow, ...cooisRow };
         let finalRow = {};
 
+        // Limpieza inicial
         for (const key in merged) {
             let value = merged[key];
             if (typeof value === 'string') value = value.trim();
@@ -3691,40 +3823,57 @@ async function processTerminacionesReport() {
             }
         }
 
+        // Determinar Área
         const areaCode = finalRow[config.area_config.source_col];
         const areaMapping = config.area_config.mappings.find(m => String(m.code).trim() === String(areaCode).trim());
         finalRow['Area'] = areaMapping ? areaMapping.name : 'Desconocida';
 
+        // Copiar columnas
         config.final_cols.filter(c => c.type === 'source').forEach(col => { finalRow[col.key] = finalRow[col.value]; });
 
-        // --- LÓGICA DE CÁLCULO RECUPERADA ---
+        // --- LÓGICA DINÁMICA (LEE DEL MODAL) ---
         const autoFibrasCol = config.final_cols.find(c => c.type === 'fibras_auto');
+        
         if (autoFibrasCol) {
-            const area = (finalRow['Area'] || '').trim();
-            const catalogo = finalRow['Catalogo'] || '';
+            const area = (finalRow['Area'] || '').trim().toUpperCase();
+            const catalogo = (finalRow['Catalogo'] || '').trim().toUpperCase();
             let fibras = 0;
 
-            if (area === 'UNAP LEGACY') { 
-                fibras = catalogo.startsWith('B100') ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 7, 1) : formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); 
+            // 1. Buscamos reglas para esta área, o las DEFAULT
+            const rules = (config.fiber_rules && config.fiber_rules[area]) ? config.fiber_rules[area] : (config.fiber_rules?.['DEFAULT'] || []);
+            
+            // 2. Buscamos la primera regla que coincida con el prefijo
+            // (Si prefijo es "", coincide con todo - util para reglas genéricas al final)
+            const matchedRule = rules.find(r => catalogo.startsWith(r.prefix || ''));
+
+            if (matchedRule) {
+                // Aplicar regla configurada
+                // Verificamos 'T'
+                const startIdx = (matchedRule.start || 4) - 1;
+                const checkChar = catalogo.substring(startIdx, startIdx + 1);
+
+                if (matchedRule.t_equals_12 && checkChar === 'T') {
+                    fibras = 12;
+                } else {
+                    const extracted = formulaHelpers.EXTRAER_FIBRAS(catalogo, matchedRule.start, matchedRule.length);
+                    const mult = matchedRule.multiplier || 1;
+                    fibras = extracted * mult;
+                }
+            } else {
+                // Fallback: Si no hay reglas, usamos lógica estándar (4to dígito)
+                const char = catalogo.substring(3, 4);
+                if (char === 'T') fibras = 12;
+                else if (char === 'G') fibras = 24; 
+                else {
+                    const num = parseInt(char, 10);
+                    fibras = isNaN(num) ? 0 : num;
+                }
             }
-            else if (area === 'MPORT FLEX') { 
-                fibras = (catalogo.startsWith('MSA') || catalogo.startsWith('MSF')) ? formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1) : formulaHelpers.EXTRAER(catalogo, 5, 2); 
-            }
-            else if (area === 'EVOLV MTB RPX' || area === 'MTB RPX') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 6, 1); }
-            else if (area === 'NON STD') { fibras = 2; }
-            else if (area === 'SPECIALTY') { fibras = 12; }
-            else if (area === 'MULTIPORT') {
-                const extractedFibers = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1);
-                if (catalogo.startsWith('DFB')) { fibras = extractedFibers * 2; } 
-                else { fibras = extractedFibers; }
-            }
-            else if (area === 'EVOLV MTB DEMARC') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 4, 1); }
-            else if (area === 'MOB LEGACY') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2); }
-            else if (area === 'MTB DEMARC') { fibras = formulaHelpers.EXTRAER_FIBRAS(catalogo, 5, 2); }
             
             finalRow[autoFibrasCol.key] = fibras;
         }
 
+        // Familia y Terminaciones Totales
         const autoFamiliaCol = config.final_cols.find(c => c.type === 'familia_auto');
         if (autoFamiliaCol) { finalRow[autoFamiliaCol.key] = formulaHelpers.EXTRAER(finalRow['Catalogo'], 1, 3); }
 
@@ -3735,10 +3884,12 @@ async function processTerminacionesReport() {
             finalRow[autoTermCol.key] = fibras * cantidad;
         }
 
+        // Limpieza final
         if (finalRow['Terminaciones'] !== undefined) {
             let value = parseFloat(finalRow['Terminaciones']);
             finalRow['Terminaciones'] = (isNaN(value) || value < 0) ? 0 : value;
         }
+
         return finalRow;
     });
 
