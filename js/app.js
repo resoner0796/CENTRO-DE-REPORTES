@@ -3955,33 +3955,40 @@ async function processTerminacionesReport() {
     saveTerminacionesToFirestore(finalData);
 }
 // 2. Guardar en Firestore (Nueva Función)
+// --- FUNCIÓN DE GUARDADO CORREGIDA (SIN ERROR DE SINTAXIS) ---
 async function saveTerminacionesToFirestore(data) {
     if (!data || data.length === 0) return;
     
-    showModal('Guardando Histórico...', '<p>Actualizando base de datos con ID único (Orden + Fecha)...</p>');
+    showModal('Guardando Histórico...', '<p>Subiendo registros a la base de datos (Corrección de duplicados aplicada)...</p>');
     
     const batchSize = 500;
     let batches = [];
     let currentBatch = db.batch();
     let count = 0;
 
-    data.forEach((row) => {
-        if (row['Orden'] && row['Fecha'] instanceof Date) {
-            // --- CORRECCIÓN CRÍTICA ---
-            // Creamos un ID único combinando Orden y Fecha (YYYY-MM-DD)
-            // Esto permite tener la misma orden en días diferentes sin sobreescribir.
-            const year = row['Fecha'].getFullYear();
-            const month = String(row['Fecha'].getMonth() + 1).padStart(2, '0');
-            const day = String(row['Fecha'].getDate()).padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`;
+    // Usamos 'index' para diferenciar filas repetidas de la misma orden
+    data.forEach((row, index) => {
+        if (row['Orden']) {
             
-            // ID Único: ORDEN_FECHA (ej: 1000152_2025-11-24)
-            const uniqueId = `${String(row['Orden'])}_${dateStr}`;
+            let dateStr = 'NODATE';
+            if (row['Fecha'] instanceof Date) {
+                const year = row['Fecha'].getFullYear();
+                const month = String(row['Fecha'].getMonth() + 1).padStart(2, '0');
+                const day = String(row['Fecha'].getDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
+            }
+
+            // --- AQUÍ ESTABA EL ERROR, YA ESTÁ CORREGIDO ---
+            // ID Único: Orden_Fecha_Indice (Ej: 1000152_2025-11-24_row0)
+            const uniqueId = `${String(row['Orden'])}_${dateStr}_row${index}`;
+            
             const docRef = db.collection('terminaciones_historico').doc(uniqueId);
             
-            // Preparamos el objeto asegurando Timestamp
+            // Asegurar formato correcto para Firestore
             const rowToSave = {...row};
-            rowToSave['Fecha'] = firebase.firestore.Timestamp.fromDate(row['Fecha']);
+            if (rowToSave['Fecha'] instanceof Date) {
+                rowToSave['Fecha'] = firebase.firestore.Timestamp.fromDate(rowToSave['Fecha']);
+            }
             
             currentBatch.set(docRef, rowToSave, { merge: true });
             count++;
@@ -3998,7 +4005,7 @@ async function saveTerminacionesToFirestore(data) {
 
     try {
         await Promise.all(batches);
-        showModal('Éxito', `<p>Se guardaron/actualicaron <strong>${data.length}</strong> registros correctamente.</p>`);
+        showModal('Éxito', `<p>Se guardaron <strong>${data.length}</strong> registros únicos correctamente.</p>`);
     } catch (e) {
         console.error("Error guardando:", e);
         showModal('Error', '<p>Hubo un problema al guardar en la base de datos.</p>');
