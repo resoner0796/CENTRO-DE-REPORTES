@@ -5716,6 +5716,60 @@ doc('reporteOrdenesDiaBtn').addEventListener('click', () => {
 
 doc('consultarOrdenesDiaBtn').addEventListener('click', consultarOrdenesDelDia);
 
+// --- FUNCIÓN FALTANTE: CARGAR ÁREAS ---
+// Esta es la función que el botón estaba buscando y no encontraba.
+async function loadAreasForOrdenesDia() {
+    // Usamos document.getElementById directo por si acaso
+    const areaSelect = document.getElementById('ordenesDia_area');
+    
+    // Validación de seguridad: si no existe el select en el HTML, salimos
+    if (!areaSelect) {
+        console.error("Error crítico: No se encontró el elemento select con id 'ordenesDia_area'. Revisa tu HTML.");
+        return;
+    }
+
+    // Si ya tiene más de 1 opción (es decir, ya cargó las áreas), no hacemos nada para no recargar
+    if (areaSelect.options.length > 1) return;
+
+    // Indicador visual de carga
+    areaSelect.innerHTML = '<option value="" disabled selected>Cargando...</option>';
+
+    try {
+        // Consulta a la colección 'areas' en Firebase
+        const snapshot = await db.collection('areas').get();
+        
+        // Limpiamos y ponemos la opción por defecto
+        areaSelect.innerHTML = '<option value="" disabled selected>Seleccione Área</option>';
+
+        const areas = [];
+        snapshot.forEach(docSnap => {
+            // Ignoramos el documento de configuración si existe
+            if (docSnap.id !== 'CONFIG') {
+                areas.push(docSnap.id);
+            }
+        });
+
+        // Ordenamos alfabéticamente
+        areas.sort();
+
+        // Llenamos el select
+        areas.forEach(area => {
+            const opt = document.createElement('option');
+            opt.value = area;
+            opt.textContent = area;
+            areaSelect.appendChild(opt);
+        });
+
+        // Opcional: Seleccionar MULTIPORT por defecto si existe, para agilizar
+        if (areas.includes('MULTIPORT')) {
+            areaSelect.value = 'MULTIPORT';
+        }
+
+    } catch (e) { 
+        console.error("Error cargando áreas:", e); 
+        areaSelect.innerHTML = '<option value="" disabled>Error al cargar áreas</option>';
+    }
+}
 // 2. UTILIDAD: Convertir Fecha Excel (45947) a String YYYY-MM-DD
 function excelSerialToISODate(serial) {
     if (!serial || isNaN(serial)) return null;
