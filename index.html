@@ -160,18 +160,24 @@
                         </button>
                     </div>
                 </div>
+                
                 <div style="flex-grow: 1; padding: 0 10px;">
                     <div class="control-group">
-    <label for="ordenesDia_area">Área</label>
-    <select id="ordenesDia_area">
-        <option value="" disabled selected>Cargando áreas...</option>
-        </select>
-</div>
+                        <label for="ordenesDia_area">Área</label>
+                        <select id="ordenesDia_area">
+                            <option value="" disabled selected>Cargando áreas...</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="ordenesDia_fecha">Seleccionar Fecha</label>
+                        <input type="date" id="ordenesDia_fecha">
+                    </div>
+
                     <button id="consultarOrdenesDiaBtn" class="btn" style="width: 100%; margin-top: 10px;">Consultar Órdenes</button>
                 </div>
             </div>
         </aside>
-
         <main class="main-content animated-startup" style="animation-delay: 0.2s;">
             <header class="app-header">
                 <h1 class="app-branding">CORNING</h1>
@@ -201,16 +207,17 @@
                                 <th>Orden</th>
                                 <th>Catálogo</th>
                                 <th>Material</th>
-                                <th>SO / Item</th>
+                                <th>Special Stock</th>
                                 <th>Fibras</th>
-                                <th>Term.</th> <th>Total Orden</th>
+                                <th>Term. (Falt)</th>
+                                <th>Total Orden</th>
                                 <th>Total Conf.</th>
                                 <th>Faltante</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="10" style="text-align:center;">Seleccione una fecha para consultar.</td></tr>
+                            <tr><td colspan="10" style="text-align:center;">Seleccione fecha y área para consultar.</td></tr>
                         </tbody>
                     </table>
                 </div>
