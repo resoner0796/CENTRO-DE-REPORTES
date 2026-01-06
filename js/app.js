@@ -5697,24 +5697,18 @@ async function saveAreaConfig() {
         views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
     });
 }
+
 // =======================================================================================
-// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (VERSIÓN FINAL CORREGIDA) ---
+// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (CORREGIDO Y AJUSTADO A TUS FOTOS) ---
 // =======================================================================================
 
 // 1. LISTENER DEL BOTÓN DEL MENÚ
-// Este es el gatillo principal: cambia la vista, pone la fecha de hoy y CARGA LAS ÁREAS.
 doc('reporteOrdenesDiaBtn').addEventListener('click', () => {
     switchView('ordenesDia');
-    
-    // Ejecutar la carga de áreas siempre que se entra
     loadAreasForOrdenesDia(); 
-
-    // Poner fecha de hoy si está vacía
     if(!doc('ordenesDia_fecha').value) {
         const now = new Date();
-        const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000))
-                            .toISOString()
-                            .split('T')[0];
+        const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
         doc('ordenesDia_fecha').value = localDate;
     }
 });
@@ -5722,117 +5716,99 @@ doc('reporteOrdenesDiaBtn').addEventListener('click', () => {
 // 2. LISTENER DEL BOTÓN DE CONSULTA
 doc('consultarOrdenesDiaBtn').addEventListener('click', consultarOrdenesDelDia);
 
-
-// 3. FUNCIÓN PARA CARGAR ÁREAS EN EL SELECT
+// 3. CARGAR ÁREAS
 async function loadAreasForOrdenesDia() {
     const areaSelect = doc('ordenesDia_area');
-    
-    // Resetear visualmente para que el usuario sepa que está cargando
+    if(areaSelect.options.length > 1) return;
     areaSelect.innerHTML = '<option value="" disabled selected>Cargando...</option>';
-
     try {
         const snapshot = await db.collection('areas').get();
-        
-        // Limpiar y poner la opción base
         areaSelect.innerHTML = '<option value="" disabled selected>Seleccione Área</option>';
-
         const areas = [];
-        snapshot.forEach(docSnap => {
-            if (docSnap.id !== 'CONFIG') {
-                areas.push(docSnap.id);
-            }
-        });
-
+        snapshot.forEach(docSnap => { if (docSnap.id !== 'CONFIG') areas.push(docSnap.id); });
         areas.sort();
-
         areas.forEach(area => {
             const opt = document.createElement('option');
             opt.value = area;
             opt.textContent = area;
             areaSelect.appendChild(opt);
         });
-
-        // Selección automática de MULTIPORT si existe (opcional)
-        if (areas.includes('MULTIPORT')) {
-            areaSelect.value = 'MULTIPORT';
-        }
-
+        if (areas.includes('MULTIPORT')) areaSelect.value = 'MULTIPORT';
     } catch (e) { 
-        console.error("Error cargando áreas:", e); 
-        areaSelect.innerHTML = '<option value="" disabled>Error al cargar áreas</option>';
+        console.error("Error cargando áreas", e);
+        areaSelect.innerHTML = '<option value="" disabled>Error</option>';
     }
 }
 
-
-// 4. FUNCIÓN PRINCIPAL DE CONSULTA (CEREBRO)
+// 4. CONSULTA PRINCIPAL (EL CEREBRO CORREGIDO)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
 
-    // Validaciones
-    if (!fechaInput) {
-        showModal('Datos Requeridos', '<p>Por favor seleccione una fecha.</p>');
-        return;
-    }
-    if (!areaInput || areaInput === 'Cargando...') {
-        showModal('Datos Requeridos', '<p>Por favor seleccione un área del panel lateral.</p>');
+    if (!fechaInput || !areaInput) {
+        showModal('Datos Requeridos', '<p>Seleccione fecha y área.</p>');
         return;
     }
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Analizando SAP y Actividad...';
+    btn.textContent = 'Analizando...';
 
-    // Limpiar UI
-    doc('dataTableOrdenesDia').innerHTML = '<thead><tr><th>Cargando datos...</th></tr></thead><tbody></tbody>';
-    doc('kpiOrdersTotal').textContent = '-';
-    doc('kpiOrdersClosed').textContent = '-';
-    doc('kpiOrdersMissing').textContent = '-';
+    // Limpieza inicial
+    doc('dataTableOrdenesDia').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Cargando SAP y Actividad...</td></tr>';
+    ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing'].forEach(id => doc(id).textContent = '-');
 
     try {
-        // --- PASO A: Obtener Data Maestra de SAP (current_data) ---
-        // Ruta: areas/{AREA}/sap_data/current_data
+        // --- PASO A: OBTENER DATA SAP (SAP_DATA) ---
+        console.log(`Consultando SAP para: areas/${areaInput}/sap_data/current_data`);
         const sapRef = db.collection('areas').doc(areaInput).collection('sap_data').doc('current_data');
         const sapSnap = await sapRef.get();
         
         let sapOrdersMap = new Map();
+        
         if (sapSnap.exists) {
             const sapData = sapSnap.data();
             const ordersArray = sapData.orders || [];
             
-            // Mapeamos por número de orden para acceso rápido
-            ordersArray.forEach(order => {
-                const cleanOrden = String(order.Orden || '').trim();
-                sapOrdersMap.set(cleanOrden, order);
+            console.log(`SAP Data encontrada: ${ordersArray.length} registros.`);
+
+            // INDEXAR SAP POR ORDEN (Normalizando ID)
+            ordersArray.forEach(item => {
+                // Convertimos a string, quitamos espacios y ceros a la izquierda para asegurar match
+                const rawOrden = String(item.Orden || ''); 
+                const cleanId = rawOrden.trim().replace(/^0+/, ''); 
+                sapOrdersMap.set(cleanId, item);
             });
         } else {
-            console.warn("No se encontró current_data de SAP para esta área.");
+            console.warn("¡ADVERTENCIA! No existe el documento current_data en sap_data.");
         }
 
-        // --- PASO B: Obtener Órdenes Activas (Firebase) ---
-        // Consultamos la colección 'orders' del área seleccionada
+        // --- PASO B: OBTENER ÓRDENES ACTIVAS DEL ÁREA ---
         const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
         const snapshot = await ordersRef.get();
         
-        // Definir rango de fecha del día seleccionado (00:00 a 23:59)
+        // Rango de fecha
         const selectedDateStart = new Date(`${fechaInput}T00:00:00`);
         const selectedDateEnd = new Date(`${fechaInput}T23:59:59`);
 
         let ordenesDelDia = [];
         let stats = { total: 0, cerradas: 0, faltantes: 0 };
 
+        console.log(`Analizando ${snapshot.size} órdenes activas en Firebase...`);
+
         snapshot.forEach(docSnap => {
             const liveData = docSnap.data();
-            const orderId = docSnap.id;
+            const rawDocId = docSnap.id; // El ID del documento (ej: 9006706185)
+            const cleanDocId = String(rawDocId).trim().replace(/^0+/, ''); // Normalizamos igual que SAP
+
             let tuvoActividadHoy = false;
             
-            // --- PASO C: Verificar si hubo Empaque HOY ---
+            // --- PASO C: VERIFICAR ACTIVIDAD EN EMPAQUE ---
             const empaqueData = liveData.empaqueData || [];
             if (Array.isArray(empaqueData)) {
                 for (const box of empaqueData) {
                     if (Array.isArray(box.serials)) {
                         for (const item of box.serials) {
-                            // Usamos tu función auxiliar excelSerialToDateObject
                             const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                             if (packedDate && packedDate >= selectedDateStart && packedDate <= selectedDateEnd) {
                                 tuvoActividadHoy = true;
@@ -5844,32 +5820,37 @@ async function consultarOrdenesDelDia() {
                 }
             }
 
-            // --- PASO D: Construir Objeto si hubo actividad ---
+            // --- PASO D: CRUCE DE DATOS (SI HUBO ACTIVIDAD) ---
             if (tuvoActividadHoy) {
-                // Buscamos los datos oficiales en el mapa de SAP
-                const sapInfo = sapOrdersMap.get(orderId) || {};
+                // Buscamos en el Mapa de SAP usando el ID limpio
+                const sapInfo = sapOrdersMap.get(cleanDocId) || {};
+                
+                // Debug si sale vacío (solo para la primera que falle)
+                if (!sapInfo.Orden && ordenesDelDia.length === 0) {
+                    console.log(`Debug Match Fallido: DocID: "${cleanDocId}" no encontrado en SAP Map.`);
+                }
 
-                // Definir valores (SAP tiene prioridad, si no existe usa liveData)
+                // Extracción de datos (Usando tus nombres de campo de la FOTO 8317)
                 const catalogo = sapInfo.Catalogo || liveData.catalogNumber || 'N/A';
                 const material = sapInfo.Material || 'N/A';
-                const specialStock = sapInfo['Special Stock'] || 'N/A'; // Reemplazo de Sales Order
+                const specialStock = sapInfo['Special Stock'] || 'N/A';
                 
-                // Datos numéricos de SAP
+                // Números (Con fallback a 0 si no existen en SAP)
                 const totalOrden = Number(sapInfo['Total orden']) || 0;
                 const totalConfirmado = Number(sapInfo['Total confirmado']) || 0;
-                const faltante = Number(sapInfo['Faltante']) || 0;
+                const faltante = Number(sapInfo.Faltante) || 0;
 
-                // Calcular Fibras (4to dígito del catálogo)
+                // Cálculo de Fibras
                 const char = catalogo.substring(3, 4).toUpperCase();
                 const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
 
-                // Calcular Term. Faltantes (Faltante * Fibras)
+                // Cálculo de Terminaciones Faltantes
                 const termFaltante = faltante * fibras;
 
                 const status = (faltante === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
 
                 ordenesDelDia.push({
-                    id: orderId,
+                    id: cleanDocId,
                     catalogo: catalogo,
                     material: material,
                     specialStock: specialStock,
@@ -5879,53 +5860,46 @@ async function consultarOrdenesDelDia() {
                     totalConfirmado: totalConfirmado,
                     faltante: faltante,
                     status: status,
-                    // Guardamos la data completa para usarla en el modal
-                    rawData: liveData 
+                    // Guardamos la data completa para el modal
+                    rawData: liveData, 
+                    sapData: sapInfo // Guardamos también lo de SAP por si acaso
                 });
 
-                // Actualizar contadores
+                // Stats
                 stats.total++;
                 if (faltante === 0 && totalOrden > 0) stats.cerradas++;
                 else stats.faltantes++;
             }
         });
 
-        // Actualizar UI de KPIs
+        // Actualizar UI
         doc('kpiOrdersTotal').textContent = stats.total;
         doc('kpiOrdersClosed').textContent = stats.cerradas;
         doc('kpiOrdersMissing').textContent = stats.faltantes;
 
-        // Renderizar la tabla
         renderOrdenesDiaTable(ordenesDelDia);
 
     } catch (e) {
-        console.error("Error consultando órdenes del día:", e);
-        showModal('Error', `<p>Ocurrió un error al consultar: ${e.message}</p>`);
-        doc('dataTableOrdenesDia').innerHTML = '<thead><tr><th>Error al cargar</th></tr></thead><tbody></tbody>';
+        console.error("Error crítico consultando:", e);
+        showModal('Error', `<p>${e.message}</p>`);
     } finally {
         btn.disabled = false;
         btn.textContent = 'Consultar Órdenes';
     }
 }
 
-
-// 5. FUNCIÓN PARA RENDERIZAR TABLA
+// 5. RENDERIZADO DE TABLA (Usando datos cruzados)
 function renderOrdenesDiaTable(data) {
-    const table = doc('dataTableOrdenesDia');
+    const table = doc('dataTableOrdenesDia').querySelector('tbody');
     if (data.length === 0) {
-        table.innerHTML = '<thead><tr><th>No hubo actividad de empaque en esta fecha y área.</th></tr></thead><tbody></tbody>';
+        table.innerHTML = '<tr><td colspan="10" style="text-align:center;">No hubo actividad de empaque para esta fecha.</td></tr>';
         return;
     }
 
-    // Encabezados
-    const headers = ['Orden', 'Catálogo', 'Material', 'Special Stock', 'Fibras', 'Term. (Falt)', 'Total Orden', 'Total Conf.', 'Faltante', 'Status'];
-    let html = '<thead><tr>';
-    headers.forEach(h => html += `<th>${h}</th>`);
-    html += '</tr></thead><tbody>';
-
-    // Ordenar: Prioridad a las que tienen faltante
+    // Ordenar por Faltante Descendente
     data.sort((a, b) => b.faltante - a.faltante);
 
+    let html = '';
     data.forEach((row, index) => {
         const trClass = row.faltante === 0 ? 'row-today' : ''; 
         const btnColor = row.faltante === 0 ? 'var(--success-color)' : '#f59e0b';
@@ -5948,11 +5922,10 @@ function renderOrdenesDiaTable(data) {
         </tr>`;
     });
 
-    html += '</tbody>';
     table.innerHTML = html;
 
-    // Listeners para los botones de la tabla
-    table.querySelectorAll('.btn-status').forEach(btn => {
+    // Listeners botones
+    doc('dataTableOrdenesDia').querySelectorAll('.btn-status').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = e.target.dataset.index;
             mostrarModalEstatusOrden(data[idx]);
@@ -5960,15 +5933,13 @@ function renderOrdenesDiaTable(data) {
     });
 }
 
-
-// 6. FUNCIÓN DEL MODAL DE ESTATUS (Corregida: Busca Line/Linea)
+// 6. MODAL DE ESTATUS (Corregido con info de Rastreo y Empaque)
 async function mostrarModalEstatusOrden(ordenData) {
-    const rawData = ordenData.rawData; 
-    
+    const rawData = ordenData.rawData; // Firebase live data
     const empaqueData = rawData.empaqueData || [];
     const rastreoData = rawData.rastreoData || []; 
 
-    // --- A. Lógica Último Empaque (Desde empaqueData) ---
+    // --- A. ÚLTIMO EMPAQUE (Busca en empaqueData) ---
     let lastPacker = { name: 'Sin datos', time: new Date(0), line: 'N/A' };
     
     if (Array.isArray(empaqueData)) {
@@ -5977,8 +5948,7 @@ async function mostrarModalEstatusOrden(ordenData) {
                 box.serials.forEach(item => {
                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                     const packerId = item['Employee ID'];
-                    
-                    // Buscamos Line o Linea en la data de empaque
+                    // Buscamos Linea, Line o Estación
                     const currentLine = item['Line'] || item['Linea'] || item['Estación'] || 'N/A';
 
                     if (packedDate && packedDate > lastPacker.time) {
@@ -5991,48 +5961,43 @@ async function mostrarModalEstatusOrden(ordenData) {
         });
     }
 
-    // --- B. Lógica Semáforo y Piezas por Línea (Desde rastreoData) ---
+    // --- B. SEMÁFORO Y ACTIVIDAD (Busca en rastreoData) ---
     const lineStats = {}; 
     const now = new Date();
 
     if (Array.isArray(rastreoData) && rastreoData.length > 0) {
         rastreoData.forEach(move => {
-            // CORRECCIÓN: Buscar "Line" o "Linea", NO Area
+            // Buscamos Line o Linea (ignoramos Area)
             const lineName = move.Line || move.Linea || 'Línea Desconocida';
             
             if (!lineStats[lineName]) {
                 lineStats[lineName] = { count: 0, lastMove: new Date(0) };
             }
-            
             lineStats[lineName].count++;
 
-            // Intentar leer la fecha del movimiento
+            // Extraer fecha del movimiento
             let moveDate = null;
             if (move.Date) {
-                if (typeof move.Date.toDate === 'function') moveDate = move.Date.toDate();
-                else moveDate = new Date(move.Date);
+                moveDate = (typeof move.Date.toDate === 'function') ? move.Date.toDate() : new Date(move.Date);
             } else if (move.timestamp) {
-                 moveDate = (typeof move.timestamp.toDate === 'function') ? move.timestamp.toDate() : new Date(move.timestamp);
+                moveDate = (typeof move.timestamp.toDate === 'function') ? move.timestamp.toDate() : new Date(move.timestamp);
             }
             
-            // Actualizar fecha más reciente
             if (moveDate && !isNaN(moveDate.getTime()) && moveDate > lineStats[lineName].lastMove) {
                 lineStats[lineName].lastMove = moveDate;
             }
         });
     }
 
-    // --- C. HTML del Modal ---
+    // --- C. CONSTRUCCIÓN HTML DEL MODAL ---
     let cardsHtml = '<div class="line-status-grid">';
     const lines = Object.keys(lineStats);
 
     if (lines.length === 0) {
-        cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">Sin datos de rastreo (RastreoData vacío).</p>';
+        cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">Sin datos de rastreo.</p>';
     } else {
         lines.forEach(line => {
             const stat = lineStats[line];
-            
-            // Lógica Semáforo: < 60 min = Verde, > 60 min = Amarillo
             const diffMinutes = (now - stat.lastMove) / (1000 * 60);
             
             let indicatorClass = 'indicator-idle'; // Amarillo
@@ -6040,11 +6005,11 @@ async function mostrarModalEstatusOrden(ordenData) {
 
             if (stat.lastMove.getTime() > 0) {
                 if (diffMinutes < 60) {
-                    indicatorClass = 'indicator-active'; // Verde
+                    indicatorClass = 'indicator-active'; // Verde (<1h)
                     timeText = `Hace ${Math.floor(diffMinutes)} min`;
                 } else {
                     const hrs = Math.floor(diffMinutes / 60);
-                    timeText = `Hace ${hrs} ${hrs === 1 ? 'hora' : 'horas'}`;
+                    timeText = `Hace ${hrs} hr${hrs!==1?'s':''}`;
                 }
             }
 
@@ -6064,6 +6029,7 @@ async function mostrarModalEstatusOrden(ordenData) {
 
     const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? formatShortDateTime(lastPacker.time) : 'N/A';
 
+    // Aquí usamos los datos CRUZADOS que ya calculamos en la tabla (ordenData)
     const modalBody = `
         <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
             <div>
@@ -6099,6 +6065,6 @@ async function mostrarModalEstatusOrden(ordenData) {
 // =======================================================================================
 // --- FIN: LÓGICA REPORTE ÓRDENES DEL DÍA ---
 // =======================================================================================
-        
-                        initializeApp();
+
+initializeApp();
     });
