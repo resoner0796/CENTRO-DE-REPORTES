@@ -15,7 +15,8 @@
             produccionCalidad: doc('viewProduccionCalidad'),
             tarimasConfirmadas: doc('viewTarimasConfirmadas'), // <-- AÑADE ESTA
             boxID: doc('viewBoxID'),
-            liveDashboard: doc('viewLiveDashboard')
+            liveDashboard: doc('viewLiveDashboard'),
+            ordenesDia: doc('viewOrdenesDia')
         };
         let session = { isMaster: false };
         let activeView = 'menu';
@@ -156,6 +157,14 @@ if(doc('consultarTerminacionesHistoricoBtn')) {
 }
 
         doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
+        doc('reporteOrdenesDiaBtn').addEventListener('click', () => {
+    switchView('ordenesDia');
+    // Poner fecha de hoy por defecto si está vacía
+    if(!doc('ordenesDia_fecha').value) {
+        const today = new Date();
+        doc('ordenesDia_fecha').value = today.toISOString().split('T')[0];
+    }
+});
 doc('reporteProduccion20Btn').addEventListener('click', () => switchView('produccion20'));
 doc('reporteProduccionDailyBtn').addEventListener('click', () => switchView('produccionDaily'));
 doc('reporteProduccionCalidadBtn').addEventListener('click', () => switchView('produccionCalidad'));
@@ -5688,5 +5697,269 @@ async function saveAreaConfig() {
         views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
     });
 }
+// =======================================================================================
+// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA ---
+// =======================================================================================
+
+doc('consultarOrdenesDiaBtn').addEventListener('click', consultarOrdenesDelDia);
+
+async function consultarOrdenesDelDia() {
+    const fechaInput = doc('ordenesDia_fecha').value;
+    if (!fechaInput) {
+        showModal('Fecha Requerida', '<p>Por favor seleccione una fecha.</p>');
+        return;
+    }
+
+    const btn = doc('consultarOrdenesDiaBtn');
+    btn.disabled = true;
+    btn.textContent = 'Buscando...';
+
+    // Limpiar tabla y KPIs
+    doc('dataTableOrdenesDia').innerHTML = '<thead><tr><th>Cargando datos...</th></tr></thead><tbody></tbody>';
+    doc('kpiOrdersTotal').textContent = '-';
+    doc('kpiOrdersClosed').textContent = '-';
+    doc('kpiOrdersMissing').textContent = '-';
+
+    try {
+        // Estrategia: Consultamos todas las órdenes.
+        // Nota: Si la BD es enorme, idealmente deberíamos filtrar por fecha en la query.
+        // Como la estructura es anidada (areas->orders), usamos collectionGroup.
+        // Para optimizar, asumimos que traemos las órdenes recientes o todas y filtramos en memoria
+        // buscando actividad en la fecha seleccionada dentro de 'empaqueData'.
+        
+        const snapshot = await db.collectionGroup('orders').get();
+        
+        const selectedDateStart = new Date(`${fechaInput}T00:00:00`);
+        const selectedDateEnd = new Date(`${fechaInput}T23:59:59`);
+
+        let ordenesDelDia = [];
+        let stats = { total: 0, cerradas: 0, faltantes: 0 };
+
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            let tuvoActividadHoy = false;
+            let totalConfirmado = 0;
+            const empaqueData = data.empaqueData || [];
+
+            // 1. Calcular total confirmado y checar actividad en la fecha
+            if (Array.isArray(empaqueData)) {
+                empaqueData.forEach(box => {
+                    if (Array.isArray(box.serials)) {
+                        totalConfirmado += box.serials.length;
+                        // Checar fecha de cada serial
+                        for (const item of box.serials) {
+                            const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
+                            if (packedDate && packedDate >= selectedDateStart && packedDate <= selectedDateEnd) {
+                                tuvoActividadHoy = true;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // SI HUBO ACTIVIDAD HOY, AGREGAMOS LA ORDEN AL REPORTE
+            if (tuvoActividadHoy) {
+                const totalOrden = parseInt(data.totalOrder) || 0; // Asegúrate que este campo existe en tu BD, si no usa data.quantity o similar
+                const faltante = Math.max(0, totalOrden - totalConfirmado);
+                
+                // Calcular Fibras (lógica reutilizada)
+                const catalogo = data.catalogNumber || '';
+                const char = catalogo.substring(3, 4).toUpperCase();
+                const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+                const terminaciones = totalOrden * fibras;
+
+                const status = (faltante === 0 && totalOrden > 0) ? 'Completa' : 'En Proceso';
+
+                ordenesDelDia.push({
+                    id: docSnap.id,
+                    catalogo: catalogo,
+                    material: data.materialNumber || 'N/A', // Ajusta según tu BD
+                    salesOrder: data.salesOrder || 'N/A',   // Ajusta según tu BD
+                    fibras: fibras,
+                    terminaciones: terminaciones,
+                    totalOrden: totalOrden,
+                    totalConfirmado: totalConfirmado,
+                    faltante: faltante,
+                    status: status,
+                    rawData: data // Guardamos la data cruda para el modal
+                });
+
+                // Actualizar KPIs
+                stats.total++;
+                if (faltante === 0 && totalOrden > 0) stats.cerradas++;
+                else stats.faltantes++;
+            }
+        });
+
+        // Renderizar KPIs
+        doc('kpiOrdersTotal').textContent = stats.total;
+        doc('kpiOrdersClosed').textContent = stats.cerradas;
+        doc('kpiOrdersMissing').textContent = stats.faltantes;
+
+        // Renderizar Tabla
+        renderOrdenesDiaTable(ordenesDelDia);
+
+    } catch (e) {
+        console.error("Error consultando órdenes del día:", e);
+        showModal('Error', `<p>Ocurrió un error al consultar: ${e.message}</p>`);
+        doc('dataTableOrdenesDia').innerHTML = '<thead><tr><th>Error al cargar</th></tr></thead><tbody></tbody>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Consultar Órdenes';
+    }
+}
+
+function renderOrdenesDiaTable(data) {
+    const table = doc('dataTableOrdenesDia');
+    if (data.length === 0) {
+        table.innerHTML = '<thead><tr><th>No hubo actividad de empaque en esta fecha.</th></tr></thead><tbody></tbody>';
+        return;
+    }
+
+    const headers = ['Orden', 'Catálogo', 'Material', 'Sales Order', 'Fibras', 'Term.', 'Total Orden', 'Total Conf.', 'Faltante', 'Status'];
+    let html = '<thead><tr>';
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += '</tr></thead><tbody>';
+
+    // Ordenar: Prioridad a las que tienen faltante
+    data.sort((a, b) => b.faltante - a.faltante);
+
+    data.forEach((row, index) => {
+        const trClass = row.faltante === 0 ? 'row-today' : ''; // Verde clarito si está completa (reusando clase)
+        const btnColor = row.faltante === 0 ? 'var(--success-color)' : '#f59e0b';
+        const btnText = row.faltante === 0 ? 'Ver Info' : 'Ver Estatus';
+
+        html += `<tr class="${trClass}">
+            <td style="font-weight:bold;">${row.id}</td>
+            <td>${row.catalogo}</td>
+            <td>${row.material}</td>
+            <td>${row.salesOrder}</td>
+            <td style="text-align:center;">${row.fibras}</td>
+            <td style="text-align:center;">${row.terminaciones}</td>
+            <td style="text-align:center;">${row.totalOrden}</td>
+            <td style="text-align:center; font-weight:bold;">${row.totalConfirmado}</td>
+            <td style="text-align:center; color: ${row.faltante > 0 ? 'var(--danger-color)' : 'inherit'};">${row.faltante}</td>
+            <td style="text-align:center;">
+                <button class="btn-status" data-index="${index}" style="border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}">
+                    ${btnText}
+                </button>
+            </td>
+        </tr>`;
+    });
+
+    html += '</tbody>';
+    table.innerHTML = html;
+
+    // Listeners para los botones de estatus
+    table.querySelectorAll('.btn-status').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const idx = e.target.dataset.index;
+            mostrarModalEstatusOrden(data[idx]);
+        });
+    });
+}
+
+function mostrarModalEstatusOrden(ordenData) {
+    const rawData = ordenData.rawData;
+    const empaqueData = rawData.empaqueData || [];
+    
+    // 1. Agrupar por línea y encontrar último empaque
+    const linesStats = {};
+    let lastPacker = { name: 'N/A', time: new Date(0), line: 'N/A' };
+
+    if (Array.isArray(empaqueData)) {
+        empaqueData.forEach(box => {
+            if (Array.isArray(box.serials)) {
+                box.serials.forEach(item => {
+                    const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
+                    const packerId = item['Employee ID'];
+                    
+                    // Intentar deducir línea (usando la lógica que ya tienes de tu config de empacadores o data directa)
+                    // Si no hay dato de línea en el item, la inferimos del empacador o la caja si existe
+                    // Para este ejemplo, usaremos "General" si no hay dato específico, o simularemos lógica
+                    // *Nota:* En tu código 'viewProduccionHora' usas un mapa de empacadores. Aquí simplificaremos:
+                    // Si tienes el campo 'Line' o 'Station' úsalo. Si no, agrupamos todo en 'Producción'.
+                    const lineName = item['Estación'] || item['Line'] || 'Producción'; 
+
+                    if (!linesStats[lineName]) linesStats[lineName] = { count: 0, lastActivity: new Date(0) };
+                    
+                    linesStats[lineName].count++;
+                    if (packedDate && packedDate > linesStats[lineName].lastActivity) {
+                        linesStats[lineName].lastActivity = packedDate;
+                    }
+
+                    // Actualizar último empacador global de la orden
+                    if (packedDate && packedDate > lastPacker.time) {
+                        lastPacker = { name: packerId, time: packedDate, line: lineName };
+                    }
+                });
+            }
+        });
+    }
+
+    // 2. Construir HTML del Modal
+    const now = new Date();
+    let cardsHtml = '<div class="line-status-grid">';
+    
+    if (Object.keys(linesStats).length === 0) {
+        cardsHtml += '<p style="grid-column: 1/-1; text-align:center;">No hay piezas empacadas aún.</p>';
+    } else {
+        for (const [line, stat] of Object.entries(linesStats)) {
+            // Lógica Semáforo: Verde si movimiento en la última hora, Amarillo si no.
+            const diffMinutes = (now - stat.lastActivity) / (1000 * 60);
+            let indicatorClass = 'indicator-idle'; // Amarillo por defecto
+            if (diffMinutes < 60) indicatorClass = 'indicator-active'; // Verde (< 1 hora)
+            
+            cardsHtml += `
+                <div class="line-status-card">
+                    <div class="line-indicator ${indicatorClass}"></div>
+                    <span class="line-name">${line}</span>
+                    <span class="line-qty">${stat.count} pzas</span>
+                    <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">
+                        Hace ${diffMinutes < 1 ? 'un momento' : Math.floor(diffMinutes) + ' min'}
+                    </div>
+                </div>
+            `;
+        }
+    }
+    cardsHtml += '</div>';
+
+    const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? formatShortDateTime(lastPacker.time) : 'Sin datos';
+
+    const modalBody = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+            <div>
+                <h4 style="margin:0; color:var(--text-primary);">Orden: ${ordenData.id}</h4>
+                <small style="color:var(--text-secondary);">${ordenData.catalogo}</small>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-weight:bold; font-size:1.2rem; ${ordenData.faltante > 0 ? 'color:var(--danger-color);' : 'color:var(--success-color);'}">
+                    ${ordenData.totalConfirmado} / ${ordenData.totalOrden}
+                </span>
+                <br><small>Progreso</small>
+            </div>
+        </div>
+
+        <h5 style="margin:0 0 10px 0; color:var(--text-secondary);">Estatus por Línea</h5>
+        ${cardsHtml}
+
+        <div class="last-packer-info">
+            <h5 style="margin:0 0 5px 0; color:var(--primary-color);">Último Empaque Detectado</h5>
+            <div style="display:grid; grid-template-columns: 1fr 1fr;">
+                <div><strong>Usuario:</strong> ${lastPacker.name}</div>
+                <div style="text-align:right;"><strong>Hora:</strong> ${lastPackerTimeStr}</div>
+                <div style="grid-column: 1 / -1; margin-top:4px; font-size:0.85em; color:var(--text-secondary);">
+                    En línea: ${lastPacker.line}
+                </div>
+            </div>
+        </div>
+    `;
+
+    showModal('Detalle de Estatus de Orden', modalBody);
+}
+
+// =======================================================================================
+// --- FIN: LÓGICA REPORTE ÓRDENES DEL DÍA ---
+// =======================================================================================
         initializeApp();
     });
