@@ -33,6 +33,7 @@
                 <main class="card animated-startup" style="animation-delay: 0.1s;">
                     <div class="menu-container">
                         <button id="reporteProduccionBtn" class="btn">Reporte de Producción</button>
+                        <button id="reporteOrdenesDiaBtn" class="btn">Reporte de Órdenes del Día</button>
                         <button id="reporteProduccion20Btn" class="btn">Reporte de Producción 20%</button>
                         <button id="reporteProduccionDailyBtn" class="btn">Reporte de Producción Daily</button>
                         <button id="reporteProduccionCalidadBtn" class="btn">Reporte de Producción Calidad</button>
@@ -142,6 +143,80 @@
                 </main>
             </div>
         </div>
+        
+        <div id="viewOrdenesDia" style="display: none;">
+    <div class="main-container">
+        <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
+            <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+                <div class="sidebar-header">
+                    <h3>Panel de Control</h3>
+                    <div>
+                        <button class="backToMenuBtn icon-btn" title="Regresar al Menú">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                        </button>
+                        <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
+                            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                            <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div style="flex-grow: 1; padding: 0 10px;">
+                    <div class="control-group">
+                        <label for="ordenesDia_fecha">Seleccionar Fecha</label>
+                        <input type="date" id="ordenesDia_fecha">
+                    </div>
+                    <button id="consultarOrdenesDiaBtn" class="btn" style="width: 100%; margin-top: 10px;">Consultar Órdenes</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content animated-startup" style="animation-delay: 0.2s;">
+            <header class="app-header">
+                <h1 class="app-branding">CORNING</h1>
+                <h2 class="app-title">Reporte de Órdenes del Día</h2>
+            </header>
+
+            <div class="dashboard-kpi-container" style="justify-content: center; margin-bottom: 20px;">
+                <div class="kpi-card">
+                    <div class="kpi-header"><h4>Total Órdenes</h4></div>
+                    <h1 id="kpiOrdersTotal">0</h1>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-header"><h4>Órdenes Cerradas</h4></div>
+                    <h1 id="kpiOrdersClosed" style="color: var(--success-color);">0</h1>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-header"><h4>Órdenes Faltantes</h4></div>
+                    <h1 id="kpiOrdersMissing" style="color: var(--danger-color);">0</h1>
+                </div>
+            </div>
+
+            <div class="card table-container">
+                <div class="table-wrapper">
+                    <table id="dataTableOrdenesDia">
+                        <thead>
+                            <tr>
+                                <th>Orden</th>
+                                <th>Catálogo</th>
+                                <th>Material</th>
+                                <th>SO / Item</th>
+                                <th>Fibras</th>
+                                <th>Term.</th> <th>Total Orden</th>
+                                <th>Total Conf.</th>
+                                <th>Faltante</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="10" style="text-align:center;">Seleccione una fecha para consultar.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+        
         <div id="viewProduccion20">
             <div class="main-container">
                 <aside class="sidebar animated-startup" style="animation-delay: 0.1s;">
