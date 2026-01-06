@@ -5697,17 +5697,17 @@ async function saveAreaConfig() {
         views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
     });
 }
-
 // =======================================================================================
-// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (VERSIÓN FINAL: SAP DRIVEN) ---
+// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (FINAL - CORREGIDO) ---
 // =======================================================================================
 
 // 1. LISTENER BOTONES
 doc('reporteOrdenesDiaBtn').addEventListener('click', () => {
     switchView('ordenesDia');
     loadAreasForOrdenesDia();
+    
+    // Poner fecha de hoy por defecto
     if(!doc('ordenesDia_fecha').value) {
-        // Ajuste zona horaria
         const now = new Date();
         const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
         doc('ordenesDia_fecha').value = localDate;
@@ -5716,72 +5716,46 @@ doc('reporteOrdenesDiaBtn').addEventListener('click', () => {
 
 doc('consultarOrdenesDiaBtn').addEventListener('click', consultarOrdenesDelDia);
 
-// --- FUNCIÓN FALTANTE: CARGAR ÁREAS ---
-// Esta es la función que el botón estaba buscando y no encontraba.
+// 2. CARGAR ÁREAS (Función corregida para evitar error is not defined)
 async function loadAreasForOrdenesDia() {
-    // Usamos document.getElementById directo por si acaso
-    const areaSelect = document.getElementById('ordenesDia_area');
+    const areaSelect = doc('ordenesDia_area');
+    if (!areaSelect) return;
     
-    // Validación de seguridad: si no existe el select en el HTML, salimos
-    if (!areaSelect) {
-        console.error("Error crítico: No se encontró el elemento select con id 'ordenesDia_area'. Revisa tu HTML.");
-        return;
-    }
+    // Si ya tiene opciones (más allá del placeholder), no recargar
+    if(areaSelect.options.length > 1) return;
 
-    // Si ya tiene más de 1 opción (es decir, ya cargó las áreas), no hacemos nada para no recargar
-    if (areaSelect.options.length > 1) return;
-
-    // Indicador visual de carga
     areaSelect.innerHTML = '<option value="" disabled selected>Cargando...</option>';
-
     try {
-        // Consulta a la colección 'areas' en Firebase
         const snapshot = await db.collection('areas').get();
-        
-        // Limpiamos y ponemos la opción por defecto
         areaSelect.innerHTML = '<option value="" disabled selected>Seleccione Área</option>';
-
         const areas = [];
-        snapshot.forEach(docSnap => {
-            // Ignoramos el documento de configuración si existe
-            if (docSnap.id !== 'CONFIG') {
-                areas.push(docSnap.id);
-            }
-        });
-
-        // Ordenamos alfabéticamente
+        snapshot.forEach(docSnap => { if (docSnap.id !== 'CONFIG') areas.push(docSnap.id); });
         areas.sort();
-
-        // Llenamos el select
         areas.forEach(area => {
             const opt = document.createElement('option');
             opt.value = area;
             opt.textContent = area;
             areaSelect.appendChild(opt);
         });
-
-        // Opcional: Seleccionar MULTIPORT por defecto si existe, para agilizar
-        if (areas.includes('MULTIPORT')) {
-            areaSelect.value = 'MULTIPORT';
-        }
-
+        // Selección automática de MULTIPORT si existe
+        if (areas.includes('MULTIPORT')) areaSelect.value = 'MULTIPORT';
     } catch (e) { 
-        console.error("Error cargando áreas:", e); 
-        areaSelect.innerHTML = '<option value="" disabled>Error al cargar áreas</option>';
+        console.error("Error cargando áreas", e);
+        areaSelect.innerHTML = '<option value="" disabled>Error al cargar</option>';
     }
 }
-// 2. UTILIDAD: Convertir Fecha Excel (45947) a String YYYY-MM-DD
+
+// 3. UTILIDAD DE FECHA EXCEL (A prueba de balas)
 function excelSerialToISODate(serial) {
     if (!serial || isNaN(serial)) return null;
-    // Excel base date bug correction
-    const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // 25569 es la diferencia de días entre 1900 (Excel) y 1970 (JS/Unix)
+    // Multiplicamos por 86400 (segundos/día) * 1000 (ms/seg)
+    const date = new Date((serial - 25569) * 86400 * 1000);
+    // Usamos toISOString y cortamos para evitar lios de zona horaria local
+    return date.toISOString().split('T')[0];
 }
 
-// 3. CONSULTA PRINCIPAL
+// 4. CONSULTA PRINCIPAL (FLUJO: SAP -> FILTRO -> FIREBASE DATA)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value; // Formato YYYY-MM-DD
     const areaInput = doc('ordenesDia_area').value;
@@ -5795,12 +5769,17 @@ async function consultarOrdenesDelDia() {
     btn.disabled = true;
     btn.textContent = 'Consultando SAP...';
 
-    // Limpieza
-    doc('dataTableOrdenesDia').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Cargando datos maestros de SAP...</td></tr>';
+    // Limpieza de UI
+    const tbody = doc('dataTableOrdenesDia').querySelector('tbody');
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Cargando datos maestros de SAP...</td></tr>';
     ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing'].forEach(id => doc(id).textContent = '-');
 
     try {
-        // --- PASO 1: Obtener la "Data Maestra" de SAP ---
+        console.log(`--- INICIO CONSULTA ---`);
+        console.log(`Fecha Buscada: ${fechaInput}`);
+        console.log(`Área: ${areaInput}`);
+
+        // --- PASO A: OBTENER DATA MAESTRA DE SAP ---
         // Ruta: areas/{AREA}/sap_data/current_data
         const sapRef = db.collection('areas').doc(areaInput).collection('sap_data').doc('current_data');
         const sapSnap = await sapRef.get();
@@ -5810,20 +5789,25 @@ async function consultarOrdenesDelDia() {
         }
 
         const sapData = sapSnap.data();
-        const allSapOrders = sapData.orders || []; // Array completo de SAP
-
+        const allSapOrders = sapData.orders || []; 
         console.log(`SAP: Total registros descargados: ${allSapOrders.length}`);
 
-        // --- PASO 2: Filtrar SAP por Fecha (Campo 'Finish') ---
-        // Buscamos solo las órdenes cuya fecha 'Finish' coincida con el input
+        // --- PASO B: FILTRAR POR FECHA (FINISH) ---
         const ordenesDelDiaSAP = allSapOrders.filter(order => {
             const finishDateStr = excelSerialToISODate(order.Finish);
+            // Debug para ver qué fechas trae SAP (Solo mostramos las primeras 5 para no saturar)
+            // console.log(`Checando orden ${order.Orden}: Finish(${order.Finish}) -> ${finishDateStr}`);
             return finishDateStr === fechaInput;
         });
 
-        console.log(`SAP: Registros para la fecha ${fechaInput}: ${ordenesDelDiaSAP.length}`);
+        console.log(`SAP: Registros encontrados para la fecha ${fechaInput}: ${ordenesDelDiaSAP.length}`);
 
         if (ordenesDelDiaSAP.length === 0) {
+            // Intento de ayuda: Mostrar qué fechas SI existen
+            if(allSapOrders.length > 0) {
+                const someDate = excelSerialToISODate(allSapOrders[0].Finish);
+                console.warn(`AVISO: No hubo coincidencias. Ejemplo de fecha en SAP: ${someDate}`);
+            }
             renderOrdenesDiaTable([]);
             doc('kpiOrdersTotal').textContent = '0';
             btn.disabled = false;
@@ -5831,26 +5815,24 @@ async function consultarOrdenesDelDia() {
             return;
         }
 
-        // --- PASO 3: Traer datos de Firebase (SOLO para el Modal) ---
-        // Traemos todas las órdenes de Firebase para mapear el estatus de rastreo
-        // (Esto es rápido porque solo es lectura, el filtrado pesado ya lo hizo SAP)
+        // --- PASO C: OBTENER DATA "VIVA" DE FIREBASE (Para el modal) ---
+        // Traemos todas las órdenes activas de Firebase para mapear estatus de rastreo
         const fbOrdersRef = db.collection('areas').doc(areaInput).collection('orders');
         const fbSnapshot = await fbOrdersRef.get();
         
-        // Creamos un mapa de Firebase para acceso rápido: ID -> Data
+        // Mapa para acceso rápido: ID -> Data
         const firebaseOrdersMap = new Map();
         fbSnapshot.forEach(doc => {
-            // Normalizamos ID (quitamos ceros izq y espacios)
             const cleanId = String(doc.id).trim().replace(/^0+/, ''); 
             firebaseOrdersMap.set(cleanId, doc.data());
         });
 
-        // --- PASO 4: Construir el Array Final para la Tabla ---
+        // --- PASO D: CONSTRUIR ARRAY FINAL ---
         let reportData = [];
         let stats = { total: 0, cerradas: 0, faltantes: 0 };
 
         ordenesDelDiaSAP.forEach(sapItem => {
-            // Datos directos de SAP (Lo que ves en tu foto 8317)
+            // Datos directos de SAP
             const idOrden = String(sapItem.Orden || '').trim().replace(/^0+/, '');
             const catalogo = sapItem.Catalogo || 'N/A';
             const material = sapItem.Material || 'N/A';
@@ -5861,15 +5843,16 @@ async function consultarOrdenesDelDia() {
             const totalConfirmado = Number(sapItem['Total confirmado']) || 0;
             const faltante = Number(sapItem.Faltante) || 0;
 
-            // Cálculos
+            // Cálculo de Fibras
             const char = catalogo.substring(3, 4).toUpperCase();
             const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-            const termFaltante = faltante * fibras; // Tu cálculo solicitado
+            
+            // Cálculo de Term (Resultado de Faltante * Fibras)
+            const termFaltante = faltante * fibras;
 
-            // Estatus visual
             const status = (faltante === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
 
-            // Buscar data de Firebase (Rastreo/Empaque) para cuando abran el modal
+            // Buscar data "viva" en Firebase (Rastreo/Empaque) para el modal
             const liveData = firebaseOrdersMap.get(idOrden) || null;
 
             reportData.push({
@@ -5883,9 +5866,9 @@ async function consultarOrdenesDelDia() {
                 totalConfirmado: totalConfirmado,
                 faltante: faltante,
                 status: status,
-                // Guardamos ambas datas
+                // Guardamos todo para el modal
                 sapData: sapItem,
-                rawData: liveData // Puede ser null si no se ha escaneado nada en la app aún
+                rawData: liveData 
             });
 
             // KPIs
@@ -5894,7 +5877,7 @@ async function consultarOrdenesDelDia() {
             else stats.faltantes++;
         });
 
-        // Renderizar
+        // Actualizar UI
         doc('kpiOrdersTotal').textContent = stats.total;
         doc('kpiOrdersClosed').textContent = stats.cerradas;
         doc('kpiOrdersMissing').textContent = stats.faltantes;
@@ -5902,16 +5885,16 @@ async function consultarOrdenesDelDia() {
         renderOrdenesDiaTable(reportData);
 
     } catch (e) {
-        console.error("Error en consulta:", e);
+        console.error("Error crítico consultando:", e);
         showModal('Error', `<p>${e.message}</p>`);
-        doc('dataTableOrdenesDia').querySelector('tbody').innerHTML = '<tr><td colspan="10">Error consultando datos.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10">Error consultando datos.</td></tr>';
     } finally {
         btn.disabled = false;
         btn.textContent = 'Consultar Órdenes';
     }
 }
 
-// 4. RENDERIZADO TABLA (Sin cambios mayores, solo mapeo)
+// 5. RENDERIZADO TABLA
 function renderOrdenesDiaTable(data) {
     const table = doc('dataTableOrdenesDia').querySelector('tbody');
     if (!data || data.length === 0) {
@@ -5919,7 +5902,7 @@ function renderOrdenesDiaTable(data) {
         return;
     }
 
-    // Ordenar por Faltante
+    // Ordenar por Faltante (Las que faltan primero)
     data.sort((a, b) => b.faltante - a.faltante);
 
     let html = '';
@@ -5927,7 +5910,7 @@ function renderOrdenesDiaTable(data) {
         const trClass = row.faltante === 0 ? 'row-today' : ''; 
         const btnColor = row.faltante === 0 ? 'var(--success-color)' : '#f59e0b';
         
-        // Si no hay rawData (no existe en Firebase), el botón se ve gris/deshabilitado visualmente
+        // Si no hay rawData (no existe en Firebase "orders"), el botón se ve gris
         const hasLiveData = !!row.rawData;
         const btnOpacity = hasLiveData ? '1' : '0.5';
         const btnTitle = hasLiveData ? 'Ver Estatus' : 'Sin datos en App';
@@ -5960,13 +5943,13 @@ function renderOrdenesDiaTable(data) {
             if (item.rawData) {
                 mostrarModalEstatusOrden(item);
             } else {
-                showModal('Aviso', '<p>Esta orden existe en SAP pero aún no tiene registros de escaneo (Rastreo/Empaque) en la aplicación.</p>');
+                showModal('Aviso', '<p>Esta orden existe en SAP pero aún no tiene registros de escaneo en Firebase (rastreoData/empaqueData).</p>');
             }
         });
     });
 }
 
-// 5. MODAL (Se mantiene igual, consume rawData)
+// 6. MODAL DE ESTATUS
 async function mostrarModalEstatusOrden(ordenData) {
     const rawData = ordenData.rawData; // Data de Firebase
     const empaqueData = rawData.empaqueData || [];
@@ -5993,7 +5976,7 @@ async function mostrarModalEstatusOrden(ordenData) {
         });
     }
 
-    // --- B. SEMÁFORO (Busca en rastreoData) ---
+    // --- B. SEMÁFORO Y ACTIVIDAD (Busca en rastreoData) ---
     const lineStats = {}; 
     const now = new Date();
 
@@ -6024,7 +6007,7 @@ async function mostrarModalEstatusOrden(ordenData) {
     const lines = Object.keys(lineStats);
 
     if (lines.length === 0) {
-        cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">Sin datos de rastreo.</p>';
+        cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">Sin datos de rastreo (RastreoData vacío).</p>';
     } else {
         lines.forEach(line => {
             const stat = lineStats[line];
@@ -6035,7 +6018,7 @@ async function mostrarModalEstatusOrden(ordenData) {
 
             if (stat.lastMove.getTime() > 0) {
                 if (diffMinutes < 60) {
-                    indicatorClass = 'indicator-active'; 
+                    indicatorClass = 'indicator-active'; // Verde (<1h)
                     timeText = `Hace ${Math.floor(diffMinutes)} min`;
                 } else {
                     const hrs = Math.floor(diffMinutes / 60);
@@ -6059,6 +6042,8 @@ async function mostrarModalEstatusOrden(ordenData) {
 
     const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? formatShortDateTime(lastPacker.time) : 'N/A';
 
+    // --- AQUÍ EL CAMBIO PARA EL MODAL ---
+    // Usamos los datos cruzados que ya tenemos en ordenData
     const modalBody = `
         <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
             <div>
@@ -6066,10 +6051,10 @@ async function mostrarModalEstatusOrden(ordenData) {
                 <small style="color:var(--text-secondary);">${ordenData.catalogo}</small>
             </div>
             <div style="text-align:right;">
+                <span style="font-size:0.9em; color:var(--text-secondary);">Progreso SAP</span><br>
                 <span style="font-weight:bold; font-size:1.2rem; ${ordenData.faltante > 0 ? 'color:var(--danger-color);' : 'color:var(--success-color);'}">
                     ${ordenData.totalConfirmado} / ${ordenData.totalOrden}
                 </span>
-                <br><small>Progreso SAP</small>
             </div>
         </div>
 
@@ -6090,6 +6075,10 @@ async function mostrarModalEstatusOrden(ordenData) {
 
     showModal('Detalle de Estatus de Orden', modalBody);
 }
+
+// =======================================================================================
+// --- FIN: LÓGICA REPORTE ÓRDENES DEL DÍA ---
+// =======================================================================================
 
 initializeApp();
     });
