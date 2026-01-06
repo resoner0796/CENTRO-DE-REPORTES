@@ -5698,21 +5698,50 @@ async function saveAreaConfig() {
     });
 }
 // =======================================================================================
-// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA ---
+// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (FINAL) ---
 // =======================================================================================
 
+// Listener para el botón de consulta
 doc('consultarOrdenesDiaBtn').addEventListener('click', consultarOrdenesDelDia);
+
+// Listener para cargar áreas al entrar a la vista (Agrega esto en tu switchView o inicialización)
+// Ejemplo: if (viewKey === 'ordenesDia') loadAreasForOrdenesDia();
+
+async function loadAreasForOrdenesDia() {
+    const areaSelect = doc('ordenesDia_area');
+    if(areaSelect.options.length > 1) return; // Evitar recargar si ya tiene datos
+
+    areaSelect.innerHTML = '<option value="" disabled selected>Seleccione Área</option>';
+    try {
+        const snapshot = await db.collection('areas').get();
+        const areas = [];
+        snapshot.forEach(doc => { if (doc.id !== 'CONFIG') areas.push(doc.id); });
+        areas.sort();
+        areas.forEach(area => {
+            const opt = document.createElement('option');
+            opt.value = area;
+            opt.textContent = area;
+            areaSelect.appendChild(opt);
+        });
+    } catch (e) { console.error("Error cargando áreas", e); }
+}
 
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
+    const areaInput = doc('ordenesDia_area').value; // Nuevo campo de Área
+
     if (!fechaInput) {
-        showModal('Fecha Requerida', '<p>Por favor seleccione una fecha.</p>');
+        showModal('Datos Requeridos', '<p>Por favor seleccione una fecha.</p>');
+        return;
+    }
+    if (!areaInput) {
+        showModal('Datos Requeridos', '<p>Por favor seleccione un área del panel lateral.</p>');
         return;
     }
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Buscando...';
+    btn.textContent = 'Analizando SAP y Actividad...';
 
     // Limpiar tabla y KPIs
     doc('dataTableOrdenesDia').innerHTML = '<thead><tr><th>Cargando datos...</th></tr></thead><tbody></tbody>';
@@ -5721,13 +5750,27 @@ async function consultarOrdenesDelDia() {
     doc('kpiOrdersMissing').textContent = '-';
 
     try {
-        // Estrategia: Consultamos todas las órdenes.
-        // Nota: Si la BD es enorme, idealmente deberíamos filtrar por fecha en la query.
-        // Como la estructura es anidada (areas->orders), usamos collectionGroup.
-        // Para optimizar, asumimos que traemos las órdenes recientes o todas y filtramos en memoria
-        // buscando actividad en la fecha seleccionada dentro de 'empaqueData'.
+        // --- PASO 1: Obtener Data Maestra de SAP (current_data) ---
+        // Esto nos da la info oficial: Faltantes, Totales, Special Stock
+        const sapRef = db.collection('areas').doc(areaInput).collection('sap_data').doc('current_data');
+        const sapSnap = await sapRef.get();
         
-        const snapshot = await db.collectionGroup('orders').get();
+        let sapOrdersMap = new Map();
+        if (sapSnap.exists) {
+            const sapData = sapSnap.data();
+            const ordersArray = sapData.orders || [];
+            
+            // Indexamos por Orden para búsqueda rápida
+            ordersArray.forEach(order => {
+                const cleanOrden = String(order.Orden || '').trim(); // Aseguramos string limpio
+                sapOrdersMap.set(cleanOrden, order);
+            });
+        }
+
+        // --- PASO 2: Obtener Órdenes Activas (Firebase) ---
+        // Consultamos la colección de órdenes reales para ver qué se movió hoy
+        const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
+        const snapshot = await ordersRef.get();
         
         const selectedDateStart = new Date(`${fechaInput}T00:00:00`);
         const selectedDateEnd = new Date(`${fechaInput}T23:59:59`);
@@ -5736,52 +5779,64 @@ async function consultarOrdenesDelDia() {
         let stats = { total: 0, cerradas: 0, faltantes: 0 };
 
         snapshot.forEach(docSnap => {
-            const data = docSnap.data();
+            const liveData = docSnap.data();
+            const orderId = docSnap.id;
             let tuvoActividadHoy = false;
-            let totalConfirmado = 0;
-            const empaqueData = data.empaqueData || [];
-
-            // 1. Calcular total confirmado y checar actividad en la fecha
+            
+            // Checar empaqueData para ver si hubo movimiento en la fecha seleccionada
+            const empaqueData = liveData.empaqueData || [];
             if (Array.isArray(empaqueData)) {
-                empaqueData.forEach(box => {
+                for (const box of empaqueData) {
                     if (Array.isArray(box.serials)) {
-                        totalConfirmado += box.serials.length;
-                        // Checar fecha de cada serial
                         for (const item of box.serials) {
                             const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                             if (packedDate && packedDate >= selectedDateStart && packedDate <= selectedDateEnd) {
                                 tuvoActividadHoy = true;
+                                break; // Ya encontramos actividad, no es necesario seguir buscando en esta orden
                             }
                         }
                     }
-                });
+                    if(tuvoActividadHoy) break;
+                }
             }
 
-            // SI HUBO ACTIVIDAD HOY, AGREGAMOS LA ORDEN AL REPORTE
+            // --- PASO 3: CRUCE DE DATOS (Solo si hubo actividad) ---
             if (tuvoActividadHoy) {
-                const totalOrden = parseInt(data.totalOrder) || 0; // Asegúrate que este campo existe en tu BD, si no usa data.quantity o similar
-                const faltante = Math.max(0, totalOrden - totalConfirmado);
+                // Buscamos los datos oficiales en el mapa de SAP
+                const sapInfo = sapOrdersMap.get(orderId) || {};
+
+                // Definir valores (Prioridad: SAP > LiveData > Default)
+                const catalogo = sapInfo.Catalogo || liveData.catalogNumber || 'N/A';
+                const material = sapInfo.Material || 'N/A';
+                const specialStock = sapInfo['Special Stock'] || 'N/A'; // Reemplazo de Sales Order
                 
-                // Calcular Fibras (lógica reutilizada)
-                const catalogo = data.catalogNumber || '';
+                // Datos numéricos de SAP
+                const totalOrden = Number(sapInfo['Total orden']) || 0;
+                const totalConfirmado = Number(sapInfo['Total confirmado']) || 0;
+                const faltante = Number(sapInfo['Faltante']) || 0;
+
+                // Calcular Fibras
                 const char = catalogo.substring(3, 4).toUpperCase();
                 const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-                const terminaciones = totalOrden * fibras;
 
-                const status = (faltante === 0 && totalOrden > 0) ? 'Completa' : 'En Proceso';
+                // Calcular Term (Faltante * Fibras) como pediste
+                const termFaltante = faltante * fibras;
+
+                const status = (faltante === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
 
                 ordenesDelDia.push({
-                    id: docSnap.id,
+                    id: orderId,
                     catalogo: catalogo,
-                    material: data.materialNumber || 'N/A', // Ajusta según tu BD
-                    salesOrder: data.salesOrder || 'N/A',   // Ajusta según tu BD
+                    material: material,
+                    specialStock: specialStock,
                     fibras: fibras,
-                    terminaciones: terminaciones,
+                    termFaltante: termFaltante, // Dato calculado nuevo
                     totalOrden: totalOrden,
                     totalConfirmado: totalConfirmado,
                     faltante: faltante,
                     status: status,
-                    rawData: data // Guardamos la data cruda para el modal
+                    // Pasamos toda la data viva para el modal (incluye rastreoData y empaqueData)
+                    rawData: liveData 
                 });
 
                 // Actualizar KPIs
@@ -5812,11 +5867,12 @@ async function consultarOrdenesDelDia() {
 function renderOrdenesDiaTable(data) {
     const table = doc('dataTableOrdenesDia');
     if (data.length === 0) {
-        table.innerHTML = '<thead><tr><th>No hubo actividad de empaque en esta fecha.</th></tr></thead><tbody></tbody>';
+        table.innerHTML = '<thead><tr><th>No hubo actividad de empaque en esta fecha y área.</th></tr></thead><tbody></tbody>';
         return;
     }
 
-    const headers = ['Orden', 'Catálogo', 'Material', 'Sales Order', 'Fibras', 'Term.', 'Total Orden', 'Total Conf.', 'Faltante', 'Status'];
+    // Encabezados actualizados
+    const headers = ['Orden', 'Catálogo', 'Material', 'Special Stock', 'Fibras', 'Term. (Falt)', 'Total Orden', 'Total Conf.', 'Faltante', 'Status'];
     let html = '<thead><tr>';
     headers.forEach(h => html += `<th>${h}</th>`);
     html += '</tr></thead><tbody>';
@@ -5825,23 +5881,22 @@ function renderOrdenesDiaTable(data) {
     data.sort((a, b) => b.faltante - a.faltante);
 
     data.forEach((row, index) => {
-        const trClass = row.faltante === 0 ? 'row-today' : ''; // Verde clarito si está completa (reusando clase)
+        const trClass = row.faltante === 0 ? 'row-today' : ''; 
         const btnColor = row.faltante === 0 ? 'var(--success-color)' : '#f59e0b';
-        const btnText = row.faltante === 0 ? 'Ver Info' : 'Ver Estatus';
-
+        
         html += `<tr class="${trClass}">
             <td style="font-weight:bold;">${row.id}</td>
             <td>${row.catalogo}</td>
             <td>${row.material}</td>
-            <td>${row.salesOrder}</td>
+            <td>${row.specialStock}</td>
             <td style="text-align:center;">${row.fibras}</td>
-            <td style="text-align:center;">${row.terminaciones}</td>
+            <td style="text-align:center; font-weight:bold;">${row.termFaltante.toLocaleString()}</td>
             <td style="text-align:center;">${row.totalOrden}</td>
-            <td style="text-align:center; font-weight:bold;">${row.totalConfirmado}</td>
-            <td style="text-align:center; color: ${row.faltante > 0 ? 'var(--danger-color)' : 'inherit'};">${row.faltante}</td>
+            <td style="text-align:center;">${row.totalConfirmado}</td>
+            <td style="text-align:center; color: ${row.faltante > 0 ? 'var(--danger-color)' : 'inherit'}; font-weight:bold;">${row.faltante}</td>
             <td style="text-align:center;">
                 <button class="btn-status" data-index="${index}" style="border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}">
-                    ${btnText}
+                    Ver Estatus
                 </button>
             </td>
         </tr>`;
@@ -5860,71 +5915,102 @@ function renderOrdenesDiaTable(data) {
 }
 
 function mostrarModalEstatusOrden(ordenData) {
-    const rawData = ordenData.rawData;
+    const rawData = ordenData.rawData; // Data viva de Firebase
     const empaqueData = rawData.empaqueData || [];
-    
-    // 1. Agrupar por línea y encontrar último empaque
-    const linesStats = {};
-    let lastPacker = { name: 'N/A', time: new Date(0), line: 'N/A' };
+    const rastreoData = rawData.rastreoData || []; // Aquí está la info de movimiento
 
+    // --- 1. Lógica Último Empaque (Desde empaqueData) ---
+    let lastPacker = { name: 'Sin datos', time: new Date(0) };
+    
     if (Array.isArray(empaqueData)) {
         empaqueData.forEach(box => {
             if (Array.isArray(box.serials)) {
                 box.serials.forEach(item => {
                     const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
                     const packerId = item['Employee ID'];
-                    
-                    // Intentar deducir línea (usando la lógica que ya tienes de tu config de empacadores o data directa)
-                    // Si no hay dato de línea en el item, la inferimos del empacador o la caja si existe
-                    // Para este ejemplo, usaremos "General" si no hay dato específico, o simularemos lógica
-                    // *Nota:* En tu código 'viewProduccionHora' usas un mapa de empacadores. Aquí simplificaremos:
-                    // Si tienes el campo 'Line' o 'Station' úsalo. Si no, agrupamos todo en 'Producción'.
-                    const lineName = item['Estación'] || item['Line'] || 'Producción'; 
-
-                    if (!linesStats[lineName]) linesStats[lineName] = { count: 0, lastActivity: new Date(0) };
-                    
-                    linesStats[lineName].count++;
-                    if (packedDate && packedDate > linesStats[lineName].lastActivity) {
-                        linesStats[lineName].lastActivity = packedDate;
-                    }
-
-                    // Actualizar último empacador global de la orden
                     if (packedDate && packedDate > lastPacker.time) {
-                        lastPacker = { name: packerId, time: packedDate, line: lineName };
+                        lastPacker.time = packedDate;
+                        lastPacker.name = packerId || 'Desconocido';
                     }
                 });
             }
         });
     }
 
-    // 2. Construir HTML del Modal
+    // --- 2. Lógica Semáforo y Piezas por Línea (Desde rastreoData) ---
+    // Agrupamos por 'Area' (o Station) y buscamos la fecha más reciente
+    const lineStats = {}; 
     const now = new Date();
-    let cardsHtml = '<div class="line-status-grid">';
-    
-    if (Object.keys(linesStats).length === 0) {
-        cardsHtml += '<p style="grid-column: 1/-1; text-align:center;">No hay piezas empacadas aún.</p>';
-    } else {
-        for (const [line, stat] of Object.entries(linesStats)) {
-            // Lógica Semáforo: Verde si movimiento en la última hora, Amarillo si no.
-            const diffMinutes = (now - stat.lastActivity) / (1000 * 60);
-            let indicatorClass = 'indicator-idle'; // Amarillo por defecto
-            if (diffMinutes < 60) indicatorClass = 'indicator-active'; // Verde (< 1 hora)
+
+    if (Array.isArray(rastreoData) && rastreoData.length > 0) {
+        rastreoData.forEach(move => {
+            // Usamos 'Area' según tu imagen IMG_8318, si falla usa 'Line'
+            const lineName = move.Area || move.Line || 'Producción General';
             
+            if (!lineStats[lineName]) {
+                lineStats[lineName] = { count: 0, lastMove: new Date(0) };
+            }
+            
+            lineStats[lineName].count++; // Contamos movimientos/piezas en esa línea
+
+            // Asumiendo que rastreoData tiene timestamps. 
+            // Si IMG_8318 muestra 'lastUpdated' en el doc padre, usamos eso si el array no tiene fechas.
+            // Pero idealmente el array rastreoData tiene fecha. Si no, usamos Date Registered del serial.
+            // Aquí intentaremos leer una fecha del objeto move.
+            let moveDate = null;
+            if(move.Date) moveDate = move.Date.toDate ? move.Date.toDate() : new Date(move.Date);
+            // Si no hay fecha en el item individual, no podemos calcular semáforo preciso por item,
+            // pero contaremos las piezas.
+            
+            if (moveDate && moveDate > lineStats[lineName].lastMove) {
+                lineStats[lineName].lastMove = moveDate;
+            }
+        });
+    }
+
+    // Construcción de tarjetas de Línea
+    let cardsHtml = '<div class="line-status-grid">';
+    const lines = Object.keys(lineStats);
+
+    if (lines.length === 0) {
+        cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">Sin datos de rastreo recientes.</p>';
+    } else {
+        lines.forEach(line => {
+            const stat = lineStats[line];
+            // Lógica Semáforo: Verde si se movió en la última hora, Amarillo si no.
+            // Si la fecha es 0 (no se encontró), se queda amarillo.
+            const diffMinutes = (now - stat.lastMove) / (1000 * 60);
+            
+            let indicatorClass = 'indicator-idle'; // Amarillo (Sin movimiento reciente)
+            let timeText = 'Sin mov. reciente';
+
+            if (stat.lastMove.getTime() > 0) {
+                if (diffMinutes < 60) {
+                    indicatorClass = 'indicator-active'; // Verde
+                    timeText = `Hace ${Math.floor(diffMinutes)} min`;
+                } else {
+                    timeText = `Hace ${Math.floor(diffMinutes / 60)} hrs`;
+                }
+            } else {
+                // Si no hay fecha en rastreo, asumimos activo si hay conteo (opcional)
+                // O lo dejamos amarillo.
+            }
+
             cardsHtml += `
                 <div class="line-status-card">
                     <div class="line-indicator ${indicatorClass}"></div>
                     <span class="line-name">${line}</span>
-                    <span class="line-qty">${stat.count} pzas</span>
+                    <span class="line-qty">${stat.count} Movs.</span>
                     <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">
-                        Hace ${diffMinutes < 1 ? 'un momento' : Math.floor(diffMinutes) + ' min'}
+                        ${timeText}
                     </div>
                 </div>
             `;
-        }
+        });
     }
     cardsHtml += '</div>';
 
-    const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? formatShortDateTime(lastPacker.time) : 'Sin datos';
+    const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? formatShortDateTime(lastPacker.time) : 'N/A';
 
     const modalBody = `
         <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
@@ -5936,11 +6022,11 @@ function mostrarModalEstatusOrden(ordenData) {
                 <span style="font-weight:bold; font-size:1.2rem; ${ordenData.faltante > 0 ? 'color:var(--danger-color);' : 'color:var(--success-color);'}">
                     ${ordenData.totalConfirmado} / ${ordenData.totalOrden}
                 </span>
-                <br><small>Progreso</small>
+                <br><small>Progreso SAP</small>
             </div>
         </div>
 
-        <h5 style="margin:0 0 10px 0; color:var(--text-secondary);">Estatus por Línea</h5>
+        <h5 style="margin:0 0 10px 0; color:var(--text-secondary);">Actividad por Línea (Rastreo)</h5>
         ${cardsHtml}
 
         <div class="last-packer-info">
@@ -5948,9 +6034,6 @@ function mostrarModalEstatusOrden(ordenData) {
             <div style="display:grid; grid-template-columns: 1fr 1fr;">
                 <div><strong>Usuario:</strong> ${lastPacker.name}</div>
                 <div style="text-align:right;"><strong>Hora:</strong> ${lastPackerTimeStr}</div>
-                <div style="grid-column: 1 / -1; margin-top:4px; font-size:0.85em; color:var(--text-secondary);">
-                    En línea: ${lastPacker.line}
-                </div>
             </div>
         </div>
     `;
