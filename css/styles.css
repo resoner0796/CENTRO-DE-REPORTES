@@ -1217,3 +1217,85 @@ body.dark-theme .export-mode p {
     border-radius: 4px;
     font-size: 0.9rem;
 }
+
+/* --- Estilos Modal Estatus Detallado (NUEVO) --- */
+.line-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Más anchas para ver detalles */
+    gap: 16px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.line-detail-card {
+    background-color: var(--surface-hover-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 300px; /* Altura máxima con scroll */
+}
+
+.line-card-header {
+    background-color: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-primary);
+}
+
+.line-items-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.line-item {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+}
+
+.line-item:last-child { border-bottom: none; }
+
+.status-indicator-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Colores idénticos a tu App de Rastreo */
+.dot-green { background-color: #34D399; box-shadow: 0 0 5px #34D399; } /* En movimiento */
+.dot-yellow { background-color: #FBBF24; } /* Retrasado (>8h) */
+.dot-orange { background-color: #F97316; } /* Muy retrasado (>25h) */
+
+.item-details {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.item-top {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.item-bottom {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
