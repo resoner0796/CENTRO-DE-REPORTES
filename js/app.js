@@ -5653,7 +5653,7 @@ async function saveAreaConfig() {
 // =======================================================================================
 
 // =======================================================================================
-// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (VERSIÓN HÍBRIDA: ORDERS + SAP_HISTORICO) ---
+// --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (VERSIÓN PULIDA & DETALLADA) ---
 // =======================================================================================
 
 doc('reporteOrdenesDiaBtn').addEventListener('click', () => {
@@ -5695,7 +5695,7 @@ async function loadAreasForOrdenesDia() {
 // Utilidad Fecha
 function normalizeDate(input) {
     if (!input) return null;
-    if (typeof input === 'number') { // Excel Serial
+    if (typeof input === 'number') {
         const date = new Date(Math.round((input - 25569) * 86400 * 1000));
         return date.toISOString().split('T')[0];
     }
@@ -5707,13 +5707,23 @@ function normalizeDate(input) {
         }
         return input.substring(0, 10);
     }
-    if (input && typeof input.toDate === 'function') { // Firestore Timestamp
+    if (input && typeof input.toDate === 'function') {
         return input.toDate().toISOString().split('T')[0];
     }
     return null;
 }
 
-// --- CONSULTA MAESTRA ---
+// Utilidad Hora Corta
+function formatShortDateTime(date) {
+    if (!(date instanceof Date) || isNaN(date)) return '';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month} ${hour}:${minute}`;
+}
+
+// --- CONSULTA PRINCIPAL ---
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
@@ -5725,77 +5735,69 @@ async function consultarOrdenesDelDia() {
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Cruzando Datos...';
+    btn.textContent = 'Analizando Datos...';
 
     const tbody = doc('dataTableOrdenesDia').querySelector('tbody');
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Consultando Orders y SAP Histórico...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Consultando Histórico y Datos Vivos...</td></tr>';
     ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing'].forEach(id => doc(id).textContent = '-');
 
     try {
-        console.log(`>>> INICIO CONSULTA HÍBRIDA: ${areaInput} | ${fechaInput} <<<`);
+        console.log(`>>> INICIO CONSULTA: ${areaInput} | ${fechaInput} <<<`);
 
-        // 1. Obtener Órdenes Vivas (Colección 'orders')
-        // Estas tienen el 'packedQty' real actualizado.
-        const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
-        const ordersSnapshot = await ordersRef.get();
-
-        // 2. Obtener Histórico SAP (Colección 'sap_historico')
-        // Estas tienen 'Material', 'Special Stock', etc.
+        // 1. Obtener Histórico SAP (Fuente de Verdad para Totales)
         const sapHistoricoRef = db.collection('areas').doc(areaInput).collection('sap_historico');
         const sapSnapshot = await sapHistoricoRef.get();
 
-        // Indexamos el histórico SAP por ID de orden para búsqueda rápida
         const sapMap = new Map();
         sapSnapshot.forEach(doc => {
             const data = doc.data();
-            // Normalizamos la fecha de SAP para filtrar
             const sapDate = normalizeDate(data['Finish']);
-            // Solo guardamos en memoria las que coinciden con la fecha (Optimización)
             if (sapDate === fechaInput) {
                 const cleanId = String(data['Orden'] || doc.id).trim().replace(/^0+/, '');
                 sapMap.set(cleanId, data);
             }
         });
 
-        console.log(`SAP Histórico (Fecha ${fechaInput}): ${sapMap.size} órdenes encontradas.`);
+        // 2. Obtener Órdenes Vivas (Para Estatus Real y Fecha de Creación si no está en SAP)
+        const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
+        const ordersSnapshot = await ordersRef.get();
 
         let ordenesFinales = [];
         let stats = { total: 0, cerradas: 0, faltantes: 0 };
 
-        // 3. Cruzar información
-        // Iteramos sobre las órdenes vivas ('orders') para ver cuáles coinciden
         ordersSnapshot.forEach(docSnap => {
             const liveData = docSnap.data();
             const docId = String(docSnap.id).trim().replace(/^0+/, '');
 
-            // ¿Esta orden viva existe en el SAP Histórico de hoy?
             const sapData = sapMap.get(docId);
-
-            // También verificamos si la orden viva tiene fecha de hoy (por si se creó manual y no está en SAP)
             const liveDate = normalizeDate(liveData.orderDate);
-            const isTodayInLive = liveDate === fechaInput;
 
-            if (sapData || isTodayInLive) {
-                // --- EXTRACCIÓN DE DATOS (PRIORIDAD: SAP > LIVE) ---
+            // Criterio de inclusión: Existe en SAP hoy O existe en Live hoy
+            if (sapData || liveDate === fechaInput) {
 
-                // Catálogo
+                // --- AJUSTE SOLICITADO: DATOS DE TABLA ---
                 const catalogo = sapData?.['Catalogo'] || liveData.catalogNumber || 'N/A';
-
-                // Material y Special Stock (Vienen de SAP Histórico)
                 const material = sapData?.['Material'] || 'N/A';
                 const specialStock = sapData?.['Special Stock'] || 'N/A';
 
-                // Totales
-                // Total Orden: Preferimos lo que dice SAP, si no, lo que dice la App
+                // Total Orden: SAP manda, si no Live
                 const totalOrden = Number(sapData?.['Total orden']) || Number(liveData.orderQty) || 0;
 
-                // Total Confirmado: ESTE ES CLAVE. Usamos 'packedQty' de la App (que es lo real empacado)
-                const totalConfirmado = Number(liveData.packedQty) || 0;
+                // Total Confirmado: SAP MANDA (Corrección solicitada)
+                // Si existe en SAP, usamos ese. Si no, usamos packedQty como fallback.
+                const totalConfirmado = (sapData && sapData['Total confirmado'] !== undefined)
+                                        ? Number(sapData['Total confirmado'])
+                                        : (Number(liveData.packedQty) || 0);
 
-                // Faltante: Calculado
-                const faltante = Math.max(0, totalOrden - totalConfirmado);
+                // Faltante: SAP MANDA
+                let faltante = 0;
+                if (sapData && sapData['Faltante'] !== undefined) {
+                    faltante = Number(sapData['Faltante']);
+                } else {
+                    faltante = Math.max(0, totalOrden - totalConfirmado);
+                }
 
-                // Fibras y Terminaciones
+                // Cálculos Fibras
                 const char = catalogo.substring(3, 4).toUpperCase();
                 const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
                 const termFaltante = faltante * fibras;
@@ -5806,7 +5808,7 @@ async function consultarOrdenesDelDia() {
                     id: docId,
                     catalogo, material, specialStock, fibras, termFaltante,
                     totalOrden, totalConfirmado, faltante, status,
-                    rawData: liveData // Para el modal
+                    rawData: liveData // Data viva para el modal (Rastreo/Empaque)
                 });
 
                 // KPIs
@@ -5816,11 +5818,9 @@ async function consultarOrdenesDelDia() {
             }
         });
 
-        console.log(`Reporte Generado: ${ordenesFinales.length} órdenes.`);
-
         if (ordenesFinales.length === 0) {
             renderOrdenesDiaTable([]);
-            alert(`No se encontraron órdenes para ${fechaInput} en el área ${areaInput}.`);
+            alert(`No se encontraron órdenes para ${fechaInput}.`);
         } else {
             renderOrdenesDiaTable(ordenesFinales);
         }
@@ -5830,7 +5830,7 @@ async function consultarOrdenesDelDia() {
         doc('kpiOrdersMissing').textContent = stats.faltantes;
 
     } catch (e) {
-        console.error("Error consulta híbrida:", e);
+        console.error("Error consulta:", e);
         showModal('Error', `<p>${e.message}</p>`);
         tbody.innerHTML = '<tr><td colspan="10">Error consultando datos.</td></tr>';
     } finally {
@@ -5853,7 +5853,7 @@ function renderOrdenesDiaTable(data) {
     data.forEach((row, index) => {
         const trClass = row.faltante === 0 ? 'row-today' : '';
         const btnColor = row.faltante === 0 ? 'var(--success-color)' : '#f59e0b';
-        // Habilitamos botón solo si hay rawData (significa que existe en 'orders' y tiene tracking)
+        // Solo habilitar "Ver Estatus" si hay data en Firebase (rawData)
         const hasLiveData = !!row.rawData;
         const btnOpacity = hasLiveData ? '1' : '0.5';
 
@@ -5865,8 +5865,7 @@ function renderOrdenesDiaTable(data) {
             <td style="text-align:center;">${row.fibras}</td>
             <td style="text-align:center; font-weight:bold;">${row.termFaltante.toLocaleString()}</td>
             <td style="text-align:center;">${row.totalOrden}</td>
-            <td style="text-align:center;">${row.totalConfirmado}</td>
-            <td style="text-align:center; color: ${row.faltante > 0 ? 'var(--danger-color)' : 'inherit'}; font-weight:bold;">${row.faltante}</td>
+            <td style="text-align:center;">${row.totalConfirmado}</td> <td style="text-align:center; color: ${row.faltante > 0 ? 'var(--danger-color)' : 'inherit'}; font-weight:bold;">${row.faltante}</td>
             <td style="text-align:center;">
                 <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}">
                     Ver Estatus
@@ -5880,95 +5879,146 @@ function renderOrdenesDiaTable(data) {
         btn.addEventListener('click', (e) => {
             const idx = e.target.dataset.index;
             if (data[idx].rawData) mostrarModalEstatusOrden(data[idx]);
-            else showModal('Aviso', '<p>Orden solo en histórico SAP. No se ha iniciado en la App.</p>');
+            else showModal('Aviso', '<p>Orden solo presente en histórico SAP. No tiene registros de escaneo en la App.</p>');
         });
     });
 }
 
-// Modal Estatus
+// --- MODAL DE ESTATUS DETALLADO (LÓGICA RASTREO IDÉNTICA A LA APP) ---
 async function mostrarModalEstatusOrden(ordenData) {
     const rawData = ordenData.rawData;
-    const empaqueData = rawData.empaqueData || [];
     const rastreoData = rawData.rastreoData || [];
+    const empaqueData = rawData.empaqueData || []; // Mapa o Array, manejamos ambos
 
-    // A. Último Empaque
+    // 1. Obtener Seriales YA EMPACADOS (Para filtrarlos del rastreo si se desea, o solo para info)
+    const packedSerials = new Set();
+    // Convertimos empaqueData a array estándar si es mapa
+    let empaqueArray = [];
+    if (Array.isArray(empaqueData)) empaqueArray = empaqueData;
+    else if (empaqueData && typeof empaqueData.forEach === 'function') {
+        empaqueData.forEach((val) => empaqueArray.push(val)); // Si es un Map de Firebase
+    }
+
+    // Buscamos el último empacador
     let lastPacker = { name: 'Sin datos', time: new Date(0), line: 'N/A' };
 
-    // Adaptación: empaqueData en 'orders' suele ser un Mapa o Array de objetos
-    // Si viene como Array de objetos (como vi en tu código de rastreo):
-    if (Array.isArray(empaqueData)) {
-        empaqueData.forEach(box => {
-            if (box.serials && Array.isArray(box.serials)) {
-                box.serials.forEach(item => {
-                    const packedDateSerial = item['Finish Packed Date'];
-                    const packedDate = normalizeDate(packedDateSerial) ? new Date((packedDateSerial - 25569) * 86400000) : null;
-                    const packerId = item['Employee ID'];
-                    const currentLine = item['Line'] || item['Linea'] || item['Estación'] || 'N/A';
+    empaqueArray.forEach(box => {
+        if (box.serials && Array.isArray(box.serials)) {
+            box.serials.forEach(item => {
+                packedSerials.add(item['Serial Number']); // Agregamos a set de empacados
 
-                    if (packedDate && !isNaN(packedDate) && packedDate > lastPacker.time) {
-                        lastPacker.time = packedDate;
-                        lastPacker.name = packerId || 'Desconocido';
-                        lastPacker.line = currentLine;
-                    }
-                });
-            }
-        });
-    }
+                // Lógica último empacador
+                const packedDateSerial = item['Finish Packed Date'];
+                const packedDate = normalizeDate(packedDateSerial) ? new Date(Math.round((packedDateSerial - 25569) * 86400000)) : null;
+                const packerId = item['Employee ID'];
+                const currentLine = item['Line'] || item['Linea'] || item['Estación'] || 'N/A';
 
-    // B. Actividad Rastreo
-    const lineStats = {};
+                if (packedDate && !isNaN(packedDate) && packedDate > lastPacker.time) {
+                    lastPacker.time = packedDate;
+                    lastPacker.name = packerId || 'Desconocido';
+                    lastPacker.line = currentLine;
+                }
+            });
+        }
+    });
+
+    // 2. Procesar Rastreo (Lógica App Rastreo)
+    const groupedLines = {};
     const now = new Date();
 
-    if (Array.isArray(rastreoData) && rastreoData.length > 0) {
-        rastreoData.forEach(move => {
-            const lineName = move.Line || move.Linea || move.Station || 'Línea Desconocida';
-            if (!lineStats[lineName]) lineStats[lineName] = { count: 0, lastMove: new Date(0) };
-            lineStats[lineName].count++;
+    if (Array.isArray(rastreoData)) {
+        rastreoData.forEach(row => {
+            // --- FILTRO DE SCRAP ---
+            // Si 'Is Scrap' es 'X', lo ignoramos completamente
+            const isScrap = String(row['Is Scrap'] || '').trim().toUpperCase() === 'X';
+            if (isScrap) return;
 
-            let moveDate = null;
-            if (move.Date) moveDate = (typeof move.Date.toDate === 'function') ? move.Date.toDate() : new Date(move.Date);
-            else if (move['Date Registered']) moveDate = new Date((move['Date Registered'] - 25569) * 86400000);
+            // Datos Clave
+            const lineName = row.Line || row.Linea || row.Station || 'Línea Desconocida';
+            const serial = row['Product Serial Number'] || 'S#?';
+            const station = row.Station || 'Estación?';
 
-            if (moveDate && !isNaN(moveDate.getTime()) && moveDate > lineStats[lineName].lastMove) {
-                lineStats[lineName].lastMove = moveDate;
+            // Fecha Registro
+            let dateRegistered = null;
+            if (row['Date Registered']) {
+                const dr = row['Date Registered'];
+                dateRegistered = (typeof dr === 'number') ? new Date(Math.round((dr - 25569) * 86400000)) : new Date(dr);
             }
+
+            // Lógica Semáforo (Idéntica a App Rastreo)
+            let dotClass = 'dot-green'; // Default: Hoy/Movimiento reciente
+            let timeText = 'Reciente';
+
+            if (dateRegistered) {
+                const ageInMillis = now.getTime() - dateRegistered.getTime();
+                const ageInHours = ageInMillis / (1000 * 60 * 60);
+
+                if (ageInHours > 25) {
+                    dotClass = 'dot-orange'; // Muy retrasado
+                    timeText = '> 25h';
+                } else if (ageInHours > 8) {
+                    dotClass = 'dot-yellow'; // Retrasado
+                    timeText = '> 8h';
+                } else {
+                    timeText = formatShortDateTime(dateRegistered);
+                }
+            } else {
+                dotClass = 'dot-yellow'; // Sin fecha = Alerta
+                timeText = 'S/F';
+            }
+
+            // Agrupar
+            if (!groupedLines[lineName]) groupedLines[lineName] = [];
+            groupedLines[lineName].push({ serial, station, timeText, dotClass, dateObj: dateRegistered });
         });
     }
 
-    // C. HTML
+    // 3. Construir HTML de Tarjetas Detalladas
     let cardsHtml = '<div class="line-status-grid">';
-    const lines = Object.keys(lineStats);
+    const lines = Object.keys(groupedLines).sort();
 
-    if (lines.length === 0) cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">Sin datos de rastreo.</p>';
-    else {
+    if (lines.length === 0) {
+        cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">No hay seriales activos en rastreo (o todos son Scrap).</p>';
+    } else {
         lines.forEach(line => {
-            const stat = lineStats[line];
-            const diffMinutes = (now - stat.lastMove) / (1000 * 60);
-            let indicatorClass = 'indicator-idle';
-            let timeText = 'Sin mov. reciente';
+            const items = groupedLines[line];
+            // Ordenar items: Recientes arriba
+            items.sort((a, b) => (b.dateObj || 0) - (a.dateObj || 0));
 
-            if (stat.lastMove.getTime() > 0) {
-                if (diffMinutes < 60) {
-                    indicatorClass = 'indicator-active';
-                    timeText = `Hace ${Math.floor(diffMinutes)} min`;
-                } else {
-                    const hrs = Math.floor(diffMinutes / 60);
-                    timeText = `Hace ${hrs} hr${hrs!==1?'s':''}`;
-                }
-            }
+            let itemsListHtml = '';
+            items.forEach(item => {
+                itemsListHtml += `
+                    <li class="line-item">
+                        <span class="status-indicator-dot ${item.dotClass}"></span>
+                        <div class="item-details">
+                            <div class="item-top">
+                                <span>${item.serial}</span>
+                                <span style="font-size:0.8em; opacity:0.8;">${item.timeText}</span>
+                            </div>
+                            <div class="item-bottom">
+                                <span>${item.station}</span>
+                            </div>
+                        </div>
+                    </li>
+                `;
+            });
+
             cardsHtml += `
-                <div class="line-status-card">
-                    <div class="line-indicator ${indicatorClass}"></div>
-                    <span class="line-name">${line}</span>
-                    <span class="line-qty">${stat.count} <small>pzas</small></span>
-                    <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">${timeText}</div>
-                </div>`;
+                <div class="line-detail-card">
+                    <div class="line-card-header">
+                        <span>${line}</span>
+                        <span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:12px; font-size:0.85em;">${items.length} pzas</span>
+                    </div>
+                    <ul class="line-items-list">
+                        ${itemsListHtml}
+                    </ul>
+                </div>
+            `;
         });
     }
     cardsHtml += '</div>';
 
-    const lastPackerTimeStr = lastPacker.time.getTime() > 0 ?
-        lastPacker.time.toLocaleString('es-ES', {hour:'2-digit', minute:'2-digit'}) : 'N/A';
+    const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? formatShortDateTime(lastPacker.time) : 'N/A';
 
     const modalBody = `
         <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
@@ -5983,8 +6033,10 @@ async function mostrarModalEstatusOrden(ordenData) {
                 <br><small>Progreso Real</small>
             </div>
         </div>
-        <h5 style="margin:0 0 10px 0; color:var(--text-secondary);">Actividad por Línea (Rastreo)</h5>
+
+        <h5 style="margin:0 0 10px 0; color:var(--text-secondary);">Detalle de Rastreo (Activos: ${lines.reduce((acc, l) => acc + groupedLines[l].length, 0)})</h5>
         ${cardsHtml}
+
         <div class="last-packer-info">
             <h5 style="margin:0 0 5px 0; color:var(--primary-color);">Último Empaque Detectado</h5>
             <div style="display:grid; grid-template-columns: 1fr 1fr;">
@@ -5994,6 +6046,7 @@ async function mostrarModalEstatusOrden(ordenData) {
             </div>
         </div>
     `;
+
     showModal('Detalle de Estatus de Orden', modalBody);
 }
 
