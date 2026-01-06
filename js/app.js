@@ -5901,22 +5901,49 @@ function renderOrdenesDiaTable(data) {
     });
 }
 
-// 6. MODAL ESTATUS (CORREGIDO: USA DATOS VIVOS)
+// --- MODAL DE ESTATUS DETALLADO (LÓGICA FINAL: BÚSQUEDA EMPLEADO + SEMÁFORO) ---
 async function mostrarModalEstatusOrden(ordenData) {
-    // AQUÍ ESTÁ LA MAGIA: Usamos rawData (Firebase) en lugar de los datos de la tabla (SAP)
-    const liveData = ordenData.rawData;
-    const empaqueData = liveData.empaqueData || [];
-    const rastreoData = liveData.rastreoData || [];
+    const rawData = ordenData.rawData; // Data viva de Firebase
+    
+    // Si no hay data viva (solo existe en SAP), mostramos aviso básico
+    if (!rawData) {
+        showModal('Sin Datos', '<p>Esta orden aún no tiene registros de actividad en la aplicación.</p>');
+        return;
+    }
 
-    // CALCULAMOS LOS TOTALES REALES DE LA APP
-    // Si packedQty existe, úsalo. Si no, calcúlalo contando empaqueData.
-    let appPackedQty = Number(liveData.packedQty) || 0;
-    const appOrderQty = Number(liveData.orderQty) || Number(ordenData.totalOrden) || 0;
+    const empaqueData = rawData.empaqueData || [];
+    const rastreoData = rawData.rastreoData || []; 
 
-    // A. Último Empaque
+    // Calculamos totales reales de la App para el encabezado
+    let appPackedQty = Number(rawData.packedQty) || 0;
+    // Si packedQty es 0 pero hay datos en empaqueData, los contamos
+    if (appPackedQty === 0 && Array.isArray(empaqueData)) {
+        empaqueData.forEach(box => {
+            if(Array.isArray(box.serials)) appPackedQty += box.serials.length;
+        });
+    }
+    const appOrderQty = Number(rawData.orderQty) || Number(ordenData.totalOrden) || 0;
+
+    // --- A. BÚSQUEDA DE LÍNEA EN CONFIGURACIÓN (POR EMPLEADO) ---
+    // Cargamos la base de datos de empacadores que tienes en la otra vista
+    const registeredPackers = params.produccion_hora_config.packers || [];
+
+    // Helper interno para buscar la línea
+    const findLineByPacker = (id) => {
+        if (!id) return null;
+        const cleanId = String(id).trim().toUpperCase();
+        // Buscamos coincidencia exacta de ID
+        const found = registeredPackers.find(p => p.id === cleanId);
+        if (found) {
+            return `Línea ${found.linea} (${found.turno})`;
+        }
+        return null;
+    };
+
+    // --- B. ÚLTIMO EMPAQUE DETECTADO ---
     let lastPacker = { name: 'Sin datos', time: new Date(0), line: 'N/A' };
-
-    // Soporte para Array o Map en empaqueData
+    
+    // Normalizamos empaqueData a Array por si viene como Mapa
     let empaqueArray = [];
     if (Array.isArray(empaqueData)) empaqueArray = empaqueData;
     else if (empaqueData && typeof empaqueData.forEach === 'function') {
@@ -5927,58 +5954,72 @@ async function mostrarModalEstatusOrden(ordenData) {
         if (box.serials && Array.isArray(box.serials)) {
             box.serials.forEach(item => {
                 const packedDateSerial = item['Finish Packed Date'];
-                const packedDate = normalizeDate(packedDateSerial) ? new Date(Math.round((packedDateSerial - 25569) * 86400000)) : null;
+                // Convertimos la fecha (sea Excel o Timestamp)
+                const packedDate = normalizeDate(packedDateSerial) ? 
+                    (typeof packedDateSerial === 'number' ? new Date(Math.round((packedDateSerial - 25569) * 86400000)) : new Date(packedDateSerial)) 
+                    : null;
+                
                 const packerId = item['Employee ID'];
-                const currentLine = item['Line'] || item['Linea'] || item['Estación'] || 'N/A';
 
                 if (packedDate && !isNaN(packedDate) && packedDate > lastPacker.time) {
                     lastPacker.time = packedDate;
                     lastPacker.name = packerId || 'Desconocido';
-                    lastPacker.line = currentLine;
+                    
+                    // 1. Buscamos primero en la configuración de la App
+                    let foundLine = findLineByPacker(packerId);
+                    
+                    // 2. Si no está configurado, usamos el dato guardado en el registro (fallback)
+                    if (!foundLine) {
+                        foundLine = item['Line'] || item['Linea'] || item['Estación'] || 'N/A';
+                    }
+                    lastPacker.line = foundLine;
                 }
             });
         }
     });
 
-    // B. Actividad Rastreo & Semáforo
+    // --- C. ACTIVIDAD DE RASTREO (SEMÁFORO) ---
     const groupedLines = {};
     const now = new Date();
 
     if (Array.isArray(rastreoData)) {
         rastreoData.forEach(row => {
-            // Filtro Scrap
+            // Filtro: Ignorar Scrap
             const isScrap = String(row['Is Scrap'] || '').trim().toUpperCase() === 'X';
             if (isScrap) return;
 
+            // Datos
             const lineName = row.Line || row.Linea || row.Station || 'Línea Desconocida';
             const serial = row['Product Serial Number'] || 'S#?';
             const station = row.Station || 'Estación?';
-
+            
+            // Fecha
             let dateRegistered = null;
             if (row['Date Registered']) {
                 const dr = row['Date Registered'];
                 dateRegistered = (typeof dr === 'number') ? new Date(Math.round((dr - 25569) * 86400000)) : new Date(dr);
+            } else if (row.Date) { // Soporte para otros formatos
+                 dateRegistered = (typeof row.Date.toDate === 'function') ? row.Date.toDate() : new Date(row.Date);
             }
 
-            let dotClass = 'dot-green';
-            let timeText = 'Reciente';
+            // Lógica Semáforo (Verde < 8h, Amarillo < 25h, Naranja > 25h)
+            let dotClass = 'dot-yellow'; // Default si no hay fecha
+            let timeText = 'S/F';
 
-            if (dateRegistered) {
+            if (dateRegistered && !isNaN(dateRegistered)) {
                 const ageInMillis = now.getTime() - dateRegistered.getTime();
                 const ageInHours = ageInMillis / (1000 * 60 * 60);
 
                 if (ageInHours > 25) {
-                    dotClass = 'dot-orange';
+                    dotClass = 'dot-orange'; // Muy retrasado
                     timeText = '> 25h';
                 } else if (ageInHours > 8) {
-                    dotClass = 'dot-yellow';
+                    dotClass = 'dot-yellow'; // Retrasado
                     timeText = '> 8h';
                 } else {
+                    dotClass = 'dot-green'; // Reciente / En movimiento
                     timeText = formatShortDateTime(dateRegistered);
                 }
-            } else {
-                dotClass = 'dot-yellow';
-                timeText = 'S/F';
             }
 
             if (!groupedLines[lineName]) groupedLines[lineName] = [];
@@ -5986,7 +6027,7 @@ async function mostrarModalEstatusOrden(ordenData) {
         });
     }
 
-    // C. Construir Tarjetas Detalladas
+    // --- D. CONSTRUCCIÓN DEL HTML ---
     let cardsHtml = '<div class="line-status-grid">';
     const lines = Object.keys(groupedLines).sort();
 
@@ -5995,6 +6036,7 @@ async function mostrarModalEstatusOrden(ordenData) {
     } else {
         lines.forEach(line => {
             const items = groupedLines[line];
+            // Ordenar por fecha descendente
             items.sort((a, b) => (b.dateObj || 0) - (a.dateObj || 0));
 
             let itemsListHtml = '';
@@ -6027,8 +6069,6 @@ async function mostrarModalEstatusOrden(ordenData) {
     cardsHtml += '</div>';
 
     const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? formatShortDateTime(lastPacker.time) : 'N/A';
-
-    // D. Header del Modal (USANDO VARIABLES DE LA APP, NO DE SAP)
     const colorProgreso = (appPackedQty >= appOrderQty && appOrderQty > 0) ? 'color:var(--success-color);' : 'color:var(--danger-color);';
 
     const modalBody = `
@@ -6053,7 +6093,9 @@ async function mostrarModalEstatusOrden(ordenData) {
             <div style="display:grid; grid-template-columns: 1fr 1fr;">
                 <div><strong>Usuario:</strong> ${lastPacker.name}</div>
                 <div style="text-align:right;"><strong>Hora:</strong> ${lastPackerTimeStr}</div>
-                <div style="grid-column: 1 / -1; margin-top: 4px; font-size: 0.85em; color: var(--text-secondary);">Línea Empaque: ${lastPacker.line}</div>
+                <div style="grid-column: 1 / -1; margin-top: 4px; font-size: 0.85em; color: var(--text-secondary);">
+                    Línea Empaque: <strong>${lastPacker.line}</strong>
+                </div>
             </div>
         </div>
     `;
