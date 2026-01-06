@@ -5725,7 +5725,8 @@ function formatShortDateTime(date) {
     return `${day}/${month} ${hour}:${minute}`;
 }
 
-// 4. CONSULTA HÍBRIDA (SAP + FIREBASE)
+
+        // 4. CONSULTA HÍBRIDA (CON NUEVO KPI DE TERMINACIONES)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
@@ -5737,16 +5738,18 @@ async function consultarOrdenesDelDia() {
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Procesando...';
+    btn.textContent = 'Calculando KPIs...';
 
     const tbody = doc('dataTableOrdenesDia').querySelector('tbody');
     tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Consultando SAP Histórico...</td></tr>';
-    ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing'].forEach(id => doc(id).textContent = '-');
+    
+    // Reseteamos los KPIs visualmente
+    ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing', 'kpiTerminacionesMissing'].forEach(id => doc(id).textContent = '-');
 
     try {
-        console.log(`>>> CONSULTA: ${areaInput} | ${fechaInput} <<<`);
+        console.log(`>>> CONSULTA KPI: ${areaInput} | ${fechaInput} <<<`);
 
-        // A. SAP HISTÓRICO (Fuente para la Tabla)
+        // A. SAP HISTÓRICO
         const sapHistoricoRef = db.collection('areas').doc(areaInput).collection('sap_historico');
         const sapSnapshot = await sapHistoricoRef.get();
 
@@ -5754,19 +5757,25 @@ async function consultarOrdenesDelDia() {
         sapSnapshot.forEach(doc => {
             const data = doc.data();
             const sapDate = normalizeDate(data['Finish']);
-            // Solo nos interesan las órdenes que SAP dice que son para hoy
             if (sapDate === fechaInput) {
                 const cleanId = String(data['Orden'] || doc.id).trim().replace(/^0+/, '');
                 sapMap.set(cleanId, data);
             }
         });
 
-        // B. ÓRDENES VIVAS (Fuente para el Modal)
+        // B. ÓRDENES VIVAS
         const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
         const ordersSnapshot = await ordersRef.get();
 
         let ordenesFinales = [];
-        let stats = { total: 0, cerradas: 0, faltantes: 0 };
+        
+        // --- AQUÍ ESTÁ EL CAMBIO PARA LOS STATS ---
+        let stats = { 
+            total: 0, 
+            cerradas: 0, 
+            faltantes: 0,
+            terminacionesPendientes: 0 // <--- Nuevo contador
+        };
 
         ordersSnapshot.forEach(docSnap => {
             const liveData = docSnap.data();
@@ -5774,26 +5783,22 @@ async function consultarOrdenesDelDia() {
 
             const sapData = sapMap.get(docId);
             const liveDate = normalizeDate(liveData.orderDate);
-
-            // Si está en SAP hoy, o si se creó hoy en la App
+            
             if (sapData || liveDate === fechaInput) {
-
-                // DATOS TABLA (SAP MANDA)
+                
                 const catalogo = sapData?.['Catalogo'] || liveData.catalogNumber || 'N/A';
                 const material = sapData?.['Material'] || 'N/A';
                 const specialStock = sapData?.['Special Stock'] || 'N/A';
 
                 const totalOrden = Number(sapData?.['Total orden']) || Number(liveData.orderQty) || 0;
-                // Para la tabla usamos el confirmado de SAP (Histórico)
-                const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined)
-                                        ? Number(sapData['Total confirmado'])
+                const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined) 
+                                        ? Number(sapData['Total confirmado']) 
                                         : 0;
 
                 let faltante = 0;
                 if (sapData && sapData['Faltante'] !== undefined) {
                     faltante = Number(sapData['Faltante']);
                 } else {
-                    // Fallback si no hay dato en SAP
                     const livePacked = Number(liveData.packedQty) || 0;
                     faltante = Math.max(0, totalOrden - livePacked);
                 }
@@ -5808,15 +5813,21 @@ async function consultarOrdenesDelDia() {
                 ordenesFinales.push({
                     id: docId,
                     catalogo, material, specialStock, fibras, termFaltante,
-                    totalOrden,
-                    totalConfirmado: totalConfirmadoSAP, // Dato SAP para la tabla
+                    totalOrden, 
+                    totalConfirmado: totalConfirmadoSAP,
                     faltante, status,
-                    rawData: liveData // Dato App para el modal
+                    rawData: liveData 
                 });
 
+                // --- ACTUALIZACIÓN DE KPIs ---
                 stats.total++;
-                if (faltante === 0 && totalOrden > 0) stats.cerradas++;
-                else stats.faltantes++;
+                if (faltante === 0 && totalOrden > 0) {
+                    stats.cerradas++;
+                } else {
+                    stats.faltantes++;
+                    // Sumamos las terminaciones pendientes al gran total
+                    stats.terminacionesPendientes += termFaltante; 
+                }
             }
         });
 
@@ -5827,9 +5838,13 @@ async function consultarOrdenesDelDia() {
             renderOrdenesDiaTable(ordenesFinales);
         }
 
+        // Renderizar KPIs
         doc('kpiOrdersTotal').textContent = stats.total;
         doc('kpiOrdersClosed').textContent = stats.cerradas;
         doc('kpiOrdersMissing').textContent = stats.faltantes;
+        
+        // --- NUEVO KPI RENDERIZADO ---
+        doc('kpiTerminacionesMissing').textContent = stats.terminacionesPendientes.toLocaleString(); 
 
     } catch (e) {
         console.error("Error consulta:", e);
