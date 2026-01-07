@@ -1058,20 +1058,19 @@ async function loadAreasForTarimasReport() {
 // =======================================================================================
 
 // --- FUNCIÓN DE REEMPLAZO (showLiveDashboard) ---
+// --- OPTIMIZACIÓN FINAL: DASHBOARD EN VIVO (LISTENER CON FILTRO) ---
 function showLiveDashboard() {
-    // --- INICIO DE LA CORRECCIÓN DE TURNO ---
-    // 1. Obtener la fecha y turno de TRABAJO actual, no de calendario.
+    // 1. Obtener la fecha y turno de TRABAJO actual
     const now = new Date();
     const { shift: turnoActual, dateKey: fechaDeTrabajoActual } = getWorkShiftAndDate(now);
     
-    // 2. Calcular el rango de horas para ESE turno de trabajo.
+    // 2. Calcular el rango de horas para ESE turno
     const { startTime } = getShiftDateRange(fechaDeTrabajoActual, turnoActual); 
-    // --- FIN DE LA CORRECCIÓN DE TURNO ---
     
-    const areaALeer = "MULTIPORT"; // Asumimos esta área
+    const areaALeer = "MULTIPORT"; // Asumimos esta área (puedes hacerlo dinámico si quieres)
     doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
 
-    renderLiveChart({}, [], startTime); // Llama a la gráfica vacía con el startTime correcto
+    renderLiveChart({}, [], startTime); 
     switchView('liveDashboard'); 
 
     if (liveListener) {
@@ -1080,7 +1079,7 @@ function showLiveDashboard() {
         liveListener = null;
     }
 
-    // Pre-calcular los empacadores para este turno
+    // Pre-calcular empacadores (sin cambios)
     const allPackers = params.produccion_hora_config.packers || [];
     const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
     const empacadoresPorLinea = new Map(); 
@@ -1092,25 +1091,34 @@ function showLiveDashboard() {
         empacadoresPorLinea.get(lineaNum).add(p.id);
     });
     
-    console.log(`Iniciando listener en vivo para: areas/${areaALeer}/orders`);
+    // --- AQUÍ ESTÁ EL AHORRO MASIVO ---
+    // Solo escuchamos órdenes que se hayan "tocado" (actualizado) en las últimas 48 horas.
+    // Esto cubre sobradamente el turno actual y evita bajar el historial de años pasados.
+    const cutoffDate = new Date();
+    cutoffDate.setHours(cutoffDate.getHours() - 48); // 48 horas atrás
+
+    console.log(`📡 Iniciando listener EN VIVO para ${areaALeer} (Actividad desde: ${cutoffDate.toLocaleString()})`);
     
     liveListener = db.collection("areas").doc(areaALeer).collection("orders")
+        .where('lastUpdated', '>=', cutoffDate) // <--- EL FILTRO DE ORO 💰
         .onSnapshot(querySnapshot => {
             
-            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes analizadas.");
+            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes activas analizadas.");
             let allOrders = [];
             querySnapshot.forEach(doc => {
                 allOrders.push(doc.data());
             });
             
-            // --- INICIO DE LA CORRECCIÓN DE TURNO (PASO 3) ---
-            // Pasamos la fechaDeTrabajoActual (ej: '2025-11-13') en lugar de la fecha de calendario ('hoyStr')
             updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, startTime, empacadoresPorLinea);
-            // --- FIN DE LA CORRECCIÓN DE TURNO ---
 
         }, error => {
             console.error("¡Error en el listener en vivo!:", error);
-            doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase. Revise permisos.</p>`;
+            // Si falta el índice, avisamos
+            if (error.code === 'failed-precondition') {
+                doc('liveFeedContent').innerHTML = `<p style="color:var(--warning-color);">⚠️ Falta Índice en Firebase. Abre la consola (F12) y crea el índice para 'lastUpdated'.</p>`;
+            } else {
+                doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase.</p>`;
+            }
         });
 }
 
