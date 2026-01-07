@@ -70,6 +70,8 @@ produccion_calidad_config: { // <-- AÑADE ESTE OBJETO COMPLETO
     ]
 }
        };
+		// --- VARIABLE GLOBAL NUEVA ---
+        let globalAreasCache = null; // Para no gastar lecturas recargando el select de áreas
         let reportData = { zpptwc: null, coois: null };
         let productionChart = null;
         let production20Chart = null;
@@ -3051,51 +3053,61 @@ function renderGraficaSemanal(datos, labels, turnos) {
         }
 
         // --- FUNCIÓN DE REEMPLAZO (generarReportePorHora) ---
+// --- OPTIMIZACIÓN 3: REPORTE POR HORA (FILTRO LASTUPDATED) ---
 async function generarReportePorHora() {
     const btn = doc('generarReporteProduccionBtn');
-    btn.disabled = true; btn.textContent = 'Cargando datos...';
+    btn.disabled = true; btn.textContent = 'Analizando actividad reciente...';
     doc('exportChartBtn').style.display = 'none';
-    
-    // Limpiar tablas anteriores
     const tablesGrid = doc('produccionTablesGrid');
-    tablesGrid.innerHTML = ''; // Limpiamos el contenedor
+    tablesGrid.innerHTML = '';
 
     try {
         const selectedDateStr = doc('prod_fecha_unica').value;
         const selectedTurno = doc('prod_turno').value;
         const selectedArea = doc('prod_area').value;
         
-        // 1. OBTENER CONFIGURACIÓN DE EMPACADORES (Sigue igual)
+        if (!selectedDateStr) { showModal('Error', '<p>Por favor, selecciona una fecha.</p>'); return; }
+
+        // 1. OBTENER RANGO DE TIEMPO DEL TURNO
+        const { startTime, endTime } = getShiftDateRange(selectedDateStr, selectedTurno);
+
+        // 2. CONFIGURACIÓN DE EMPACADORES (Igual que antes)
         const todosLosEmpacadores = params.produccion_hora_config.packers || [];
         const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
             (p.area === selectedArea || selectedArea === 'ALL' || p.area === 'ALL') && p.turno === selectedTurno
         );
 
-        const empacadoresPorLinea = new Map();
-        empacadoresFiltrados.forEach(p => {
-            const lineaNum = String(p.linea);
-            if (!empacadoresPorLinea.has(lineaNum)) {
-                empacadoresPorLinea.set(lineaNum, new Set());
-            }
-            empacadoresPorLinea.get(lineaNum).add(p.id);
-        });
-        
         if (empacadoresFiltrados.length === 0) {
-            showModal('Sin Empacadores', '<p>No se encontraron empacadores configurados para esta Área y Turno en el panel de Configuración.</p>');
+            showModal('Sin Empacadores', '<p>No hay empacadores configurados para este turno/área.</p>');
             renderProductionChart([], null, selectedTurno);
-            productionReportData = [];
             return;
         }
 
-        if (!selectedDateStr) { showModal('Error', '<p>Por favor, selecciona una fecha.</p>'); return; }
+        const empacadoresPorLinea = new Map();
+        empacadoresFiltrados.forEach(p => {
+            const lineaNum = String(p.linea);
+            if (!empacadoresPorLinea.has(lineaNum)) empacadoresPorLinea.set(lineaNum, new Set());
+            empacadoresPorLinea.get(lineaNum).add(p.id);
+        });
+
+        // 3. CONSULTA INTELIGENTE (LA MAGIA DEL AHORRO) 💰
+        // Solo traemos órdenes que se hayan "tocado" (actualizado) desde que empezó el turno.
+        // Damos un margen de seguridad de 2 horas antes del inicio del turno.
+        const bufferDate = new Date(startTime);
+        bufferDate.setHours(bufferDate.getHours() - 2);
+
+        console.log(`[Producción] Buscando órdenes activas desde: ${bufferDate.toLocaleString()}`);
+
+        let query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
         
-        // 2. OBTENER DATOS DE FIREBASE (Sigue igual)
-        const { startTime, endTime } = getShiftDateRange(selectedDateStr, selectedTurno);
-        const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
-        
+        // --- EL FILTRO DE ORO ---
+        // Si la orden no se actualizó hoy, NO LA BAJAMOS.
+        query = query.where('lastUpdated', '>=', bufferDate);
+
         const snapshot = await query.get();
-        
-        // 3. PROCESAR DATOS (Sigue igual)
+        console.log(`[Producción] Órdenes activas encontradas: ${snapshot.size}`);
+
+        // 4. PROCESAR DATOS (Esto sigue igual, pero procesa menos basura)
         let allPackedItems = [];
         if (!snapshot.empty) {
             snapshot.forEach(orderDoc => {
@@ -3105,6 +3117,7 @@ async function generarReportePorHora() {
                         if (Array.isArray(box.serials)) {
                             box.serials.forEach(item => {
                                 const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
+                                // Filtro exacto de hora
                                 if (packedDate && packedDate >= startTime && packedDate <= endTime) {
                                     const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                                     let lineaAsignada = null;
@@ -3130,6 +3143,9 @@ async function generarReportePorHora() {
             });
         }
         
+        // ... (El resto del procesamiento de allPackedItems y renderizado es idéntico a tu código original)
+        // Solo copiamos la parte de procesamiento para no cortar el flujo
+        
         const detailedData = allPackedItems.map(item => {
             const char = (item.catalogo || '').substring(3, 4).toUpperCase();
             const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
@@ -3140,175 +3156,163 @@ async function generarReportePorHora() {
         const groupedByBox = new Map();
         detailedData.forEach(item => {
             const key = `${item.orden}-${item.boxId}`;
-            if (!groupedByBox.has(key)) {
-                groupedByBox.set(key, { ...item, piezas: 0, terminaciones: 0 });
-            }
+            if (!groupedByBox.has(key)) groupedByBox.set(key, { ...item, piezas: 0, terminaciones: 0 });
             const group = groupedByBox.get(key);
-            group.piezas++;
-            group.terminaciones += item.terminaciones;
-            if (item.timestamp > group.timestamp) { group.timestamp = item.timestamp; }
+            group.piezas++; group.terminaciones += item.terminaciones;
+            if (item.timestamp > group.timestamp) group.timestamp = item.timestamp;
         });
-        
         const aggregatedData = Array.from(groupedByBox.values()).sort((a, b) => b.timestamp - a.timestamp);
         
-        // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
-        // 4. AGRUPAR DATOS POR LÍNEA (ANTES DE CREAR HTML)
         const datosPorLinea = new Map();
         aggregatedData.forEach(row => {
             const lineaNombre = row.linea;
             if (!lineaNombre) return;
-            
-            if (!datosPorLinea.has(lineaNombre)) {
-                datosPorLinea.set(lineaNombre, []);
-            }
+            if (!datosPorLinea.has(lineaNombre)) datosPorLinea.set(lineaNombre, []);
             datosPorLinea.get(lineaNombre).push(row);
         });
 
-        // 5. OBTENER LISTA DE LÍNEAS QUE SÍ TIENEN DATOS
         const lineasConDatos = [...datosPorLinea.keys()].sort();
 
-        // 6. VERIFICAR SI HAY ALGO QUE MOSTRAR
         if (lineasConDatos.length === 0) {
-            // Esto pasa si hay empacadores configurados (paso 1), pero no empacaron nada (paso 3).
-            showModal('Sin Producción', '<p>No se encontró producción registrada para los empacadores de este turno y área.</p>');
-            tablesGrid.innerHTML = ''; // Contenedor vacío
-            renderProductionChart([], startTime, selectedTurno); // Gráfica vacía
+            showModal('Sin Producción', '<p>No se encontró producción registrada en el periodo seleccionado.</p>');
+            tablesGrid.innerHTML = '';
+            renderProductionChart([], startTime, selectedTurno);
             productionReportData = [];
-            return; // Salir
+            return;
         }
 
-        // 7. AJUSTAR GRID Y CREAR TABLAS (SOLO PARA LÍNEAS CON DATOS)
         tablesGrid.style.gridTemplateColumns = `repeat(${lineasConDatos.length}, 1fr)`;
-
         lineasConDatos.forEach(lineaNombre => {
-            const lineaNumero = lineaNombre.split(' ')[1]; // Saca el '1' de 'Línea 1'
+            const lineaNumero = lineaNombre.split(' ')[1];
             const tableId = `dataTableProduccionL${lineaNumero}`;
-            const tableHtml = `
-                <div class="card table-container">
-                    <h5>Producción ${lineaNombre}</h5>
-                    <div class="table-wrapper">
-                        <table id="${tableId}">
-                            <thead><tr><th>Cargando...</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-            tablesGrid.insertAdjacentHTML('beforeend', tableHtml);
+            tablesGrid.insertAdjacentHTML('beforeend', `<div class="card table-container"><h5>Producción ${lineaNombre}</h5><div class="table-wrapper"><table id="${tableId}"><thead><tr><th>Cargando...</th></tr></thead><tbody></tbody></table></div></div>`);
         });
 
-        // 8. RENDERIZAR DATOS EN LAS TABLAS CREADAS
         for (const [lineaNombre, data] of datosPorLinea.entries()) {
             const lineaNumero = lineaNombre.split(' ')[1];
             renderProductionTable(data, `dataTableProduccionL${lineaNumero}`, lineaNombre);
         }
-        // --- FIN DEL CAMBIO ---
         
-        // 9. RENDERIZAR GRÁFICA (esto no cambia)
         renderProductionChart(detailedData, startTime, selectedTurno);
 
     } catch (e) {
-        console.error("Error generando reporte por hora:", e);
-        showModal('Error', `<p>Ocurrió un error: ${e.message}</p>`);
+        console.error("Error report hourly:", e);
+        // Si falla por índice, avisamos al usuario
+        if (e.code === 'failed-precondition') {
+             showModal('Falta Índice', '<p>Firebase requiere un índice para esta consulta optimizada. Abre la consola (F12) y haz clic en el enlace.</p>', 'warning');
+        } else {
+             showModal('Error', `<p>${e.message}</p>`);
+        }
         productionReportData = null;
     } finally {
         btn.disabled = false; btn.textContent = 'Generar Reporte';
     }
 }
-    async function generarReporteSemanalProduccion() {
-            const btn = doc('generarReporteProduccionBtn');
-            btn.disabled = true;
-            btn.textContent = 'Cargando datos...';
-            
-            try {
-                const fechaInicioStr = doc('prod_fecha_inicio').value;
-                const fechaFinStr = doc('prod_fecha_fin').value;
-                const selectedArea = doc('prod_area').value;
-                const selectedTurno = doc('prod_turno').value;
+    // --- OPTIMIZACIÓN 4: REPORTE SEMANAL (FILTRO LASTUPDATED) ---
+async function generarReporteSemanalProduccion() {
+    const btn = doc('generarReporteProduccionBtn');
+    btn.disabled = true; btn.textContent = 'Procesando semana...';
+    
+    try {
+        const fechaInicioStr = doc('prod_fecha_inicio').value;
+        const fechaFinStr = doc('prod_fecha_fin').value;
+        const selectedArea = doc('prod_area').value;
+        const selectedTurno = doc('prod_turno').value;
 
-                if (!fechaInicioStr || !fechaFinStr) {
-                    showModal('Error', '<p>Por favor, selecciona un rango de fechas.</p>');
-                    btn.disabled = false; btn.textContent = 'Generar Reporte';
-                    return;
-                }
+        if (!fechaInicioStr || !fechaFinStr) { showModal('Error', '<p>Faltan fechas.</p>'); return; }
 
-                const empacadoresFiltrados = (params.produccion_hora_config.packers || []).filter(p => 
-                    (p.area === selectedArea || selectedArea === 'ALL') && p.turno === selectedTurno
-                );
-                const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
-                const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
-                
-                const queryStartTime = new Date(`${fechaInicioStr}T06:30:00`);
-                queryStartTime.setDate(queryStartTime.getDate() - 1);
-                
-                const queryEndTime = new Date(`${fechaFinStr}T00:00:00`);
-                queryEndTime.setDate(queryEndTime.getDate() + 1);
-                queryEndTime.setHours(6, 29, 59, 999);
+        // Definimos los límites exactos del reporte
+        const queryStartTime = new Date(`${fechaInicioStr}T06:30:00`);
+        // Restamos un día para asegurar que agarramos el turno de noche que empieza el día anterior
+        queryStartTime.setDate(queryStartTime.getDate() - 1); 
+        
+        const queryEndTime = new Date(`${fechaFinStr}T00:00:00`);
+        queryEndTime.setDate(queryEndTime.getDate() + 1);
+        queryEndTime.setHours(6, 29, 59, 999);
 
-                const query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
-                const snapshot = await query.get();
+        // --- CONSULTA OPTIMIZADA ---
+        let query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
+        
+        // Filtramos por actividad reciente (Buffer de 24h antes del inicio de la semana)
+        const bufferDate = new Date(queryStartTime);
+        bufferDate.setDate(bufferDate.getDate() - 1);
+        
+        query = query.where('lastUpdated', '>=', bufferDate);
 
-                if (snapshot.empty) {
-                    showModal('Sin Datos', '<p>No se encontraron órdenes para el área seleccionada.</p>');
-                    renderGraficaSemanalProduccion({}, []);
-                    renderResumenSemanalProduccion({ 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } }, 0);
-                    return;
-                }
+        const snapshot = await query.get();
+        console.log(`[Semanal] Órdenes activas en la semana: ${snapshot.size}`);
 
-                let datosAgrupadosPorDia = {};
-                let totales = { 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } };
+        if (snapshot.empty) {
+            showModal('Sin Datos', '<p>No hubo actividad en este periodo.</p>');
+            renderGraficaSemanalProduccion({}, []);
+            renderResumenSemanalProduccion({ 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } }, 0);
+            return;
+        }
 
-                snapshot.forEach(orderDoc => {
-                    const orderData = orderDoc.data();
-                    if (Array.isArray(orderData.empaqueData)) {
-                        orderData.empaqueData.forEach(box => {
-                            if (Array.isArray(box.serials)) {
-                                box.serials.forEach(item => {
-                                    const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
-                                    
-                                    if (packedDate) {
-                                        const { shift, dateKey } = getWorkShiftAndDate(packedDate);
-                                        const esTurnoValido = (selectedTurno === shift);
-                                        const esFechaValida = dateKey >= fechaInicioStr && dateKey <= fechaFinStr;
+        // ... (El resto de la lógica de procesamiento es idéntica, solo copiamos lo de adentro)
+        const empacadoresFiltrados = (params.produccion_hora_config.packers || []).filter(p => 
+            (p.area === selectedArea || selectedArea === 'ALL') && p.turno === selectedTurno
+        );
+        const empacadoresL1 = empacadoresFiltrados.filter(p => p.linea === '1').map(p => p.id);
+        const empacadoresL2 = empacadoresFiltrados.filter(p => p.linea === '2').map(p => p.id);
 
-                                        if (esTurnoValido && esFechaValida) {
-                                            const empacador = (item['Employee ID'] || '').toString().toUpperCase();
-                                            let linea = null;
-                                            if (empacadoresL1.includes(empacador)) linea = 'Línea 1';
-                                            else if (empacadoresL2.includes(empacador)) linea = 'Línea 2';
+        let datosAgrupadosPorDia = {};
+        let totales = { 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } };
 
-                                            if (linea) {
-                                                const char = (orderData.catalogNumber || '').substring(3, 4).toUpperCase();
-                                                const terminaciones = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+        snapshot.forEach(orderDoc => {
+            const orderData = orderDoc.data();
+            if (Array.isArray(orderData.empaqueData)) {
+                orderData.empaqueData.forEach(box => {
+                    if (Array.isArray(box.serials)) {
+                        box.serials.forEach(item => {
+                            const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
+                            if (packedDate) {
+                                const { shift, dateKey } = getWorkShiftAndDate(packedDate);
+                                // Verificamos si cae dentro del rango solicitado
+                                const esTurnoValido = (selectedTurno === shift);
+                                const esFechaValida = dateKey >= fechaInicioStr && dateKey <= fechaFinStr;
 
-                                                if (!datosAgrupadosPorDia[dateKey]) {
-                                                    datosAgrupadosPorDia[dateKey] = { 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } };
-                                                }
-                                                datosAgrupadosPorDia[dateKey][linea].term += terminaciones;
-                                                datosAgrupadosPorDia[dateKey][linea].pzas++;
-                                                totales[linea].term += terminaciones;
-                                                totales[linea].pzas++;
-                                            }
+                                if (esTurnoValido && esFechaValida) {
+                                    const empacador = (item['Employee ID'] || '').toString().toUpperCase();
+                                    let linea = null;
+                                    if (empacadoresL1.includes(empacador)) linea = 'Línea 1';
+                                    else if (empacadoresL2.includes(empacador)) linea = 'Línea 2';
+
+                                    if (linea) {
+                                        const char = (orderData.catalogNumber || '').substring(3, 4).toUpperCase();
+                                        const terminaciones = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+
+                                        if (!datosAgrupadosPorDia[dateKey]) {
+                                            datosAgrupadosPorDia[dateKey] = { 'Línea 1': { term: 0, pzas: 0 }, 'Línea 2': { term: 0, pzas: 0 } };
                                         }
+                                        datosAgrupadosPorDia[dateKey][linea].term += terminaciones;
+                                        datosAgrupadosPorDia[dateKey][linea].pzas++;
+                                        totales[linea].term += terminaciones;
+                                        totales[linea].pzas++;
                                     }
-                                });
+                                }
                             }
                         });
                     }
                 });
-                
-                const labelsFechas = Object.keys(datosAgrupadosPorDia).sort();
-                renderGraficaSemanalProduccion(datosAgrupadosPorDia, labelsFechas);
-                renderResumenSemanalProduccion(totales, labelsFechas.length);
-
-            } catch (e) {
-                console.error("Error generando reporte semanal:", e);
-                showModal('Error', `<p>Ocurrió un error: ${e.message}</p>`);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Generar Reporte';
             }
+        });
+        
+        const labelsFechas = Object.keys(datosAgrupadosPorDia).sort();
+        renderGraficaSemanalProduccion(datosAgrupadosPorDia, labelsFechas);
+        renderResumenSemanalProduccion(totales, labelsFechas.length);
+
+    } catch (e) {
+        console.error("Error semanal:", e);
+        if (e.code === 'failed-precondition') {
+             showModal('Falta Índice', '<p>Crea el índice en Firebase (ver consola).</p>', 'warning');
+        } else {
+             showModal('Error', `<p>${e.message}</p>`);
         }
+    } finally {
+        btn.disabled = false; btn.textContent = 'Generar Reporte';
+    }
+}
 
         function renderResumenSemanalProduccion(totales, diasTrabajados) {
     const container = doc('resumenSemanal');
@@ -6283,7 +6287,76 @@ function renderModalChart(labels, data) {
 // --- FIN: LÓGICA REPORTE ÓRDENES DEL DÍA ---
 // =======================================================================================
 
+// =================================================================
+// --- OPTIMIZACIÓN 2: GESTIÓN DE ÁREAS CON CACHÉ (EL FIX DEFINITIVO) ---
+// =================================================================
 
+// 1. Función Maestra para descargar áreas UNA SOLA VEZ
+async function getCachedAreas() {
+    if (globalAreasCache) return globalAreasCache; // ¡Si ya las tenemos, son gratis!
+
+    try {
+        const snapshot = await db.collection('areas').get();
+        const areas = [];
+        snapshot.forEach(doc => {
+            if (doc.id !== 'CONFIG') areas.push(doc.id);
+        });
+        areas.sort();
+        globalAreasCache = areas; // Guardamos en memoria para siempre
+        console.log("✅ Áreas descargadas y guardadas en caché.");
+        return areas;
+    } catch (e) {
+        console.error("Error cargando áreas:", e);
+        return [];
+    }
+}
+
+// 2. Helper Genérico para llenar cualquier Select
+async function populateAreaSelect(selectId, includeAllOption = false) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    // Si ya tiene opciones (más de la default), no hacemos nada -> ¡Ahorro!
+    if (select.options.length > 2) return; 
+
+    const currentVal = select.value;
+    // Ponemos "Cargando..." solo si está vacío
+    if(select.options.length <= 1) select.innerHTML = '<option value="" disabled selected>Cargando...</option>';
+    
+    const areas = await getCachedAreas();
+    
+    let html = '<option value="" disabled selected>Seleccione Área</option>';
+    if (includeAllOption) html += '<option value="ALL">Todas las Áreas</option>';
+    
+    areas.forEach(area => {
+        html += `<option value="${area}">${area}</option>`;
+    });
+    
+    select.innerHTML = html;
+    
+    // Restaurar selección o poner default
+    if (areas.includes('MULTIPORT') && !currentVal) select.value = 'MULTIPORT';
+    else if (currentVal) select.value = currentVal;
+}
+
+// 3. --- REEMPLAZO DE TUS FUNCIONES VIEJAS ---
+// Al pegar esto, tu código automáticamente usará la versión optimizada
+// sin que tengas que buscar dónde se llamaban los botones.
+
+async function loadAreasForProductionReport() {
+    // Reemplaza la lógica vieja del reporte por hora
+    await populateAreaSelect('prod_area', false); 
+}
+
+async function loadAreasForTarimasReport() {
+    // Reemplaza la lógica vieja del reporte de tarimas
+    await populateAreaSelect('prodTarimas_area', true); 
+}
+
+async function loadAreasForOrdenesDia() {
+    // Reemplaza la lógica vieja del reporte de órdenes del día
+    await populateAreaSelect('ordenesDia_area', false); 
+}
 
         // --- INICIO: INICIALIZACIÓN DE LA APP ---
         function initializeApp() {
