@@ -5726,7 +5726,7 @@ function formatShortDateTime(date) {
 }
 
 
- // 4. CONSULTA HÍBRIDA (KPI TERMINACIONES: STRICTLY SAP)
+ // 4. CONSULTA EXCLUSIVA SAP (FWD SOLO COMO DATO DE REFERENCIA)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
@@ -5738,11 +5738,11 @@ async function consultarOrdenesDelDia() {
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Analizando SAP...';
+    btn.textContent = 'Filtrando por SAP...';
 
     // Limpieza
     const tbody = doc('dataTableOrdenesDia').querySelector('tbody');
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Cargando datos...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Consultando Base Maestra SAP...</td></tr>';
     
     ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing', 'kpiTerminacionesMissing'].forEach(id => {
         const el = doc(id);
@@ -5750,9 +5750,9 @@ async function consultarOrdenesDelDia() {
     });
 
     try {
-        console.log(`>>> CONSULTA: ${areaInput} | ${fechaInput} <<<`);
+        console.log(`>>> CONSULTA STRICT SAP: ${areaInput} | ${fechaInput} <<<`);
 
-        // A. SAP HISTÓRICO
+        // --- PASO A: OBTENER BASE MAESTRA SAP (EL FILTRO PRINCIPAL) ---
         const sapHistoricoRef = db.collection('areas').doc(areaInput).collection('sap_historico');
         const sapSnapshot = await sapHistoricoRef.get();
 
@@ -5760,47 +5760,64 @@ async function consultarOrdenesDelDia() {
         sapSnapshot.forEach(doc => {
             const data = doc.data();
             const sapDate = normalizeDate(data['Finish']);
+            
+            // AQUÍ ESTÁ EL FILTRO: Solo guardamos si la fecha SAP coincide
             if (sapDate === fechaInput) {
                 const cleanId = String(data['Orden'] || doc.id).trim().replace(/^0+/, '');
                 sapMap.set(cleanId, data);
             }
         });
 
-        // B. ÓRDENES VIVAS
+        if (sapMap.size === 0) {
+            renderOrdenesDiaTable([]);
+            if(doc('kpiTerminacionesMissing')) doc('kpiTerminacionesMissing').textContent = '0';
+            ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing'].forEach(id => doc(id).textContent = '0');
+            alert(`No hay órdenes programadas en SAP para la fecha ${fechaInput}.`);
+            return; // Nos salimos temprano si SAP no trae nada
+        }
+
+        // --- PASO B: OBTENER DATOS FWD (SOLO PARA ENRIQUECER) ---
+        // Traemos todas las órdenes activas para buscar coincidencias
         const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
         const ordersSnapshot = await ordersRef.get();
+        
+        // Creamos un mapa de FWD para búsqueda rápida
+        const fwdMap = new Map();
+        ordersSnapshot.forEach(doc => {
+            const cleanId = String(doc.id).trim().replace(/^0+/, '');
+            fwdMap.set(cleanId, doc.data());
+        });
 
+        // --- PASO C: CONSTRUIR REPORTE (ITERANDO SOLO SAP) ---
         let ordenesFinales = [];
         
         let stats = { 
             total: 0, 
             cerradas: 0, 
             faltantes: 0,
-            terminacionesPendientes: 0 // KPI SAP
+            terminacionesPendientes: 0 
         };
 
-        ordersSnapshot.forEach(docSnap => {
-            const liveData = docSnap.data();
-            const docId = String(docSnap.id).trim().replace(/^0+/, '');
-
-            const sapData = sapMap.get(docId);
-            const liveDate = normalizeDate(liveData.orderDate);
+        // ITERAMOS EL MAPA DE SAP -> ESTO GARANTIZA QUE SOLO SALGAN ORDENES SAP
+        sapMap.forEach((sapData, docId) => {
             
-            if (sapData || liveDate === fechaInput) {
-                
-                const catalogo = sapData?.['Catalogo'] || liveData.catalogNumber || 'N/A';
-                const material = sapData?.['Material'] || 'N/A';
-                const specialStock = sapData?.['Special Stock'] || 'N/A';
+            // Buscamos si existe en FWD (Si no, liveData será undefined)
+            const liveData = fwdMap.get(docId); 
 
-                const totalOrden = Number(sapData?.['Total orden']) || Number(liveData.orderQty) || 0;
-                
-                // Total Confirmado SAP
-                const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined) 
-                                        ? Number(sapData['Total confirmado']) 
-                                        : 0;
+            // Datos Base (Siempre de SAP)
+            const catalogo = sapData['Catalogo'] || 'N/A';
+            const material = sapData['Material'] || 'N/A';
+            const specialStock = sapData['Special Stock'] || 'N/A';
 
-                // Total Confirmado FWD
-                let totalConfirmadoFWD = Number(liveData.packedQty) || 0;
+            // Totales SAP
+            const totalOrden = Number(sapData['Total orden']) || 0;
+            const totalConfirmadoSAP = Number(sapData['Total confirmado']) || 0;
+
+            // Totales FWD (Si existe liveData, calculamos. Si no, es 0)
+            let totalConfirmadoFWD = 0;
+            if (liveData) {
+                totalConfirmadoFWD = Number(liveData.packedQty) || 0;
+                // Ajuste por si packedQty es 0 pero hay cajas
                 if (totalConfirmadoFWD === 0 && liveData.empaqueData) {
                     let empaqueArray = [];
                     if(Array.isArray(liveData.empaqueData)) empaqueArray = liveData.empaqueData;
@@ -5808,55 +5825,54 @@ async function consultarOrdenesDelDia() {
                     
                     empaqueArray.forEach(box => { if(box.serials) totalConfirmadoFWD += box.serials.length; });
                 }
+            }
 
-                // Cálculo Faltantes
-                let faltanteSAP = 0;
-                if (sapData && sapData['Faltante'] !== undefined) {
-                    faltanteSAP = Number(sapData['Faltante']);
-                } else {
-                    faltanteSAP = Math.max(0, totalOrden - totalConfirmadoSAP);
-                }
+            // Cálculos
+            let faltanteSAP = 0;
+            if (sapData['Faltante'] !== undefined) {
+                faltanteSAP = Number(sapData['Faltante']);
+            } else {
+                faltanteSAP = Math.max(0, totalOrden - totalConfirmadoSAP);
+            }
 
-                const faltanteFWD = Math.max(0, totalOrden - totalConfirmadoFWD);
+            const faltanteFWD = Math.max(0, totalOrden - totalConfirmadoFWD);
 
-                // Cálculo Term. (Basado en SAP)
-                const char = catalogo.substring(3, 4).toUpperCase();
-                const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-                const termFaltante = faltanteSAP * fibras; // Esto es LO PENDIENTE SEGÚN SAP
+            // Terminaciones (Siempre basado en SAP)
+            const char = catalogo.substring(3, 4).toUpperCase();
+            const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+            const termFaltante = faltanteSAP * fibras; 
 
-                const status = (faltanteFWD === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
+            // Status (Basado en la realidad FWD para el color del botón)
+            const status = (faltanteFWD === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
 
-                ordenesFinales.push({
-                    id: docId,
-                    catalogo, material, specialStock, fibras, termFaltante,
-                    totalOrden, 
-                    totalConfirmadoSAP,
-                    faltanteSAP,
-                    faltanteFWD,
-                    status,
-                    rawData: liveData 
-                });
+            ordenesFinales.push({
+                id: docId,
+                catalogo, material, specialStock, fibras, termFaltante,
+                totalOrden, 
+                totalConfirmadoSAP,
+                faltanteSAP,
+                faltanteFWD,
+                status,
+                // Si liveData existe, lo pasamos. Si no, pasamos un objeto vacío con estructura mínima
+                // para que el modal no truene pero diga "Sin datos"
+                rawData: liveData || { packedQty: 0, orderQty: totalOrden, empaqueData: [], rastreoData: [] } 
+            });
 
-                // --- ACTUALIZACIÓN DE STATS ---
-                stats.total++;
+            // --- STATS ---
+            stats.total++;
+            stats.terminacionesPendientes += termFaltante; // Suma estricta de SAP
 
-                // 1. KPI Terminaciones (CORRECCIÓN: Se suma SIEMPRE, basado en SAP)
-                // No importa si en FWD ya acabaron, si SAP dice que falta, aquí se cuenta.
-                stats.terminacionesPendientes += termFaltante; 
-
-                // 2. Conteo de Órdenes (Visual - Basado en realidad FWD)
-                if (faltanteFWD === 0 && totalOrden > 0) {
-                    stats.cerradas++;
-                } else {
-                    stats.faltantes++;
-                }
+            if (faltanteFWD === 0 && totalOrden > 0) {
+                stats.cerradas++;
+            } else {
+                stats.faltantes++;
             }
         });
 
+        // Renderizado
         if (ordenesFinales.length === 0) {
+            // Este caso es raro si sapMap.size > 0, pero por seguridad
             renderOrdenesDiaTable([]);
-            if(doc('kpiTerminacionesMissing')) doc('kpiTerminacionesMissing').textContent = '0';
-            alert(`No hay órdenes para ${fechaInput} en ${areaInput}.`);
         } else {
             renderOrdenesDiaTable(ordenesFinales);
         }
@@ -5872,7 +5888,7 @@ async function consultarOrdenesDelDia() {
     } catch (e) {
         console.error("Error consulta:", e);
         showModal('Error', `<p>${e.message}</p>`);
-        tbody.innerHTML = '<tr><td colspan="11">Error.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11">Error al procesar datos.</td></tr>';
     } finally {
         btn.disabled = false;
         btn.textContent = 'Consultar Órdenes';
