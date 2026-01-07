@@ -1305,59 +1305,7 @@ body.dark-theme .export-mode p {
    FIX FINAL: KPIs EN UNA SOLA LÍNEA (FORZADO)
    ======================================================= */
 
-.dashboard-kpi-container {
-    display: flex;
-    flex-wrap: nowrap !important; /* <--- CLAVE: Prohibido bajar de línea */
-    gap: 10px;                    /* Espacio reducido entre tarjetas */
-    width: 100%;
-    margin-bottom: 12px;
-    align-items: stretch;         /* Que todas tengan la misma altura */
-}
 
-.kpi-card {
-    flex: 1;              /* Crecen equitativamente para llenar el espacio */
-    width: 25%;           /* Base de cálculo: 100% / 4 */
-    min-width: 0;         /* CRUCIAL: Permite que la tarjeta se encoja más allá de su contenido si es necesario */
-    padding: 8px 4px;     /* Padding muy compacto */
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-
-.kpi-header {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-}
-
-.kpi-header h4 {
-    font-size: 0.75rem;   /* Letra pequeña para los títulos */
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin: 0 0 2px 0;
-    white-space: nowrap;  /* Evita que el texto se rompa en dos líneas */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Pone "..." si no cabe */
-}
-
-.kpi-card h1 {
-    font-size: 1.6rem;    /* Número grande pero no gigante */
-    font-weight: 700;
-    margin: 0;
-    line-height: 1.1;
-}
-
-/* Ajuste específico para pantallas muy chicas (Laptop pequeña) */
-@media (max-width: 1366px) {
-    .kpi-card h1 {
-        font-size: 1.4rem;
-    }
-    .kpi-header h4 {
-        font-size: 0.7rem;
-    }
-}
 /* --- 2. Ajuste de Altura (Para que la tabla llene la pantalla) --- */
 #viewOrdenesDia .main-content {
     display: flex;
