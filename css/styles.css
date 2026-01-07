@@ -1326,57 +1326,62 @@ body.dark-theme .export-mode p {
     border-radius: 8px;
 }
 
-/* --- 3. Ajuste Fino de la Tabla (Columnas y Centrado) --- */
+/* --- 3. Ajuste Fino de la Tabla (11 Columnas) --- */
 #dataTableOrdenesDia {
     width: 100%;
-    table-layout: fixed; /* Obligatorio para anchos personalizados */
-    border-collapse: separate; 
+    table-layout: fixed;
+    border-collapse: separate;
     border-spacing: 0;
 }
 
-#dataTableOrdenesDia th, 
+#dataTableOrdenesDia th,
 #dataTableOrdenesDia td {
-    text-align: center !important; /* Centrado forzoso de todo */
+    text-align: center !important;
     vertical-align: middle;
-    padding: 8px 6px; /* Padding optimizado */
+    padding: 8px 4px; /* Un poco menos padding para que quepa todo */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 0.85rem;
+    font-size: 0.8rem; /* Letra un pelín más chica para acomodar 11 columnas */
 }
 
-/* Columna 1: Orden */
-#dataTableOrdenesDia th:nth-child(1), 
-#dataTableOrdenesDia td:nth-child(1) {
-    width: 10%; 
-}
+/* 1. Orden */
+#dataTableOrdenesDia th:nth-child(1), td:nth-child(1) { width: 9%; }
 
-/* Columna 2: Catálogo (Más ancha y alineada a la izquierda) */
-#dataTableOrdenesDia th:nth-child(2), 
-#dataTableOrdenesDia td:nth-child(2) {
-    width: 20%; 
-    white-space: normal; /* Permitir 2 líneas si es largo */
+/* 2. Catálogo (El más ancho) */
+#dataTableOrdenesDia th:nth-child(2), td:nth-child(2) {
+    width: 16%;
+    white-space: normal;
     line-height: 1.1;
     text-align: left !important;
 }
 
-/* Columna 3: Material */
-#dataTableOrdenesDia th:nth-child(3), 
-#dataTableOrdenesDia td:nth-child(3) {
-    width: 10%; 
-}
+/* 3. Material */
+#dataTableOrdenesDia th:nth-child(3), td:nth-child(3) { width: 9%; }
 
-/* Columnas Numéricas (4 a 9) - Distribución equitativa */
-#dataTableOrdenesDia th:nth-child(n+4):nth-child(-n+9), 
-#dataTableOrdenesDia td:nth-child(n+4):nth-child(-n+9) {
-    width: 8%; 
-}
+/* 4. Special Stock */
+#dataTableOrdenesDia th:nth-child(4), td:nth-child(4) { width: 8%; }
 
-/* Columna 10: Botón Status */
-#dataTableOrdenesDia th:nth-child(10), 
-#dataTableOrdenesDia td:nth-child(10) {
-    width: 12%; 
-}
+/* 5. Fibras */
+#dataTableOrdenesDia th:nth-child(5), td:nth-child(5) { width: 5%; }
+
+/* 6. Term. (Falt) */
+#dataTableOrdenesDia th:nth-child(6), td:nth-child(6) { width: 7%; }
+
+/* 7. Total Orden */
+#dataTableOrdenesDia th:nth-child(7), td:nth-child(7) { width: 7%; }
+
+/* 8. Total Conf. */
+#dataTableOrdenesDia th:nth-child(8), td:nth-child(8) { width: 7%; }
+
+/* 9. Faltante SAP */
+#dataTableOrdenesDia th:nth-child(9), td:nth-child(9) { width: 7%; }
+
+/* 10. Faltante FWD (Nueva) */
+#dataTableOrdenesDia th:nth-child(10), td:nth-child(10) { width: 8%; }
+
+/* 11. Status (Botón) - AQUÍ ESTABA EL PROBLEMA */
+#dataTableOrdenesDia th:nth-child(11), td:nth-child(11) { width: 10%; }
 
 /* --- Estilos Gráfica Modal --- */
 .modal-chart-container {
