@@ -5726,7 +5726,11 @@ function formatShortDateTime(date) {
 }
 
 
-        // 4. CONSULTA HÍBRIDA (CON NUEVO KPI DE TERMINACIONES)
+       // =======================================================================================
+// --- LÓGICA DE CONSULTA Y TABLA (CON COLUMNA FALTANTE FWD + ORDEN ASCENDENTE) ---
+// =======================================================================================
+
+// 4. CONSULTA HÍBRIDA (SAP + FIREBASE)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
@@ -5738,18 +5742,16 @@ async function consultarOrdenesDelDia() {
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Calculando KPIs...';
+    btn.textContent = 'Comparando SAP vs FWD...';
 
     const tbody = doc('dataTableOrdenesDia').querySelector('tbody');
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Consultando SAP Histórico...</td></tr>';
-    
-    // Reseteamos los KPIs visualmente
-    ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing', 'kpiTerminacionesMissing'].forEach(id => doc(id).textContent = '-');
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Analizando discrepancias...</td></tr>';
+    ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing'].forEach(id => doc(id).textContent = '-');
 
     try {
-        console.log(`>>> CONSULTA KPI: ${areaInput} | ${fechaInput} <<<`);
+        console.log(`>>> CONSULTA: ${areaInput} | ${fechaInput} <<<`);
 
-        // A. SAP HISTÓRICO
+        // A. SAP HISTÓRICO (Fuente Maestra)
         const sapHistoricoRef = db.collection('areas').doc(areaInput).collection('sap_historico');
         const sapSnapshot = await sapHistoricoRef.get();
 
@@ -5763,19 +5765,12 @@ async function consultarOrdenesDelDia() {
             }
         });
 
-        // B. ÓRDENES VIVAS
+        // B. ÓRDENES VIVAS (Fuente Real FWD)
         const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
         const ordersSnapshot = await ordersRef.get();
 
         let ordenesFinales = [];
-        
-        // --- AQUÍ ESTÁ EL CAMBIO PARA LOS STATS ---
-        let stats = { 
-            total: 0, 
-            cerradas: 0, 
-            faltantes: 0,
-            terminacionesPendientes: 0 // <--- Nuevo contador
-        };
+        let stats = { total: 0, cerradas: 0, faltantes: 0 };
 
         ordersSnapshot.forEach(docSnap => {
             const liveData = docSnap.data();
@@ -5783,51 +5778,73 @@ async function consultarOrdenesDelDia() {
 
             const sapData = sapMap.get(docId);
             const liveDate = normalizeDate(liveData.orderDate);
-            
+
+            // Filtro: Existe en SAP hoy O se creó hoy en la App
             if (sapData || liveDate === fechaInput) {
-                
+
+                // DATOS BASE
                 const catalogo = sapData?.['Catalogo'] || liveData.catalogNumber || 'N/A';
                 const material = sapData?.['Material'] || 'N/A';
                 const specialStock = sapData?.['Special Stock'] || 'N/A';
 
+                // --- CÁLCULO DE TOTALES ---
                 const totalOrden = Number(sapData?.['Total orden']) || Number(liveData.orderQty) || 0;
-                const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined) 
-                                        ? Number(sapData['Total confirmado']) 
+
+                // 1. SAP (Histórico estático)
+                const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined)
+                                        ? Number(sapData['Total confirmado'])
                                         : 0;
 
-                let faltante = 0;
-                if (sapData && sapData['Faltante'] !== undefined) {
-                    faltante = Number(sapData['Faltante']);
-                } else {
-                    const livePacked = Number(liveData.packedQty) || 0;
-                    faltante = Math.max(0, totalOrden - livePacked);
+                // 2. FWD (Tiempo real App)
+                let totalConfirmadoFWD = Number(liveData.packedQty) || 0;
+                // Corrección: Si packedQty es 0 pero hay cajas, las contamos
+                if (totalConfirmadoFWD === 0 && liveData.empaqueData) {
+                    let empaqueArray = Array.isArray(liveData.empaqueData) ? liveData.empaqueData : [];
+                    // Si es mapa (aunque raro en tu estructura actual), lo convertimos
+                    if (!Array.isArray(liveData.empaqueData) && typeof liveData.empaqueData === 'object') {
+                        empaqueArray = Object.values(liveData.empaqueData);
+                    }
+                    empaqueArray.forEach(box => {
+                        if(box.serials) totalConfirmadoFWD += box.serials.length;
+                    });
                 }
 
-                // Cálculos Fibras
+                // --- CÁLCULO DE FALTANTES ---
+
+                // Faltante SAP (Lo que dice el Excel)
+                let faltanteSAP = 0;
+                if (sapData && sapData['Faltante'] !== undefined) {
+                    faltanteSAP = Number(sapData['Faltante']);
+                } else {
+                    faltanteSAP = Math.max(0, totalOrden - totalConfirmadoSAP);
+                }
+
+                // Faltante FWD (La realidad en piso)
+                const faltanteFWD = Math.max(0, totalOrden - totalConfirmadoFWD);
+
+                // --- CÁLCULOS EXTRAS ---
                 const char = catalogo.substring(3, 4).toUpperCase();
                 const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-                const termFaltante = faltante * fibras;
+                const termFaltante = faltanteSAP * fibras; // Basado en SAP para consistencia con tabla original
 
-                const status = (faltante === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
+                // Estatus General (Basado en FWD que es el real)
+                const status = (faltanteFWD === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
 
                 ordenesFinales.push({
                     id: docId,
                     catalogo, material, specialStock, fibras, termFaltante,
-                    totalOrden, 
-                    totalConfirmado: totalConfirmadoSAP,
-                    faltante, status,
-                    rawData: liveData 
+                    totalOrden,
+                    totalConfirmadoSAP, // Para columna SAP Conf.
+                    faltanteSAP,        // Para columna Faltante SAP
+                    faltanteFWD,        // Para columna Faltante FWD (Nueva)
+                    status,
+                    rawData: liveData
                 });
 
-                // --- ACTUALIZACIÓN DE KPIs ---
+                // KPIs (Usamos la realidad FWD para los contadores del dashboard)
                 stats.total++;
-                if (faltante === 0 && totalOrden > 0) {
-                    stats.cerradas++;
-                } else {
-                    stats.faltantes++;
-                    // Sumamos las terminaciones pendientes al gran total
-                    stats.terminacionesPendientes += termFaltante; 
-                }
+                if (faltanteFWD === 0 && totalOrden > 0) stats.cerradas++;
+                else stats.faltantes++;
             }
         });
 
@@ -5838,40 +5855,55 @@ async function consultarOrdenesDelDia() {
             renderOrdenesDiaTable(ordenesFinales);
         }
 
-        // Renderizar KPIs
         doc('kpiOrdersTotal').textContent = stats.total;
         doc('kpiOrdersClosed').textContent = stats.cerradas;
         doc('kpiOrdersMissing').textContent = stats.faltantes;
-        
-        // --- NUEVO KPI RENDERIZADO ---
-        doc('kpiTerminacionesMissing').textContent = stats.terminacionesPendientes.toLocaleString(); 
 
     } catch (e) {
         console.error("Error consulta:", e);
         showModal('Error', `<p>${e.message}</p>`);
-        tbody.innerHTML = '<tr><td colspan="10">Error.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11">Error.</td></tr>';
     } finally {
         btn.disabled = false;
         btn.textContent = 'Consultar Órdenes';
     }
 }
 
-// 5. RENDERIZADO TABLA
+// 5. RENDERIZADO TABLA (MODIFICADA: NUEVA COLUMNA Y ORDEN ASCENDENTE)
 function renderOrdenesDiaTable(data) {
-    const table = doc('dataTableOrdenesDia').querySelector('tbody');
+    const table = doc('dataTableOrdenesDia');
     if (!data || data.length === 0) {
-        table.innerHTML = '<tr><td colspan="10" style="text-align:center;">Sin datos.</td></tr>';
+        // Ajustamos colspan a 11 por la nueva columna
+        table.querySelector('tbody').innerHTML = '<tr><td colspan="11" style="text-align:center;">Sin datos.</td></tr>';
         return;
     }
 
-    data.sort((a, b) => b.faltante - a.faltante);
+    // --- ORDENAMIENTO (ASCENDENTE por Faltante SAP) ---
+    // Primero las completas (0), luego las que les falta 1, luego 2...
+    data.sort((a, b) => a.faltanteSAP - b.faltanteSAP);
 
-    let html = '';
+    // --- ENCABEZADOS ---
+    const headers = [
+        'Orden', 'Catálogo', 'Material', 'Special Stock', 'Fibras',
+        'Term. (Falt)', 'Total Orden', 'Total Conf.', 'Faltante SAP', 'Faltante FWD', 'Status'
+    ];
+
+    let html = '<thead><tr>';
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += '</tr></thead><tbody>';
+
     data.forEach((row, index) => {
-        const trClass = row.faltante === 0 ? 'row-today' : '';
-        const btnColor = row.faltante === 0 ? 'var(--success-color)' : '#f59e0b';
+        // Usamos Faltante FWD para pintar la fila de verde si ya acabaron en físico
+        const isCompleteFWD = row.faltanteFWD === 0;
+        const trClass = isCompleteFWD ? 'row-today' : '';
+
+        const btnColor = isCompleteFWD ? 'var(--success-color)' : '#f59e0b';
         const hasLiveData = !!row.rawData;
         const btnOpacity = hasLiveData ? '1' : '0.5';
+
+        // Destacar visualmente si hay discrepancia (SAP dice que falta, pero FWD dice que ya no)
+        const discrepancia = row.faltanteSAP > 0 && row.faltanteFWD === 0;
+        const colorFaltanteFWD = discrepancia ? 'var(--success-color)' : (row.faltanteFWD > 0 ? 'var(--danger-color)' : 'inherit');
 
         html += `<tr class="${trClass}">
             <td style="font-weight:bold;">${row.id}</td>
@@ -5881,8 +5913,14 @@ function renderOrdenesDiaTable(data) {
             <td style="text-align:center;">${row.fibras}</td>
             <td style="text-align:center; font-weight:bold;">${row.termFaltante.toLocaleString()}</td>
             <td style="text-align:center;">${row.totalOrden}</td>
-            <td style="text-align:center;">${row.totalConfirmado}</td>
-            <td style="text-align:center; color: ${row.faltante > 0 ? 'var(--danger-color)' : 'inherit'}; font-weight:bold;">${row.faltante}</td>
+            <td style="text-align:center;">${row.totalConfirmadoSAP}</td>
+
+            <td style="text-align:center; font-weight:bold;">${row.faltanteSAP}</td>
+
+            <td style="text-align:center; font-weight:bold; color: ${colorFaltanteFWD};">
+                ${row.faltanteFWD}
+            </td>
+
             <td style="text-align:center;">
                 <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}">
                     Ver Estatus
@@ -5892,15 +5930,15 @@ function renderOrdenesDiaTable(data) {
     });
     table.innerHTML = html;
 
+    // Listeners
     doc('dataTableOrdenesDia').querySelectorAll('.btn-status').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = e.target.dataset.index;
             if (data[idx].rawData) mostrarModalEstatusOrden(data[idx]);
-            else showModal('Aviso', '<p>Orden en SAP sin registros de escaneo en App.</p>');
+            else showModal('Aviso', '<p>Orden en SAP sin registros en App.</p>');
         });
     });
 }
-
 // --- VARIABLES GLOBALES PARA EL CHART DEL MODAL ---
 let modalChartInstance = null; // Para poder destruirlo si se abre otro
 
