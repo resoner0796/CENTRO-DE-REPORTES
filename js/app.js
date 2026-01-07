@@ -4413,176 +4413,177 @@ function exportSummaryAsJPG() {
 // --- FUERA DEL DOMContentLoaded ---
 
 // --- AJUSTE: Función consultarTarimas con FILTRO DE ÁREA ---
+// --- OPTIMIZACIÓN DE ORO: CONSULTA DE TARIMAS POR LOTES (MAYOREO) ---
 async function consultarTarimas() {
     const fechaInput = doc('prodTarimas_fecha').value;
     const turnoSeleccionado = doc('prodTarimas_turno').value;
-    const areaSeleccionada = doc('prodTarimas_area').value; // <-- OBTENEMOS EL ÁREA SELECCIONADA
+    const areaSeleccionada = doc('prodTarimas_area').value;
 
-    // Validamos que todos los campos necesarios tengan valor
     if (!fechaInput || !turnoSeleccionado || !areaSeleccionada) {
         showModal('Datos Requeridos', '<p>Por favor, seleccione fecha, turno y área.</p>');
         return;
     }
 
     const btn = doc('consultarTarimasBtn');
-    if (!btn) {
-        console.error("[Consultar Tarimas] Botón #consultarTarimasBtn no encontrado.");
-        return;
-    }
+    if (!btn) return;
     btn.disabled = true;
-    btn.textContent = `Consultando ${turnoSeleccionado} (${areaSeleccionada === 'ALL' ? 'Todas' : areaSeleccionada})...`;
+    btn.textContent = `Consultando...`;
 
-    const parts = fechaInput.split('-');
-    const fechaSeleccionadaStr_render = `${parts[2]}/${parts[1]}/${parts[0]}`;
-    const fechaSeleccionadaStr_compare = `${parts[0]}-${parts[1]}-${parts[2]}`;
-    console.log(`[Tarimas] Buscando fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}, Área: ${areaSeleccionada}`);
-
-    const dashboardContainer = doc('terminacionesDashboardContainer');
     const tableContainer = doc('tarimasTableContainer');
     const tableElement = doc('dataTableTarimas');
-
-    if (dashboardContainer) dashboardContainer.style.display = 'none';
-    if (!tableContainer || !tableElement) {
-        console.error("[Consultar Tarimas] Contenedor #tarimasTableContainer o tabla #dataTableTarimas no encontrado.");
-        showModal('Error Interno', '<p>No se pudo encontrar la tabla de resultados.</p>');
-        btn.disabled = false; btn.textContent = 'Consultar Tarimas';
-        return;
-    }
+    
+    // Ocultar otros dashboards si están abiertos
+    if(doc('terminacionesDashboardContainer')) doc('terminacionesDashboardContainer').style.display = 'none';
+    
     tableContainer.style.display = 'flex';
-    tableElement.innerHTML = '<thead><tr><th>Consultando tarimas...</th></tr></thead><tbody></tbody>';
+    tableElement.innerHTML = '<thead><tr><th>Analizando tarimas y cajas...</th></tr></thead><tbody></tbody>';
 
     try {
-        // --- CONSTRUCCIÓN DE LA CONSULTA CON FILTRO DE ÁREA ---
+        // 1. OBTENER LAS TARIMAS (Igual que antes, esto es barato)
         let query = db.collection('tarimas_confirmadas');
-
-        // Aplicar filtro de área SI NO es "Todas"
         if (areaSeleccionada !== 'ALL') {
             query = query.where('area', '==', areaSeleccionada);
-            console.log(`[Tarimas] Aplicando filtro de área: ${areaSeleccionada}`);
-        } else {
-            console.log(`[Tarimas] Consultando todas las áreas.`);
         }
         
-        // Obtenemos los límites de fecha/hora para el turno
         const { startTime, endTime } = getShiftDateRange(fechaInput, turnoSeleccionado);
-        
-        // Aplicamos los filtros de fecha (ESTOS SON NECESARIOS para optimizar)
         query = query.where('fecha', '>=', startTime).where('fecha', '<=', endTime);
 
-        // --- FIN CONSTRUCCIÓN DE CONSULTA ---
+        const palletsSnapshot = await query.get();
 
-        const palletsSnapshot = await query.get(); // Ejecutamos la consulta construida
-
-        // El resto de la lógica para procesar el snapshot y filtrar por turno permanece igual
         if (palletsSnapshot.empty) {
-             // Si el área específica no tuvo tarimas en ese rango de fecha, puede ser normal
-            throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render} ${areaSeleccionada !== 'ALL' ? ' en el área ' + areaSeleccionada : ''}.`);
+            throw new Error(`No se encontraron tarimas para ${turnoSeleccionado}.`);
         }
 
+        // 2. FILTRAR POR TURNO EXACTO (En memoria)
         let tarimasDelTurno = [];
+        // Preparamos una lista gigante de TODAS las cajas que necesitamos verificar
+        // para no hacer mil peticiones pequeñas.
+        let allBoxIdsToVerify = new Set();
+
+        const parts = fechaInput.split('-');
+        const fechaComparar = `${parts[0]}-${parts[1]}-${parts[2]}`;
+
         palletsSnapshot.docs.forEach(docSnap => {
-            const palletData = docSnap.data();
-             // Doble verificación por si el filtro de fecha/hora no fue exacto (raro, pero seguro)
-            if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
+            const data = docSnap.data();
+            // Validación básica de datos
+            if (!data.fecha || !data.cajas) return;
+
             try {
-                const palletConfirmationDate = palletData.fecha.toDate();
-                const { shift, dateKey } = getWorkShiftAndDate(palletConfirmationDate);
-                 // Verificamos que coincida EXACTAMENTE con el turno y la fecha clave
-                if (dateKey === fechaSeleccionadaStr_compare && shift === turnoSeleccionado) {
-                    tarimasDelTurno.push({
-                        id: docSnap.id, cajas: palletData.cajas, folio: palletData.folio,
-                        gafete: palletData.gafete, confirmationDate: palletConfirmationDate,
-                        // Añadimos el área guardada en la tarima para usarla después si es necesario
-                        area: palletData.area || 'Indefinida' 
-                    });
+                const dateObj = data.fecha.toDate();
+                const { shift, dateKey } = getWorkShiftAndDate(dateObj);
+
+                if (dateKey === fechaComparar && shift === turnoSeleccionado) {
+                    tarimasDelTurno.push({ id: docSnap.id, ...data });
+                    
+                    // Recolectar BoxIDs para consulta masiva
+                    if (Array.isArray(data.cajas)) {
+                        data.cajas.forEach(c => {
+                            if (c.codigoCaja) allBoxIdsToVerify.add(String(c.codigoCaja).trim());
+                        });
+                    }
                 }
-            } catch (e) { console.error(`[Tarimas] Error procesando fecha/turno Tarima ID ${docSnap.id}:`, e); }
+            } catch (e) { console.error("Error procesando tarima:", e); }
         });
 
         if (tarimasDelTurno.length === 0) {
-            // Esto puede pasar si las tarimas encontradas por fecha/hora no eran del turno exacto
-             throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render} ${areaSeleccionada !== 'ALL' ? ' en el área ' + areaSeleccionada : ''} (verificación post-consulta).`);
+            throw new Error(`No hay tarimas exactas para este turno (verificación post-filtro).`);
         }
-        console.log(`[Tarimas] ${tarimasDelTurno.length} tarimas encontradas para procesar.`);
 
-        // --- Procesamiento de BXID (SIN CAMBIOS) ---
-        const palletPromises = tarimasDelTurno.map(async (tarima) => {
-            const totalCajas = tarima.cajas.length;
+        // 3. CONSULTA MASIVA DE CAJAS (LA MAGIA DEL AHORRO 💰)
+        // En lugar de leer una por una, leemos en lotes de 30 IDs usando 'in'
+        const foundBoxesMap = new Map();
+        const boxIdsArray = Array.from(allBoxIdsToVerify);
+        
+        // Función helper para procesar lotes
+        const fetchBatches = async () => {
+            const promises = [];
+            while (boxIdsArray.length) {
+                // Firebase permite máximo 10 (o 30 en versiones nuevas) en 'in'. Usamos 10 por seguridad y velocidad.
+                // Para búsquedas por Document ID (__name__), a veces permite más, pero 10 es seguro.
+                // MEJOR ESTRATEGIA: Usar FieldPath.documentId() 'in' [...]
+                const batch = boxIdsArray.splice(0, 30); 
+                if (batch.length === 0) break;
+
+                const p = db.collection('boxID_historico')
+                    .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                    .get()
+                    .then(snap => {
+                        snap.forEach(docBox => {
+                            foundBoxesMap.set(docBox.id, docBox.data());
+                        });
+                    });
+                promises.push(p);
+            }
+            await Promise.all(promises);
+        };
+
+        // Ejecutamos la consulta masiva
+        console.log(`[Tarimas] Verificando ${allBoxIdsToVerify.size} cajas en lotes...`);
+        await fetchBatches();
+        console.log(`[Tarimas] Datos de cajas recuperados.`);
+
+        // 4. ARMAR EL REPORTE FINAL (Cruzando datos en memoria)
+        const processedPallets = tarimasDelTurno.map(tarima => {
             const bxidList = tarima.cajas
                 .map(box => box?.codigoCaja ? String(box.codigoCaja).trim() : null)
                 .filter(bxid => bxid);
 
             let receivedCount = 0;
-            let bxidDetailsMap = new Map();
             let latestReceivedAt = null;
 
-            if (bxidList.length > 0) {
-                try {
-                    const readPromises = bxidList.map(bxid => db.collection('boxID_historico').doc(bxid).get());
-                    const bxidSnapshots = await Promise.all(readPromises);
+            // Cruzamos con el mapa que llenamos en el paso 3
+            const finalBxidDetails = tarima.cajas.map(boxInfo => {
+                const bxid = boxInfo.codigoCaja ? String(boxInfo.codigoCaja).trim() : null;
+                const orden = boxInfo.numeroOrden || 'N/A';
+                
+                if (!bxid) return { bxid: 'N/A', orden, gr: 'N/A', receivedAt: null };
 
-                    bxidSnapshots.forEach((snap, index) => {
-                        const searchedBxid = bxidList[index];
-                        if (snap.exists) {
-                            receivedCount++;
-                            const bxData = snap.data();
-                            const receivedDate = bxData.receivedAt && typeof bxData.receivedAt.toDate === 'function'
-                                ? bxData.receivedAt.toDate() : null;
-                            bxidDetailsMap.set(searchedBxid, { found: true, gr: bxData.gr || 'N/A', receivedAt: receivedDate });
-                            if (receivedDate && (!latestReceivedAt || receivedDate > latestReceivedAt)) { latestReceivedAt = receivedDate; }
-                        } else {
-                            bxidDetailsMap.set(searchedBxid, { found: false, gr: 'N/A', receivedAt: null });
-                        }
-                    });
-                } catch (bxidError) { /* ... manejo de error sin cambios ... */ }
-            } else { /* ... manejo de tarima sin BXIDs válidos ... */ }
-
-            const finalBxidDetails = tarima.cajas.map(boxInfo => { /* ... mapeo sin cambios ... */
-                 if (!boxInfo || typeof boxInfo !== 'object') {
-                     return { bxid: 'Inválido', orden: 'N/A', gr: 'N/A', receivedAt: null };
-                 }
-                 const bxid = boxInfo.codigoCaja ? String(boxInfo.codigoCaja).trim() : null;
-                 const lookupResult = bxid ? (bxidDetailsMap.get(bxid) || { found: false, gr: 'N/A', receivedAt: null }) : { found: false, gr: 'N/A', receivedAt: null };
-                 return { bxid: boxInfo.codigoCaja || 'N/A', orden: boxInfo.numeroOrden || 'N/A', gr: lookupResult.gr, receivedAt: lookupResult.receivedAt };
+                const historicData = foundBoxesMap.get(bxid);
+                
+                if (historicData) {
+                    receivedCount++;
+                    const recvDate = historicData.receivedAt ? historicData.receivedAt.toDate() : null;
+                    if (recvDate && (!latestReceivedAt || recvDate > latestReceivedAt)) {
+                        latestReceivedAt = recvDate;
+                    }
+                    return { bxid, orden, gr: historicData.gr || 'N/A', receivedAt: recvDate, found: true };
+                } else {
+                    return { bxid, orden, gr: 'N/A', receivedAt: null, found: false };
+                }
             });
 
+            // Lógica de Semáforo
             let status = 'status-rojo';
             let statusText = 'No Recibida';
-            const validBxidCount = bxidList.length;
+            const totalCajas = bxidList.length;
 
-            if (validBxidCount === 0 && totalCajas > 0) { statusText = 'Sin BXIDs Válidos'; }
-            else if (receivedCount > 0 && receivedCount < validBxidCount) { status = 'status-naranja'; statusText = 'Recibida Parcial'; }
-            else if (receivedCount === validBxidCount && validBxidCount > 0) { status = 'status-verde'; statusText = 'Recibida Completa'; }
+            if (totalCajas > 0) {
+                if (receivedCount === totalCajas) { status = 'status-verde'; statusText = 'Recibida Completa'; }
+                else if (receivedCount > 0) { status = 'status-naranja'; statusText = 'Recibida Parcial'; }
+            } else if (tarima.cajas.length > 0) {
+                statusText = 'Sin BXIDs';
+            }
 
             return {
-                folio: tarima.folio, user: tarima.gafete, totalCajas: totalCajas,
-                statusClass: status, statusText: statusText,
-                confirmationDate: tarima.confirmationDate, latestReceivedAt: latestReceivedAt,
-                bxidDetails: finalBxidDetails,
-                // Incluimos el área de la tarima por si la necesitas mostrar en la tabla
-                area: tarima.area 
+                folio: tarima.folio,
+                user: tarima.gafete,
+                area: tarima.area || 'N/A',
+                totalCajas: tarima.cajas.length,
+                statusClass: status,
+                statusText: statusText,
+                confirmationDate: tarima.fecha.toDate(),
+                latestReceivedAt: latestReceivedAt,
+                bxidDetails: finalBxidDetails
             };
         });
 
-        const processedPallets = await Promise.all(palletPromises);
-        console.log("[Tarimas] Datos finales procesados:", processedPallets);
         renderTarimasTable(processedPallets);
 
     } catch (e) {
-        console.error("[Tarimas] Error GENERAL:", e);
-        const currentTable = doc('dataTableTarimas');
-        if (currentTable) {
-             currentTable.innerHTML = `<thead><tr><th style='color: var(--danger-color);'>Error al consultar</th></tr></thead><tbody><tr><td>${e.message}</td></tr></tbody>`;
-        }
+        console.error("[Tarimas] Error:", e);
+        tableElement.innerHTML = `<thead><tr><th style='color:var(--danger-color);'>Error: ${e.message}</th></tr></thead>`;
     } finally {
-        const currentBtn = doc('consultarTarimasBtn');
-        if(currentBtn) {
-            currentBtn.disabled = false;
-            currentBtn.textContent = 'Consultar Tarimas';
-            console.log("[Tarimas] Botón restaurado.");
-        } else {
-            console.error("[Tarimas] No se pudo encontrar #consultarTarimasBtn para restaurarlo.");
-        }
+        if(btn) { btn.disabled = false; btn.textContent = 'Consultar Tarimas'; }
     }
 }
 // --- FIN DE LA FUNCIÓN ---
