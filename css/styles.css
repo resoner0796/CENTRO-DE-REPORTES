@@ -1299,3 +1299,108 @@ body.dark-theme .export-mode p {
     color: var(--text-secondary);
     margin-top: 2px;
 }
+
+
+/* =======================================================
+   ESTILOS FINALES: REPORTE ÓRDENES DEL DÍA (KPIs & Tabla)
+   ======================================================= */
+
+/* --- 1. Ajuste de KPIs (4 en una sola línea) --- */
+.dashboard-kpi-container {
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 12px;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 16px; /* Separación reducida para dar aire a la tabla */
+}
+
+.kpi-card {
+    flex: 1 1 calc(25% - 12px); /* 4 tarjetas por fila */
+    min-width: 140px;
+    padding: 12px 10px; /* Padding reducido */
+    text-align: center;
+}
+
+.kpi-header h4 {
+    font-size: 0.85rem; /* Texto título más compacto */
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.kpi-card h1 {
+    font-size: 1.8rem; /* Número ajustado */
+    margin: 2px 0 0 0;
+}
+
+/* --- 2. Ajuste de Altura (Para que la tabla llene la pantalla) --- */
+#viewOrdenesDia .main-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Forzar altura total */
+}
+
+#viewOrdenesDia .table-container {
+    flex-grow: 1;      /* Que ocupe todo el espacio sobrante */
+    overflow: hidden;  /* Evita scroll doble */
+    display: flex;
+    flex-direction: column;
+}
+
+#viewOrdenesDia .table-wrapper {
+    height: 100%;
+    overflow-y: auto; /* Scroll solo dentro de la tabla */
+    border-radius: 8px;
+}
+
+/* --- 3. Ajuste Fino de la Tabla (Columnas y Centrado) --- */
+#dataTableOrdenesDia {
+    width: 100%;
+    table-layout: fixed; /* Obligatorio para anchos personalizados */
+    border-collapse: separate; 
+    border-spacing: 0;
+}
+
+#dataTableOrdenesDia th, 
+#dataTableOrdenesDia td {
+    text-align: center !important; /* Centrado forzoso de todo */
+    vertical-align: middle;
+    padding: 8px 6px; /* Padding optimizado */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.85rem;
+}
+
+/* Columna 1: Orden */
+#dataTableOrdenesDia th:nth-child(1), 
+#dataTableOrdenesDia td:nth-child(1) {
+    width: 10%; 
+}
+
+/* Columna 2: Catálogo (Más ancha y alineada a la izquierda) */
+#dataTableOrdenesDia th:nth-child(2), 
+#dataTableOrdenesDia td:nth-child(2) {
+    width: 20%; 
+    white-space: normal; /* Permitir 2 líneas si es largo */
+    line-height: 1.1;
+    text-align: left !important;
+}
+
+/* Columna 3: Material */
+#dataTableOrdenesDia th:nth-child(3), 
+#dataTableOrdenesDia td:nth-child(3) {
+    width: 10%; 
+}
+
+/* Columnas Numéricas (4 a 9) - Distribución equitativa */
+#dataTableOrdenesDia th:nth-child(n+4):nth-child(-n+9), 
+#dataTableOrdenesDia td:nth-child(n+4):nth-child(-n+9) {
+    width: 8%; 
+}
+
+/* Columna 10: Botón Status */
+#dataTableOrdenesDia th:nth-child(10), 
+#dataTableOrdenesDia td:nth-child(10) {
+    width: 12%; 
+}
