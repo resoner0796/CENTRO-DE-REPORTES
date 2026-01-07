@@ -1399,9 +1399,6 @@ body.dark-theme .export-mode p {
 /* 10. Faltante FWD */
 #dataTableOrdenesDia th:nth-child(10), td:nth-child(10) { width: 6%; }
 
-/* 11. Diferencia */
-#dataTableOrdenesDia th:nth-child(11), td:nth-child(11) { width: 5%; }
-
 /* 12. Status (Botón) */
 #dataTableOrdenesDia th:nth-child(12), td:nth-child(12) { width: 10%; }
 
