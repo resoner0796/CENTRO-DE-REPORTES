@@ -1518,14 +1518,15 @@ body.dark-theme .export-mode p {
 }
 
 /* =======================================================
-   FIX FINAL Y AGRESIVO: KPIs Y MODAL WIDE
+   FIX FINAL: ESTILOS EXCLUSIVOS PARA 'REPORTE ÓRDENES DEL DÍA'
+   (Usamos ID para no romper otras vistas)
    ======================================================= */
 
-/* --- 1. KPIs EN UNA SOLA LÍNEA (GARANTIZADO) --- */
-.dashboard-kpi-container {
+/* --- 1. KPIs (SOLO EN ESTA VISTA) --- */
+#viewOrdenesDia .dashboard-kpi-container {
     display: flex !important;
     flex-direction: row !important;
-    flex-wrap: nowrap !important; /* PROHIBIDO bajar de línea */
+    flex-wrap: nowrap !important; /* Forzar fila única */
     align-items: stretch !important;
     justify-content: space-between !important;
     gap: 12px !important;
@@ -1534,35 +1535,33 @@ body.dark-theme .export-mode p {
     margin-bottom: 15px !important;
 }
 
-.kpi-card {
-    /* La clave mágica: flex-grow 1, flex-shrink 1, flex-basis 0 */
-    /* Esto obliga al navegador a ignorar el ancho del texto y dividir el espacio equitativamente */
+#viewOrdenesDia .kpi-card {
     flex: 1 1 0px !important; 
-    min-width: 0 !important; /* Permite que la tarjeta se encoja si el texto es largo */
+    min-width: 0 !important; 
     width: auto !important;
     padding: 10px 5px !important;
-    overflow: hidden !important; /* Si algo se sale, lo corta, no rompe el layout */
+    overflow: hidden !important; 
 }
 
-.kpi-header h4 {
-    font-size: 0.8rem !important; /* Texto un poco más chico para asegurar */
+#viewOrdenesDia .kpi-header h4 {
+    font-size: 0.8rem !important; 
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
 }
 
-.kpi-card h1 {
+#viewOrdenesDia .kpi-card h1 {
     font-size: 1.8rem !important;
 }
 
 /* --- 2. MODAL WIDE (ESTRUCTURA DE PANTALLA COMPLETA) --- */
+/* Este sí puede ser global porque se activa con JS solo para este modal */
 
-/* Forzar que el modal ocupe casi toda la pantalla */
 .modal-content.modal-wide {
-    width: 95vw !important;        /* 95% del ancho de la pantalla */
-    max-width: 1400px !important;  /* Tope máximo para pantallas ultra anchas */
-    height: 90vh !important;       /* 90% de la altura de la pantalla */
-    max-height: 90vh !important;   /* No permitir que crezca más */
+    width: 95vw !important;        
+    max-width: 1400px !important;  
+    height: 90vh !important;       
+    max-height: 90vh !important;   
     display: flex !important;
     flex-direction: column !important;
     padding: 20px !important;
@@ -1574,24 +1573,20 @@ body.dark-theme .export-mode p {
 /* El contenedor interno (GRID) */
 .modal-body-grid {
     display: grid !important;
-    /* Columna Izq: 320px fija | Columna Der: El resto del espacio */
     grid-template-columns: 320px 1fr !important; 
-    /* Fila 1: Header (auto) | Fila 2: Contenido (lo que sobre) */
     grid-template-rows: auto 1fr !important;
     gap: 20px !important;
     height: 100% !important;
-    overflow: hidden !important; /* IMPORTANTE: Esto evita que el grid estire el modal */
-    min-height: 0 !important;    /* Truco de CSS Grid para permitir scroll interno */
+    overflow: hidden !important; 
+    min-height: 0 !important;   
 }
 
-/* Header ocupa todo el ancho arriba */
 .modal-header-section {
     grid-column: 1 / -1 !important;
     height: auto !important;
-    flex-shrink: 0 !important; /* No permitir que se encoja */
+    flex-shrink: 0 !important; 
 }
 
-/* Columna Izquierda (Gráfica) */
 .modal-left-column {
     overflow-y: auto !important;
     padding-right: 10px !important;
@@ -1600,30 +1595,27 @@ body.dark-theme .export-mode p {
     flex-direction: column !important;
 }
 
-/* Columna Derecha (Tarjetas de Rastreo) */
 .modal-right-column {
-    overflow-y: auto !important; /* AQUÍ ESTÁ LA MAGIA: Scroll SOLO en esta columna */
+    overflow-y: auto !important; 
     padding-right: 5px !important;
     padding-bottom: 10px !important;
     height: 100% !important;
-    display: block !important; /* Asegurar bloque para el scroll */
+    display: block !important; 
 }
 
-/* Rejilla de tarjetas dentro de la columna derecha */
 .line-status-grid {
     display: grid !important;
-    /* Tarjetas responsivas: mínimo 220px, si hay espacio caben 2 o 3 */
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
     gap: 12px !important;
-    padding-bottom: 20px; /* Espacio al final del scroll */
+    padding-bottom: 20px; 
 }
 
-/* Ajuste móvil por si acaso abren esto en celular */
+/* Responsive para el Modal */
 @media (max-width: 900px) {
     .modal-body-grid {
         grid-template-columns: 1fr !important;
-        grid-template-rows: auto auto 1fr !important; /* Header, Izq, Der */
-        overflow-y: auto !important; /* Scroll en todo el body */
+        grid-template-rows: auto auto 1fr !important;
+        overflow-y: auto !important; 
     }
     .modal-left-column {
         border-right: none !important;
