@@ -5883,31 +5883,34 @@ async function consultarOrdenesDelDia() {
     }
 }
 
-// 5. RENDERIZADO TABLA (VERSIÓN BLINDADA: REGENERA HEADERS)
+// 5. RENDERIZADO TABLA (VERSIÓN FINAL LIMPIA: 11 COLUMNAS)
 function renderOrdenesDiaTable(data) {
     const table = doc('dataTableOrdenesDia');
     const thead = table.querySelector('thead');
     const tbody = table.querySelector('tbody');
 
-    // 1. REGENERAR ENCABEZADOS (Siempre, para evitar desfaces)
-    // Definimos las 12 columnas exactas
-    thead.innerHTML = `
-        <tr>
-            <th>Orden</th>
-            <th>Catálogo</th>
-            <th>Material</th>
-            <th>Special Stock</th>
-            <th>Fibras</th>
-            <th>Term. (Falt)</th>
-            <th>Total Orden</th>
-            <th>Total Conf. (SAP)</th>
-            <th>Faltante SAP</th>
-            <th>Faltante FWD</th>
-        </tr>
-    `;
+    // 1. REGENERAR ENCABEZADOS (11 Columnas exactas)
+    if (thead) {
+        thead.innerHTML = `
+            <tr>
+                <th>Orden</th>
+                <th>Catálogo</th>
+                <th>Material</th>
+                <th>Special Stock</th>
+                <th>Fibras</th>
+                <th>Term. (Falt)</th>
+                <th>Total Orden</th>
+                <th>Total Conf.</th>
+                <th>Faltante SAP</th>
+                <th>Faltante FWD</th>
+                <th>Status</th>
+            </tr>
+        `;
+    }
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Sin datos para mostrar.</td></tr>';
+        // Ajustamos colspan a 11
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Sin datos para mostrar.</td></tr>';
         return;
     }
 
@@ -5924,13 +5927,8 @@ function renderOrdenesDiaTable(data) {
         const hasLiveData = !!row.rawData;
         const btnOpacity = hasLiveData ? '1' : '0.5';
 
-        // Destacar si FWD va mejor que SAP
-        const colorFaltanteFWD = (row.faltanteFWD === 0 && row.faltanteSAP > 0) ? 'var(--success-color)' : (row.faltanteFWD > 0 ? 'var(--danger-color)' : 'inherit');
-
-        // Columna Diferencia (Opcional visual)
-        const dif = row.faltanteSAP - row.faltanteFWD;
-        const difText = dif > 0 ? `+${dif}` : (dif < 0 ? dif : '-');
-        const difColor = dif > 0 ? 'var(--success-color)' : 'inherit';
+        // Destacar si FWD va mejor que SAP (Verde) o si falta (Rojo/Naranja)
+        const colorFaltanteFWD = (row.faltanteFWD === 0 && row.faltanteSAP > 0) ? 'var(--success-color)' : 'inherit';
 
         html += `<tr class="${trClass}">
             <td style="font-weight:bold;">${row.id}</td>
@@ -5945,8 +5943,6 @@ function renderOrdenesDiaTable(data) {
             <td style="text-align:center; font-weight:bold;">${row.faltanteSAP}</td>
 
             <td style="text-align:center; font-weight:bold; color:${colorFaltanteFWD};">${row.faltanteFWD}</td>
-
-            <td style="text-align:center; color:${difColor}; font-size:0.75rem;">${difText}</td>
 
             <td style="text-align:center;">
                 <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}; padding: 4px 8px; font-size: 0.75rem;">
