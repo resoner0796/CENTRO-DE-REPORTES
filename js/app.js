@@ -5903,7 +5903,6 @@ function renderOrdenesDiaTable(data) {
             <th>Total Conf. (SAP)</th>
             <th>Faltante SAP</th>
             <th>Faltante FWD</th>
-            <th>Diferencia</th> <th>Status</th>
         </tr>
     `;
 
