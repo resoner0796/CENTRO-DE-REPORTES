@@ -6333,6 +6333,234 @@ function renderModalChart(labels, data) {
 // =======================================================================================
 // --- FIN: LÓGICA REPORTE ÓRDENES DEL DÍA ---
 // =======================================================================================
+// =================================================================
+// --- NUEVA FUNCIÓN: PROYECCIÓN DE TERMINACIONES (PIVOT TABLE) ---
+// =================================================================
+
+// 1. Listener del Botón
+const btnProyeccion = document.getElementById('btnProyeccionTerminaciones');
+if (btnProyeccion) {
+    btnProyeccion.addEventListener('click', abrirModalProyeccion);
+}
+
+// 2. Abrir Modal de Fechas
+function abrirModalProyeccion() {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Obtenemos el área que ya estaba seleccionada en la vista principal para ahorrar tiempo
+    const areaActual = document.getElementById('ordenesDia_area').value || '';
+
+    const content = `
+        <div class="control-group">
+            <label>Área a Consultar</label>
+            <select id="proyeccion_area" class="filter-input" style="width:100%; padding:8px;">
+                ${document.getElementById('ordenesDia_area').innerHTML}
+            </select>
+        </div>
+        <div class="date-range-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <div>
+                <label>Fecha Inicio</label>
+                <input type="date" id="proyeccion_f_inicio" value="${today}" style="width:100%;">
+            </div>
+            <div>
+                <label>Fecha Fin</label>
+                <input type="date" id="proyeccion_f_fin" value="${today}" style="width:100%;">
+            </div>
+        </div>
+        <button id="btnGenerarPivot" class="btn" style="width:100%; margin-top: 20px;">Generar Tabla Pivote</button>
+    `;
+
+    showModal('Proyección de Terminaciones', content);
+    
+    // Setear el área que ya tenía seleccionada el usuario
+    if(areaActual) document.getElementById('proyeccion_area').value = areaActual;
+
+    document.getElementById('btnGenerarPivot').addEventListener('click', calcularProyeccionTerminaciones);
+}
+
+// 3. Calcular y Generar Reporte
+async function calcularProyeccionTerminaciones() {
+    const fInicio = document.getElementById('proyeccion_f_inicio').value;
+    const fFin = document.getElementById('proyeccion_f_fin').value;
+    const area = document.getElementById('proyeccion_area').value;
+    const btn = document.getElementById('btnGenerarPivot');
+
+    if (!fInicio || !fFin || !area) {
+        alert("Selecciona rango de fechas y área.");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Calculando...";
+
+    try {
+        // A. Consultar Firebase (Optimizada por fecha)
+        const startDate = new Date(`${fInicio}T00:00:00`);
+        const endDate = new Date(`${fFin}T00:00:00`);
+        // Ajustamos endDate para incluir todo el día final
+        endDate.setHours(23, 59, 59, 999); 
+
+        let query = area === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(area).collection('orders');
+        
+        // Filtramos por orderDate (Fecha SAP)
+        query = query.where('orderDate', '>=', startDate).where('orderDate', '<=', endDate);
+
+        const snapshot = await query.get();
+
+        if (snapshot.empty) {
+            showModal('Sin Datos', '<p>No hay órdenes programadas en ese rango.</p>');
+            return;
+        }
+
+        // B. Procesar Datos (Agrupar)
+        const pivotData = {}; // Estructura: { "2026-01-05": { "12 Fibras": 500, "24 Fibras": 100 } }
+        const fiberTypes = new Set(); // Para saber las columnas (4, 6, 12, 24...)
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const fechaRaw = data.orderDate ? data.orderDate.toDate() : null;
+            
+            if (fechaRaw) {
+                // Formato de fecha para la fila: DD/MM/YYYY
+                const fechaKey = fechaRaw.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                
+                // Calcular Fibras
+                const catalogo = data.catalogNumber || '';
+                const cantidad = Number(data.orderQty) || 0; // Usamos Cantidad PLANEADA (Total Orden)
+                
+                // Usamos tu función helper existente si está disponible, si no, la lógica básica
+                let numFibras = 0;
+                if (typeof calculateTerminaciones === 'function') {
+                    // Si ya tienes la función del otro reporte, úsala (es más precisa con reglas de área)
+                    numFibras = calculateTerminaciones(catalogo, area); 
+                } else {
+                    // Fallback básico
+                    const char = catalogo.substring(3, 4).toUpperCase();
+                    numFibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+                }
+
+                if (numFibras > 0) {
+                    const labelFibra = `${numFibras} Fibras`;
+                    fiberTypes.add(labelFibra);
+                    const terminaciones = numFibras * cantidad;
+
+                    if (!pivotData[fechaKey]) pivotData[fechaKey] = {};
+                    if (!pivotData[fechaKey][labelFibra]) pivotData[fechaKey][labelFibra] = 0;
+                    
+                    pivotData[fechaKey][labelFibra] += terminaciones;
+                }
+            }
+        });
+
+        // C. Renderizar Tabla Pivote
+        renderPivotTable(pivotData, Array.from(fiberTypes).sort((a,b) => parseInt(a)-parseInt(b)));
+
+    } catch (e) {
+        console.error("Error proyección:", e);
+        // Si falta índice, avisar
+        if (e.code === 'failed-precondition') {
+             alert("Falta crear un índice en Firebase para consultar por fecha. Revisa la consola.");
+        } else {
+             alert("Error al calcular datos.");
+        }
+    } finally {
+        // Como vamos a cambiar el contenido del modal, no necesitamos restaurar el botón
+    }
+}
+
+function renderPivotTable(pivotData, fiberColumns) {
+    // Ordenar fechas cronológicamente
+    const sortedDates = Object.keys(pivotData).sort((a, b) => {
+        const da = new Date(a.split('/').reverse().join('-'));
+        const db = new Date(b.split('/').reverse().join('-'));
+        return da - db;
+    });
+
+    if (sortedDates.length === 0) {
+        showModal('Sin Resultados', '<p>Se encontraron órdenes pero ninguna generó terminaciones válidas.</p>');
+        return;
+    }
+
+    // Totales por Columna (Fibras)
+    const colTotals = {};
+    fiberColumns.forEach(f => colTotals[f] = 0);
+    let grandTotalGeneral = 0;
+
+    // Construir HTML
+    let html = `
+        <div style="margin-bottom:15px; text-align:center;">
+            <h4>Proyección de Terminaciones</h4>
+            <p style="font-size:0.9em; color:var(--text-secondary);">Basado en Cantidad Total de la Orden (Planeado)</p>
+        </div>
+        <div class="table-wrapper" style="max-height: 60vh;">
+            <table class="pivot-table" style="width:100%; border-collapse:collapse; font-size:0.9em;">
+                <thead>
+                    <tr style="background:var(--surface-hover-color);">
+                        <th style="padding:10px; text-align:left; border-bottom:2px solid var(--border-color);">Fecha</th>
+                        ${fiberColumns.map(f => `<th style="padding:10px; text-align:center; border-bottom:2px solid var(--border-color);">${f}</th>`).join('')}
+                        <th style="padding:10px; text-align:right; border-bottom:2px solid var(--border-color); color:var(--primary-color);">Total Día</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    sortedDates.forEach(date => {
+        const rowData = pivotData[date];
+        let rowTotal = 0;
+        
+        html += `<tr style="border-bottom:1px solid var(--border-color);">`;
+        html += `<td style="padding:8px; font-weight:bold;">${date}</td>`;
+        
+        fiberColumns.forEach(fibra => {
+            const val = rowData[fibra] || 0;
+            rowTotal += val;
+            colTotals[fibra] += val;
+            
+            // Estilo visual: opacidad baja si es 0 para que no haga ruido
+            const style = val === 0 ? 'color:var(--text-secondary); opacity:0.3;' : '';
+            html += `<td style="padding:8px; text-align:center; ${style}">${val.toLocaleString()}</td>`;
+        });
+
+        grandTotalGeneral += rowTotal;
+        html += `<td style="padding:8px; text-align:right; font-weight:bold; color:var(--primary-color);">${rowTotal.toLocaleString()}</td>`;
+        html += `</tr>`;
+    });
+
+    // Fila de Totales Generales
+    html += `
+                <tr style="background:var(--surface-hover-color); font-weight:bold; border-top:2px solid var(--border-color);">
+                    <td style="padding:12px 8px;">TOTAL PERIODO</td>
+                    ${fiberColumns.map(f => `<td style="padding:12px 8px; text-align:center;">${colTotals[f].toLocaleString()}</td>`).join('')}
+                    <td style="padding:12px 8px; text-align:right; font-size:1.1em; color:var(--success-color);">${grandTotalGeneral.toLocaleString()}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <button class="btn" style="width:100%; margin-top:15px;" onclick="exportPivotToImage()">📸 Descargar Imagen</button>
+    `;
+
+    // Reutilizamos el modal para mostrar la tabla (reemplazando los inputs)
+    const modalBody = document.getElementById('modalBody');
+    modalBody.innerHTML = html;
+}
+
+// 4. Exportar (Opcional, reutiliza html2canvas si ya lo tienes)
+window.exportPivotToImage = function() {
+    const tableDiv = document.querySelector('.pivot-table').parentElement;
+    // Lógica simple de exportación usando tu librería existente
+    if(typeof html2canvas !== 'undefined') {
+        const theme = document.body.classList.contains('dark-theme') ? '#1f2937' : '#ffffff';
+        html2canvas(tableDiv, { backgroundColor: theme }).then(canvas => {
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/jpeg');
+            a.download = 'Proyeccion_Terminaciones.jpg';
+            a.click();
+        });
+    } else {
+        alert("Librería de imagen no cargada.");
+    }
+};
+
 
 // =================================================================
 // --- OPTIMIZACIÓN 2: GESTIÓN DE ÁREAS CON CACHÉ (EL FIX DEFINITIVO) ---
