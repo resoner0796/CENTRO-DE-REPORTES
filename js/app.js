@@ -5726,11 +5726,7 @@ function formatShortDateTime(date) {
 }
 
 
-       // =======================================================================================
-// --- LÓGICA DE CONSULTA Y TABLA (CON COLUMNA FALTANTE FWD + ORDEN ASCENDENTE) ---
-// =======================================================================================
-
-// 4. CONSULTA HÍBRIDA (SAP + FIREBASE)
+ // 4. CONSULTA HÍBRIDA (CON KPI RESTAURADO + FALTANTE FWD)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
@@ -5742,16 +5738,22 @@ async function consultarOrdenesDelDia() {
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Comparando SAP vs FWD...';
+    btn.textContent = 'Analizando...';
 
+    // Limpieza inicial
     const tbody = doc('dataTableOrdenesDia').querySelector('tbody');
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Analizando discrepancias...</td></tr>';
-    ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing'].forEach(id => doc(id).textContent = '-');
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Cargando datos...</td></tr>';
+
+    // Reset de TODOS los KPIs
+    ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing', 'kpiTerminacionesMissing'].forEach(id => {
+        const el = doc(id);
+        if(el) el.textContent = '-';
+    });
 
     try {
         console.log(`>>> CONSULTA: ${areaInput} | ${fechaInput} <<<`);
 
-        // A. SAP HISTÓRICO (Fuente Maestra)
+        // A. SAP HISTÓRICO
         const sapHistoricoRef = db.collection('areas').doc(areaInput).collection('sap_historico');
         const sapSnapshot = await sapHistoricoRef.get();
 
@@ -5765,12 +5767,19 @@ async function consultarOrdenesDelDia() {
             }
         });
 
-        // B. ÓRDENES VIVAS (Fuente Real FWD)
+        // B. ÓRDENES VIVAS
         const ordersRef = db.collection('areas').doc(areaInput).collection('orders');
         const ordersSnapshot = await ordersRef.get();
 
         let ordenesFinales = [];
-        let stats = { total: 0, cerradas: 0, faltantes: 0 };
+
+        // --- INICIALIZACIÓN CORRECTA DE STATS ---
+        let stats = {
+            total: 0,
+            cerradas: 0,
+            faltantes: 0,
+            terminacionesPendientes: 0 // <--- Aquí revivimos el KPI
+        };
 
         ordersSnapshot.forEach(docSnap => {
             const liveData = docSnap.data();
@@ -5779,39 +5788,30 @@ async function consultarOrdenesDelDia() {
             const sapData = sapMap.get(docId);
             const liveDate = normalizeDate(liveData.orderDate);
 
-            // Filtro: Existe en SAP hoy O se creó hoy en la App
             if (sapData || liveDate === fechaInput) {
 
-                // DATOS BASE
                 const catalogo = sapData?.['Catalogo'] || liveData.catalogNumber || 'N/A';
                 const material = sapData?.['Material'] || 'N/A';
                 const specialStock = sapData?.['Special Stock'] || 'N/A';
 
-                // --- CÁLCULO DE TOTALES ---
                 const totalOrden = Number(sapData?.['Total orden']) || Number(liveData.orderQty) || 0;
 
-                // 1. SAP (Histórico estático)
+                // Total Confirmado SAP (Estático del Excel)
                 const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined)
                                         ? Number(sapData['Total confirmado'])
                                         : 0;
 
-                // 2. FWD (Tiempo real App)
+                // Total Confirmado FWD (Real App)
                 let totalConfirmadoFWD = Number(liveData.packedQty) || 0;
-                // Corrección: Si packedQty es 0 pero hay cajas, las contamos
                 if (totalConfirmadoFWD === 0 && liveData.empaqueData) {
-                    let empaqueArray = Array.isArray(liveData.empaqueData) ? liveData.empaqueData : [];
-                    // Si es mapa (aunque raro en tu estructura actual), lo convertimos
-                    if (!Array.isArray(liveData.empaqueData) && typeof liveData.empaqueData === 'object') {
-                        empaqueArray = Object.values(liveData.empaqueData);
-                    }
-                    empaqueArray.forEach(box => {
-                        if(box.serials) totalConfirmadoFWD += box.serials.length;
-                    });
+                    let empaqueArray = [];
+                    if(Array.isArray(liveData.empaqueData)) empaqueArray = liveData.empaqueData;
+                    else if(typeof liveData.empaqueData === 'object') empaqueArray = Object.values(liveData.empaqueData);
+
+                    empaqueArray.forEach(box => { if(box.serials) totalConfirmadoFWD += box.serials.length; });
                 }
 
-                // --- CÁLCULO DE FALTANTES ---
-
-                // Faltante SAP (Lo que dice el Excel)
+                // Cálculo Faltantes
                 let faltanteSAP = 0;
                 if (sapData && sapData['Faltante'] !== undefined) {
                     faltanteSAP = Number(sapData['Faltante']);
@@ -5819,45 +5819,59 @@ async function consultarOrdenesDelDia() {
                     faltanteSAP = Math.max(0, totalOrden - totalConfirmadoSAP);
                 }
 
-                // Faltante FWD (La realidad en piso)
                 const faltanteFWD = Math.max(0, totalOrden - totalConfirmadoFWD);
 
-                // --- CÁLCULOS EXTRAS ---
+                // Cálculo Fibras
                 const char = catalogo.substring(3, 4).toUpperCase();
                 const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-                const termFaltante = faltanteSAP * fibras; // Basado en SAP para consistencia con tabla original
 
-                // Estatus General (Basado en FWD que es el real)
+                // Cálculo Term. (Basado en SAP para la tabla y KPI)
+                const termFaltante = faltanteSAP * fibras;
+
                 const status = (faltanteFWD === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
 
                 ordenesFinales.push({
                     id: docId,
                     catalogo, material, specialStock, fibras, termFaltante,
                     totalOrden,
-                    totalConfirmadoSAP, // Para columna SAP Conf.
-                    faltanteSAP,        // Para columna Faltante SAP
-                    faltanteFWD,        // Para columna Faltante FWD (Nueva)
+                    totalConfirmadoSAP,
+                    faltanteSAP,
+                    faltanteFWD,
                     status,
                     rawData: liveData
                 });
 
-                // KPIs (Usamos la realidad FWD para los contadores del dashboard)
+                // --- SUMA DE KPIs ---
                 stats.total++;
-                if (faltanteFWD === 0 && totalOrden > 0) stats.cerradas++;
-                else stats.faltantes++;
+                // Usamos FWD para determinar si está "Cerrada" realmente en piso
+                if (faltanteFWD === 0 && totalOrden > 0) {
+                    stats.cerradas++;
+                } else {
+                    stats.faltantes++;
+                    // Sumamos al KPI de Terminaciones (Usando el dato SAP que pediste)
+                    stats.terminacionesPendientes += termFaltante;
+                }
             }
         });
 
         if (ordenesFinales.length === 0) {
             renderOrdenesDiaTable([]);
+            // Si no hay datos, pero el botón de KPI existe, ponerlo en 0
+            if(doc('kpiTerminacionesMissing')) doc('kpiTerminacionesMissing').textContent = '0';
             alert(`No hay órdenes para ${fechaInput} en ${areaInput}.`);
         } else {
             renderOrdenesDiaTable(ordenesFinales);
         }
 
+        // --- ACTUALIZACIÓN DE INTERFAZ DE KPIs ---
         doc('kpiOrdersTotal').textContent = stats.total;
         doc('kpiOrdersClosed').textContent = stats.cerradas;
         doc('kpiOrdersMissing').textContent = stats.faltantes;
+
+        // Actualizamos el nuevo KPI
+        if(doc('kpiTerminacionesMissing')) {
+            doc('kpiTerminacionesMissing').textContent = stats.terminacionesPendientes.toLocaleString();
+        }
 
     } catch (e) {
         console.error("Error consulta:", e);
@@ -5869,31 +5883,20 @@ async function consultarOrdenesDelDia() {
     }
 }
 
-// 5. RENDERIZADO TABLA (MODIFICADA: NUEVA COLUMNA Y ORDEN ASCENDENTE)
+// 5. RENDERIZADO TABLA (BOTÓN ASEGURADO)
 function renderOrdenesDiaTable(data) {
-    const table = doc('dataTableOrdenesDia');
+    const table = doc('dataTableOrdenesDia').querySelector('tbody');
     if (!data || data.length === 0) {
-        // Ajustamos colspan a 11 por la nueva columna
-        table.querySelector('tbody').innerHTML = '<tr><td colspan="11" style="text-align:center;">Sin datos.</td></tr>';
+        table.innerHTML = '<tr><td colspan="11" style="text-align:center;">Sin datos.</td></tr>';
         return;
     }
 
-    // --- ORDENAMIENTO (ASCENDENTE por Faltante SAP) ---
-    // Primero las completas (0), luego las que les falta 1, luego 2...
+    // Ordenar Ascendente por Faltante SAP
     data.sort((a, b) => a.faltanteSAP - b.faltanteSAP);
 
-    // --- ENCABEZADOS ---
-    const headers = [
-        'Orden', 'Catálogo', 'Material', 'Special Stock', 'Fibras',
-        'Term. (Falt)', 'Total Orden', 'Total Conf.', 'Faltante SAP', 'Faltante FWD', 'Status'
-    ];
-
-    let html = '<thead><tr>';
-    headers.forEach(h => html += `<th>${h}</th>`);
-    html += '</tr></thead><tbody>';
-
+    let html = '';
     data.forEach((row, index) => {
-        // Usamos Faltante FWD para pintar la fila de verde si ya acabaron en físico
+        // Pintar verde si ya terminaron en FWD
         const isCompleteFWD = row.faltanteFWD === 0;
         const trClass = isCompleteFWD ? 'row-today' : '';
 
@@ -5901,9 +5904,8 @@ function renderOrdenesDiaTable(data) {
         const hasLiveData = !!row.rawData;
         const btnOpacity = hasLiveData ? '1' : '0.5';
 
-        // Destacar visualmente si hay discrepancia (SAP dice que falta, pero FWD dice que ya no)
-        const discrepancia = row.faltanteSAP > 0 && row.faltanteFWD === 0;
-        const colorFaltanteFWD = discrepancia ? 'var(--success-color)' : (row.faltanteFWD > 0 ? 'var(--danger-color)' : 'inherit');
+        // Destacar Faltante FWD si es diferente a SAP
+        const colorFaltanteFWD = (row.faltanteFWD === 0 && row.faltanteSAP > 0) ? 'var(--success-color)' : 'inherit';
 
         html += `<tr class="${trClass}">
             <td style="font-weight:bold;">${row.id}</td>
@@ -5914,12 +5916,8 @@ function renderOrdenesDiaTable(data) {
             <td style="text-align:center; font-weight:bold;">${row.termFaltante.toLocaleString()}</td>
             <td style="text-align:center;">${row.totalOrden}</td>
             <td style="text-align:center;">${row.totalConfirmadoSAP}</td>
-
             <td style="text-align:center; font-weight:bold;">${row.faltanteSAP}</td>
-
-            <td style="text-align:center; font-weight:bold; color: ${colorFaltanteFWD};">
-                ${row.faltanteFWD}
-            </td>
+            <td style="text-align:center; font-weight:bold; color:${colorFaltanteFWD};">${row.faltanteFWD}</td>
 
             <td style="text-align:center;">
                 <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}">
@@ -5930,7 +5928,6 @@ function renderOrdenesDiaTable(data) {
     });
     table.innerHTML = html;
 
-    // Listeners
     doc('dataTableOrdenesDia').querySelectorAll('.btn-status').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = e.target.dataset.index;
