@@ -1441,3 +1441,79 @@ body.dark-theme .export-mode p {
     position: relative;
 }
 
+/* --- MODAL WIDE (Para Estatus Detallado) --- */
+
+/* Clase especial para hacer el modal más ancho */
+.modal-content.modal-wide {
+    max-width: 90vw; /* Ocupa el 90% del ancho de la pantalla */
+    width: 1200px;   /* Tope máximo de 1200px */
+    height: 90vh;    /* 90% de alto */
+    display: flex;
+    flex-direction: column;
+}
+
+/* El cuerpo del modal ahora será un contenedor flexible */
+.modal-body-grid {
+    display: grid;
+    grid-template-columns: 350px 1fr; /* Columna Izq fija (350px), Derecha flexible */
+    grid-template-rows: auto 1fr; /* Header auto, contenido flexible */
+    gap: 20px;
+    height: 100%;
+    overflow: hidden; /* Evita scroll en el body general */
+}
+
+/* Header del modal (Orden, Catálogo, Progreso) va arriba completo */
+.modal-header-section {
+    grid-column: 1 / -1; /* Ocupa todo el ancho arriba */
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Columna Izquierda: Gráfica y Último Empaque */
+.modal-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto; /* Scroll independiente si es necesario */
+    padding-right: 10px;
+    border-right: 1px solid var(--border-color);
+}
+
+/* Columna Derecha: Tarjetas de Rastreo */
+.modal-right-column {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto; /* Scroll independiente para las tarjetas */
+    padding-right: 5px;
+}
+
+/* Ajuste para que las tarjetas de rastreo se vean bien en la columna derecha */
+.line-status-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); /* Tarjetas un poco más compactas */
+    gap: 12px;
+}
+
+/* Ajuste de la gráfica para que quepa bien en la columna izquierda */
+.modal-chart-container {
+    height: 200px; /* Altura fija cómoda */
+    margin-bottom: 0;
+}
+
+/* Responsive: En pantallas chicas, volvemos a una sola columna */
+@media (max-width: 1024px) {
+    .modal-body-grid {
+        grid-template-columns: 1fr; /* Una sola columna */
+        overflow-y: auto; /* Scroll normal */
+    }
+    .modal-left-column {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+    }
+}
+
