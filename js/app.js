@@ -5883,28 +5883,9 @@ async function consultarOrdenesDelDia() {
     }
 }
 
-// 5. RENDERIZADO TABLA (VERSIÓN FINAL CON 2 FALTANTES)
+// 5. RENDERIZADO TABLA (BOTÓN ASEGURADO)
 function renderOrdenesDiaTable(data) {
     const table = doc('dataTableOrdenesDia').querySelector('tbody');
-    const thead = doc('dataTableOrdenesDia').querySelector('thead');
-
-    // 1. REGENERAR ENCABEZADOS (Para asegurar que aparezcan las columnas nuevas)
-    if (thead) {
-        thead.innerHTML = `
-            <tr>
-                <th>Orden</th>
-                <th>Catálogo</th>
-                <th>Material</th>
-                <th>Special Stock</th>
-                <th>Fibras</th>
-                <th>Term. (Falt)</th>
-                <th>Total Orden</th>
-                <th>Total Conf.</th>
-                <th>Faltante SAP</th> <th>Faltante FWD</th> <th>Status</th>
-            </tr>
-        `;
-    }
-
     if (!data || data.length === 0) {
         table.innerHTML = '<tr><td colspan="11" style="text-align:center;">Sin datos.</td></tr>';
         return;
@@ -5924,7 +5905,6 @@ function renderOrdenesDiaTable(data) {
         const btnOpacity = hasLiveData ? '1' : '0.5';
 
         // Destacar Faltante FWD si es diferente a SAP
-        // Verde si FWD es 0 (terminado) y SAP > 0 (retraso de sistema)
         const colorFaltanteFWD = (row.faltanteFWD === 0 && row.faltanteSAP > 0) ? 'var(--success-color)' : 'inherit';
 
         html += `<tr class="${trClass}">
@@ -5936,13 +5916,11 @@ function renderOrdenesDiaTable(data) {
             <td style="text-align:center; font-weight:bold;">${row.termFaltante.toLocaleString()}</td>
             <td style="text-align:center;">${row.totalOrden}</td>
             <td style="text-align:center;">${row.totalConfirmadoSAP}</td>
-
             <td style="text-align:center; font-weight:bold;">${row.faltanteSAP}</td>
-
             <td style="text-align:center; font-weight:bold; color:${colorFaltanteFWD};">${row.faltanteFWD}</td>
 
             <td style="text-align:center;">
-                <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}; padding: 4px 8px; font-size: 0.75rem;">
+                <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}">
                     Ver Estatus
                 </button>
             </td>
@@ -5958,6 +5936,7 @@ function renderOrdenesDiaTable(data) {
         });
     });
 }
+		
 // --- VARIABLES GLOBALES PARA EL CHART DEL MODAL ---
 let modalChartInstance = null; // Para poder destruirlo si se abre otro
 
