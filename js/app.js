@@ -174,7 +174,7 @@ doc('view901Btn').addEventListener('click', () => switchView('901'));
 doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
 doc('abrirModalSemanalBtn').addEventListener('click', abrirModalReporteSemanal);
 		doc('reporteTarimasBtn').addEventListener('click', () => switchView('tarimasConfirmadas'));
-        doc('consultarTarimasBtn').addEventListener('click', consultarTarimas);
+        doc('rimasBtn').addEventListener('click', rimas);
 		doc('calcularTerminacionesDiaBtn').addEventListener('click', consultarTerminacionesConfirmadas);
 		doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
 doc('liveDashboardBtn').addEventListener('click', () => showLiveDashboard());
@@ -4412,7 +4412,39 @@ function exportSummaryAsJPG() {
         
 // --- FUERA DEL DOMContentLoaded ---
 
-// --- CORRECCIÓN FINAL: CONSULTA TARIMAS (LOTES DE 10 + MAPEO USUARIOS) ---
+// =================================================================
+// --- CORRECCIÓN FINAL TARIMAS: VARIABLES + FUNCIONES DE SOPORTE ---
+// =================================================================
+
+// 1. VARIABLE GLOBAL (Para guardar los usuarios y no leerlos a cada rato)
+let globalUsersCache = null; 
+
+// 2. FUNCIÓN DE SOPORTE (Descarga catálogo de usuarios)
+async function ensureUsersCache() {
+    if (globalUsersCache) return globalUsersCache;
+    
+    console.log("📥 Descargando catálogo de usuarios y áreas...");
+    try {
+        const snapshot = await db.collection('users_tarimas').get();
+        const usersMap = new Map();
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            // Guardamos: Clave = Gafete (ej: LUNAU2), Valor = Área (ej: MULTIPORT)
+            if (data.gafete && data.area) {
+                usersMap.set(data.gafete.toUpperCase(), data.area);
+            }
+        });
+        
+        globalUsersCache = usersMap;
+        return usersMap;
+    } catch (e) {
+        console.error("Error cargando usuarios:", e);
+        return new Map();
+    }
+}
+
+// 3. FUNCIÓN PRINCIPAL CORREGIDA (Lotes de 10 + Cruce de Usuarios)
 async function consultarTarimas() {
     const fechaInput = doc('prodTarimas_fecha').value;
     const turnoSeleccionado = doc('prodTarimas_turno').value;
@@ -4435,12 +4467,11 @@ async function consultarTarimas() {
     tableElement.innerHTML = '<thead><tr><th>Analizando tarimas y cajas...</th></tr></thead><tbody></tbody>';
 
     try {
-        // 1. CARGAR MAPA DE USUARIOS (Para saber de qué área es LUNAU2)
+        // A. CARGAR MAPA DE USUARIOS (Indispensable para arreglar "Indefinida")
         const usersMap = await ensureUsersCache();
 
-        // 2. OBTENER LAS TARIMAS
-        // OJO: Quitamos el filtro .where('area') de la BD porque tus tarimas viejas no tienen ese campo.
-        // Filtraremos por área en memoria usando el mapa de usuarios.
+        // B. OBTENER LAS TARIMAS
+        // Quitamos filtro de área en BD porque las tarimas viejas no lo tienen
         let query = db.collection('tarimas_confirmadas');
         
         const { startTime, endTime } = getShiftDateRange(fechaInput, turnoSeleccionado);
@@ -4452,7 +4483,7 @@ async function consultarTarimas() {
             throw new Error(`No se encontraron tarimas para ${turnoSeleccionado} en este rango de fecha.`);
         }
 
-        // 3. FILTRAR Y ENRIQUECER DATOS
+        // C. FILTRAR Y ENRIQUECER DATOS
         let tarimasDelTurno = [];
         let allBoxIdsToVerify = new Set();
         const parts = fechaInput.split('-');
@@ -4467,17 +4498,17 @@ async function consultarTarimas() {
                 const { shift, dateKey } = getWorkShiftAndDate(dateObj);
 
                 if (dateKey === fechaComparar && shift === turnoSeleccionado) {
-                    // --- AQUÍ ESTÁ EL ARREGLO DE ÁREA ---
-                    // Si la tarima no tiene área, la buscamos por el usuario
+                    // --- AQUÍ ARREGLAMOS EL ÁREA USANDO EL MAPA DE USUARIOS ---
                     const usuario = (data.gafete || '').toUpperCase();
+                    // Si la tarima trae área, úsala. Si no, búscala en el mapa por usuario.
                     let areaReal = data.area || usersMap.get(usuario) || 'Indefinida';
 
-                    // APLICAMOS EL FILTRO DE ÁREA AQUÍ (EN MEMORIA)
+                    // FILTRO DE ÁREA EN MEMORIA
                     if (areaSeleccionada === 'ALL' || areaReal === areaSeleccionada) {
                         
                         tarimasDelTurno.push({ id: docSnap.id, ...data, areaCalculada: areaReal });
                         
-                        // Juntar IDs de cajas
+                        // Recolectar cajas
                         if (Array.isArray(data.cajas)) {
                             data.cajas.forEach(c => {
                                 if (c.codigoCaja) allBoxIdsToVerify.add(String(c.codigoCaja).trim());
@@ -4489,17 +4520,17 @@ async function consultarTarimas() {
         });
 
         if (tarimasDelTurno.length === 0) {
-            throw new Error(`Se encontraron datos, pero ninguno coincide con el Área ${areaSeleccionada}.`);
+            throw new Error(`Se encontraron datos, pero ninguno coincide con el Área ${areaSeleccionada} o el turno exacto.`);
         }
 
-        // 4. CONSULTA MASIVA DE CAJAS (CORRECCIÓN: LÍMITE 10)
+        // D. CONSULTA MASIVA DE CAJAS (LÍMITE 10 PARA QUE NO TRUENE)
         const foundBoxesMap = new Map();
         const boxIdsArray = Array.from(allBoxIdsToVerify);
         
         const fetchBatches = async () => {
             const promises = [];
             while (boxIdsArray.length) {
-                // 👇 CAMBIO CRÍTICO: 30 -> 10 (Límite estricto de Firebase Web)
+                // LÍMITE DE 10 (Regla de oro de Firebase Web)
                 const batch = boxIdsArray.splice(0, 10); 
                 if (batch.length === 0) break;
 
@@ -4519,7 +4550,7 @@ async function consultarTarimas() {
         console.log(`[Tarimas] Verificando ${allBoxIdsToVerify.size} cajas en lotes de 10...`);
         await fetchBatches();
 
-        // 5. ARMAR REPORTE FINAL
+        // E. ARMAR REPORTE FINAL
         const processedPallets = tarimasDelTurno.map(tarima => {
             const bxidList = tarima.cajas
                 .map(box => box?.codigoCaja ? String(box.codigoCaja).trim() : null)
@@ -4556,8 +4587,7 @@ async function consultarTarimas() {
             return {
                 folio: tarima.folio, 
                 user: tarima.gafete, 
-                // Usamos el área que calculamos cruzando con Users
-                area: tarima.areaCalculada, 
+                area: tarima.areaCalculada, // Usamos el área cruzada con Users
                 totalCajas: tarima.cajas.length, 
                 statusClass: status, 
                 statusText: statusText,
@@ -4571,7 +4601,11 @@ async function consultarTarimas() {
 
     } catch (e) {
         console.error("[Tarimas] Error:", e);
-        tableElement.innerHTML = `<thead><tr><th style='color:var(--danger-color);'>Error: ${e.message}</th></tr></thead>`;
+        if (e.code === 'failed-precondition') {
+            tableElement.innerHTML = `<thead><tr><th style='color:var(--warning-color);'>⚠️ Falta Índice en Firebase</th></tr></thead><tbody><tr><td>Abre la consola (F12) y haz clic en el link para crear índice de Fecha.</td></tr></tbody>`;
+        } else {
+            tableElement.innerHTML = `<thead><tr><th style='color:var(--danger-color);'>Error: ${e.message}</th></tr></thead>`;
+        }
     } finally {
         if(btn) { btn.disabled = false; btn.textContent = 'Consultar Tarimas'; }
     }
