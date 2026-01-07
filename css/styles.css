@@ -1345,7 +1345,7 @@ body.dark-theme .export-mode p {
     font-size: 0.8rem; /* Letra un pelín más chica para acomodar 11 columnas */
 }
 
-/* --- 3. Ajuste Fino de la Tabla (12 Columnas: SAP + FWD) --- */
+/* --- Ajuste Fino de la Tabla (12 Columnas Exactas) --- */
 #dataTableOrdenesDia {
     width: 100%;
     table-layout: fixed;
@@ -1357,11 +1357,11 @@ body.dark-theme .export-mode p {
 #dataTableOrdenesDia td {
     text-align: center !important;
     vertical-align: middle;
-    padding: 6px 4px; /* Padding reducido */
+    padding: 6px 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 0.75rem; /* Letra compacta para que quepa todo */
+    font-size: 0.75rem;
 }
 
 /* 1. Orden */
@@ -1379,28 +1379,31 @@ body.dark-theme .export-mode p {
 #dataTableOrdenesDia th:nth-child(3), td:nth-child(3) { width: 8%; }
 
 /* 4. Special Stock */
-#dataTableOrdenesDia th:nth-child(4), td:nth-child(4) { width: 7%; }
+#dataTableOrdenesDia th:nth-child(4), td:nth-child(4) { width: 6%; }
 
 /* 5. Fibras */
-#dataTableOrdenesDia th:nth-child(5), td:nth-child(5) { width: 5%; }
+#dataTableOrdenesDia th:nth-child(5), td:nth-child(5) { width: 4%; }
 
 /* 6. Term. (Falt) */
-#dataTableOrdenesDia th:nth-child(6), td:nth-child(6) { width: 7%; }
+#dataTableOrdenesDia th:nth-child(6), td:nth-child(6) { width: 6%; }
 
 /* 7. Total Orden */
-#dataTableOrdenesDia th:nth-child(7), td:nth-child(7) { width: 7%; }
+#dataTableOrdenesDia th:nth-child(7), td:nth-child(7) { width: 6%; }
 
 /* 8. Total Conf. */
-#dataTableOrdenesDia th:nth-child(8), td:nth-child(8) { width: 7%; }
+#dataTableOrdenesDia th:nth-child(8), td:nth-child(8) { width: 6%; }
 
 /* 9. Faltante SAP */
-#dataTableOrdenesDia th:nth-child(9), td:nth-child(9) { width: 7%; }
+#dataTableOrdenesDia th:nth-child(9), td:nth-child(9) { width: 6%; }
 
 /* 10. Faltante FWD */
-#dataTableOrdenesDia th:nth-child(10), td:nth-child(10) { width: 7%; }
+#dataTableOrdenesDia th:nth-child(10), td:nth-child(10) { width: 6%; }
 
-/* 11. Status (Botón) */
-#dataTableOrdenesDia th:nth-child(11), td:nth-child(11) { width: 10%; }
+/* 11. Diferencia */
+#dataTableOrdenesDia th:nth-child(11), td:nth-child(11) { width: 5%; }
+
+/* 12. Status (Botón) */
+#dataTableOrdenesDia th:nth-child(12), td:nth-child(12) { width: 10%; }
 
 /* --- Estilos Gráfica Modal --- */
 .modal-chart-container {
