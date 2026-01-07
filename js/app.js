@@ -174,7 +174,7 @@ doc('view901Btn').addEventListener('click', () => switchView('901'));
 doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
 doc('abrirModalSemanalBtn').addEventListener('click', abrirModalReporteSemanal);
 		doc('reporteTarimasBtn').addEventListener('click', () => switchView('tarimasConfirmadas'));
-        doc('rimasBtn').addEventListener('click', rimas);
+       doc('consultarTarimasBtn').addEventListener('click', consultarTarimas);
 		doc('calcularTerminacionesDiaBtn').addEventListener('click', consultarTerminacionesConfirmadas);
 		doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
 doc('liveDashboardBtn').addEventListener('click', () => showLiveDashboard());
