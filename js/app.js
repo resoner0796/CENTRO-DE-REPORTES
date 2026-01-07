@@ -6485,7 +6485,8 @@ async function calcularProyeccionTerminaciones() {
     }
 }
 
-// --- FUNCIÓN DE VISUALIZACIÓN (ESTILO "PENDIENTES") ---
+
+   // --- FUNCIÓN DE VISUALIZACIÓN (DISEÑO LIMPIO Y PROFESIONAL) ---
 function renderPivotTable(pivotData, fiberColumns) {
     const sortedDates = Object.keys(pivotData).sort((a, b) => {
         const da = new Date(a.split('/').reverse().join('-'));
@@ -6494,7 +6495,7 @@ function renderPivotTable(pivotData, fiberColumns) {
     });
 
     if (sortedDates.length === 0) {
-        showModal('Todo Completo', '<p>SAP indica que no hay faltantes programados para estas fechas. ¡Todo al 100! 🌟</p>');
+        showModal('Todo Completo', '<p style="text-align:center; padding: 20px;">✅ No hay faltantes programados para este periodo.</p>');
         return;
     }
 
@@ -6502,56 +6503,66 @@ function renderPivotTable(pivotData, fiberColumns) {
     fiberColumns.forEach(f => colTotals[f] = 0);
     let grandTotalGeneral = 0;
 
-    // Título y Estilos Rojos (Peligro/Pendiente)
+    // --- DISEÑO EJECUTIVO ---
     let html = `
-        <div style="margin-bottom:15px; text-align:center;">
-            <h4>Proyección de Faltantes (SAP)</h4>
-            <p style="font-size:0.9em; color:var(--text-secondary);">Calculado sobre: <span style="color:var(--danger-color); font-weight:bold;">Columna 'Faltante' x Fibras</span></p>
+        <div style="margin-bottom: 20px; text-align: left; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+            <h3 style="margin: 0; color: var(--text-primary); font-size: 1.2rem;">Proyección de Carga de Trabajo (SAP)</h3>
+            <span style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-top: 4px;">
+                Generado el: ${new Date().toLocaleString()}
+            </span>
         </div>
-        <div class="table-wrapper" style="max-height: 60vh;">
+
+        <div class="table-wrapper" style="max-height: 60vh; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
             <table class="pivot-table" style="width:100%; border-collapse:collapse; font-size:0.9em;">
-                <thead>
-                    <tr style="background:var(--surface-hover-color);">
-                        <th style="padding:10px; text-align:left; border-bottom:2px solid var(--border-color);">Fecha SAP</th>
-                        ${fiberColumns.map(f => `<th style="padding:10px; text-align:center; border-bottom:2px solid var(--border-color);">${f}</th>`).join('')}
-                        <th style="padding:10px; text-align:right; border-bottom:2px solid var(--border-color); color:var(--danger-color);">Total Pendiente</th>
+                <thead style="background: var(--surface-hover-color);">
+                    <tr>
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Fecha Entrega</th>
+                        ${fiberColumns.map(f => `<th style="padding: 12px; text-align: center; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">${f}</th>`).join('')}
+                        <th style="padding: 12px 16px; text-align: right; font-weight: 600; color: var(--text-primary); text-transform: uppercase; font-size: 0.75rem;">Total Pendiente</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody style="background: var(--surface-color);">
     `;
 
     sortedDates.forEach(date => {
         const rowData = pivotData[date];
         let rowTotal = 0;
         
-        html += `<tr style="border-bottom:1px solid var(--border-color);">`;
-        html += `<td style="padding:8px; font-weight:bold;">${date}</td>`;
+        html += `<tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;">`;
+        html += `<td style="padding: 12px 16px; font-weight: 500; color: var(--text-primary);">${date}</td>`;
         
         fiberColumns.forEach(fibra => {
             const val = rowData[fibra] || 0;
             rowTotal += val;
             colTotals[fibra] += val;
             
-            const style = val === 0 ? 'color:var(--text-secondary); opacity:0.3;' : 'font-weight:500;';
-            html += `<td style="padding:8px; text-align:center; ${style}">${val.toLocaleString()}</td>`;
+            const style = val === 0 ? 'color: var(--text-secondary); opacity: 0.3;' : 'color: var(--text-primary); font-weight: 500;';
+            html += `<td style="padding: 12px; text-align: center; ${style}">${val.toLocaleString()}</td>`;
         });
 
         grandTotalGeneral += rowTotal;
-        html += `<td style="padding:8px; text-align:right; font-weight:bold; color:var(--danger-color);">${rowTotal.toLocaleString()}</td>`;
+        // El total en rojo suave o naranja para denotar "pendiente" sin ser agresivo
+        html += `<td style="padding: 12px 16px; text-align: right; font-weight: 700; color: #ef4444;">${rowTotal.toLocaleString()}</td>`;
         html += `</tr>`;
     });
 
-    // Fila de Totales
+    // Fila de Totales Generales con fondo ligeramente distinto
     html += `
-                <tr style="background:var(--surface-hover-color); font-weight:bold; border-top:2px solid var(--border-color);">
-                    <td style="padding:12px 8px;">TOTAL CARGA</td>
-                    ${fiberColumns.map(f => `<td style="padding:12px 8px; text-align:center;">${colTotals[f].toLocaleString()}</td>`).join('')}
-                    <td style="padding:12px 8px; text-align:right; font-size:1.1em; color:var(--danger-color);">${grandTotalGeneral.toLocaleString()}</td>
+                <tr style="background: var(--surface-hover-color); font-weight: 700; border-top: 2px solid var(--border-color);">
+                    <td style="padding: 14px 16px; color: var(--text-primary);">TOTAL PERIODO</td>
+                    ${fiberColumns.map(f => `<td style="padding: 14px; text-align: center; color: var(--text-primary);">${colTotals[f].toLocaleString()}</td>`).join('')}
+                    <td style="padding: 14px 16px; text-align: right; font-size: 1.1em; color: #ef4444;">${grandTotalGeneral.toLocaleString()}</td>
                 </tr>
             </tbody>
         </table>
     </div>
-    <button class="btn" style="width:100%; margin-top:15px;" onclick="exportPivotToImage()">📸 Descargar Imagen</button>
+    
+    <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+        <button class="btn btn-glass" onclick="exportPivotToImage()" style="display: flex; align-items: center; gap: 8px; padding: 8px 16px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar Imagen
+        </button>
+    </div>
     `;
 
     const modalBody = document.getElementById('modalBody');
