@@ -5901,7 +5901,10 @@ function renderOrdenesDiaTable(data) {
     });
 }
 
-// --- MODAL DE ESTATUS DETALLADO (FINAL: HORA CORREGIDA + LÍNEA + SEMÁFORO) ---
+// --- VARIABLES GLOBALES PARA EL CHART DEL MODAL ---
+let modalChartInstance = null; // Para poder destruirlo si se abre otro
+
+// --- 6. MODAL DE ESTATUS DETALLADO (CON GRÁFICA DE RITMO) ---
 async function mostrarModalEstatusOrden(ordenData) {
     const rawData = ordenData.rawData; 
     
@@ -5913,7 +5916,7 @@ async function mostrarModalEstatusOrden(ordenData) {
     const empaqueData = rawData.empaqueData || [];
     const rastreoData = rawData.rastreoData || []; 
 
-    // Totales
+    // --- A. Lógica de Totales ---
     let appPackedQty = Number(rawData.packedQty) || 0;
     if (appPackedQty === 0 && Array.isArray(empaqueData)) {
         empaqueData.forEach(box => {
@@ -5922,7 +5925,20 @@ async function mostrarModalEstatusOrden(ordenData) {
     }
     const appOrderQty = Number(rawData.orderQty) || Number(ordenData.totalOrden) || 0;
 
-    // --- A. BÚSQUEDA DE LÍNEA EN CONFIGURACIÓN ---
+    // --- B. PREPARACIÓN DE DATOS: ÚLTIMO EMPAQUE & GRÁFICA POR HORA ---
+    let lastPacker = { name: 'Sin datos', time: new Date(0), line: 'N/A' };
+    const hourlyCounts = {}; // { "10": 50, "11": 20 }
+    let minHour = 24;
+    let maxHour = 0;
+
+    // Normalizamos empaqueData a Array
+    let empaqueArray = [];
+    if (Array.isArray(empaqueData)) empaqueArray = empaqueData;
+    else if (empaqueData && typeof empaqueData.forEach === 'function') {
+        empaqueData.forEach((val) => empaqueArray.push(val));
+    }
+
+    // Configuración de empacadores para buscar líneas
     const registeredPackers = params.produccion_hora_config.packers || [];
     const findLineByPacker = (id) => {
         if (!id) return null;
@@ -5931,47 +5947,57 @@ async function mostrarModalEstatusOrden(ordenData) {
         return found ? `Línea ${found.linea} (${found.turno})` : null;
     };
 
-    // --- B. ÚLTIMO EMPAQUE (CON CORRECCIÓN DE HORA) ---
-    let lastPacker = { name: 'Sin datos', time: new Date(0), line: 'N/A' };
-    
-    let empaqueArray = [];
-    if (Array.isArray(empaqueData)) empaqueArray = empaqueData;
-    else if (empaqueData && typeof empaqueData.forEach === 'function') {
-        empaqueData.forEach((val) => empaqueArray.push(val));
-    }
-
     empaqueArray.forEach(box => {
         if (box.serials && Array.isArray(box.serials)) {
             box.serials.forEach(item => {
                 const packedDateSerial = item['Finish Packed Date'];
                 let packedDate = null;
 
-                // --- 🕒 AQUÍ ESTÁ EL AJUSTE DE HORA 🕒 ---
+                // Corrección horaria (mismo método que usamos antes)
                 if (typeof packedDateSerial === 'number') {
-                    // 1. Convertir serial Excel a JS Date (esto crea una fecha en UTC o Local sesgada)
                     const baseDate = new Date(Math.round((packedDateSerial - 25569) * 86400000));
-                    // 2. Compensar la diferencia de zona horaria del navegador
-                    // Esto "empuja" la hora para que coincida visualmente con la del Excel
                     packedDate = new Date(baseDate.getTime() + (baseDate.getTimezoneOffset() * 60000));
                 } else if (packedDateSerial) {
-                    // Si ya es fecha o string, la procesamos normal
                     packedDate = new Date(packedDateSerial);
                 }
 
-                const packerId = item['Employee ID'];
-                // Prioridad: 1. Config, 2. Dato en registro, 3. N/A
-                let currentLine = findLineByPacker(packerId) || item['Line'] || item['Linea'] || item['Estación'] || 'N/A';
+                if (packedDate && !isNaN(packedDate)) {
+                    // 1. Lógica Último Empacador
+                    if (packedDate > lastPacker.time) {
+                        lastPacker.time = packedDate;
+                        lastPacker.name = item['Employee ID'] || 'Desconocido';
+                        lastPacker.line = findLineByPacker(lastPacker.name) || item['Line'] || item['Linea'] || item['Estación'] || 'N/A';
+                    }
 
-                if (packedDate && !isNaN(packedDate) && packedDate > lastPacker.time) {
-                    lastPacker.time = packedDate;
-                    lastPacker.name = packerId || 'Desconocido';
-                    lastPacker.line = currentLine;
+                    // 2. Lógica Gráfica (Agrupar por Hora)
+                    // Solo consideramos datos del día de la orden o cercanos para no graficar basura de años pasados
+                    // (Opcional: podrías filtrar por fechaInput, aquí graficamos todo lo que traiga la orden)
+                    const hour = packedDate.getHours();
+                    if (hour < minHour) minHour = hour;
+                    if (hour > maxHour) maxHour = hour;
+                    
+                    hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1;
                 }
             });
         }
     });
 
-    // --- C. ACTIVIDAD RASTREO ---
+    // --- C. PREPARAR DATASETS PARA LA GRÁFICA ---
+    // Rellenamos los huecos (horas muertas) con ceros
+    const chartLabels = [];
+    const chartData = [];
+    
+    if (maxHour >= minHour) {
+        // Si hay datos, vamos desde la hora mínima a la máxima
+        for (let h = minHour; h <= maxHour; h++) {
+            // Formato bonito "10:00"
+            const label = `${String(h).padStart(2, '0')}:00`;
+            chartLabels.push(label);
+            chartData.push(hourlyCounts[h] || 0); // Si no hay datos, es 0 (tiempo muerto)
+        }
+    }
+
+    // --- D. ACTIVIDAD RASTREO (SEMÁFORO) ---
     const groupedLines = {};
     const now = new Date();
 
@@ -5984,16 +6010,12 @@ async function mostrarModalEstatusOrden(ordenData) {
             const serial = row['Product Serial Number'] || 'S#?';
             const station = row.Station || 'Estación?';
             
-            // Corrección de hora también para Rastreo si viene de Excel
             let dateRegistered = null;
             if (typeof row['Date Registered'] === 'number') {
                 const baseDate = new Date(Math.round((row['Date Registered'] - 25569) * 86400000));
                 dateRegistered = new Date(baseDate.getTime() + (baseDate.getTimezoneOffset() * 60000));
-            } else if (row['Date Registered']) {
-                dateRegistered = new Date(row['Date Registered']);
-            } else if (row.Date) {
-                dateRegistered = (typeof row.Date.toDate === 'function') ? row.Date.toDate() : new Date(row.Date);
-            }
+            } else if (row['Date Registered']) dateRegistered = new Date(row['Date Registered']);
+            else if (row.Date) dateRegistered = (typeof row.Date.toDate === 'function') ? row.Date.toDate() : new Date(row.Date);
 
             let dotClass = 'dot-yellow'; 
             let timeText = 'S/F';
@@ -6002,19 +6024,9 @@ async function mostrarModalEstatusOrden(ordenData) {
                 const ageInMillis = now.getTime() - dateRegistered.getTime();
                 const ageInHours = ageInMillis / (1000 * 60 * 60);
 
-                if (ageInHours > 25) {
-                    dotClass = 'dot-orange'; 
-                    timeText = '> 25h';
-                } else if (ageInHours > 8) {
-                    dotClass = 'dot-yellow'; 
-                    timeText = '> 8h';
-                } else {
-                    dotClass = 'dot-green'; 
-                    // Formato corto para la lista
-                    const hh = String(dateRegistered.getHours()).padStart(2, '0');
-                    const mm = String(dateRegistered.getMinutes()).padStart(2, '0');
-                    timeText = `${hh}:${mm}`;
-                }
+                if (ageInHours > 25) { dotClass = 'dot-orange'; timeText = '> 25h'; } 
+                else if (ageInHours > 8) { dotClass = 'dot-yellow'; timeText = '> 8h'; } 
+                else { dotClass = 'dot-green'; timeText = formatShortDateTime(dateRegistered); }
             }
 
             if (!groupedLines[lineName]) groupedLines[lineName] = [];
@@ -6022,50 +6034,26 @@ async function mostrarModalEstatusOrden(ordenData) {
         });
     }
 
-    // --- D. HTML MODAL ---
+    // --- E. HTML MODAL ---
     let cardsHtml = '<div class="line-status-grid">';
     const lines = Object.keys(groupedLines).sort();
 
-    if (lines.length === 0) {
-        cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">No hay seriales activos en rastreo.</p>';
-    } else {
+    if (lines.length === 0) cardsHtml += '<p style="grid-column: 1/-1; text-align:center; color:var(--text-secondary);">No hay seriales activos en rastreo.</p>';
+    else {
         lines.forEach(line => {
             const items = groupedLines[line];
             items.sort((a, b) => (b.dateObj || 0) - (a.dateObj || 0));
-
             let itemsListHtml = '';
             items.forEach(item => {
-                itemsListHtml += `
-                    <li class="line-item">
-                        <span class="status-indicator-dot ${item.dotClass}"></span>
-                        <div class="item-details">
-                            <div class="item-top">
-                                <span>${item.serial}</span>
-                                <span style="font-size:0.8em; opacity:0.8;">${item.timeText}</span>
-                            </div>
-                            <div class="item-bottom">
-                                <span>${item.station}</span>
-                            </div>
-                        </div>
-                    </li>`;
+                itemsListHtml += `<li class="line-item"><span class="status-indicator-dot ${item.dotClass}"></span><div class="item-details"><div class="item-top"><span>${item.serial}</span><span style="font-size:0.8em; opacity:0.8;">${item.timeText}</span></div><div class="item-bottom"><span>${item.station}</span></div></div></li>`;
             });
-
-            cardsHtml += `
-                <div class="line-detail-card">
-                    <div class="line-card-header">
-                        <span>${line}</span>
-                        <span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:12px; font-size:0.85em;">${items.length} pzas</span>
-                    </div>
-                    <ul class="line-items-list">${itemsListHtml}</ul>
-                </div>`;
+            cardsHtml += `<div class="line-detail-card"><div class="line-card-header"><span>${line}</span><span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:12px; font-size:0.85em;">${items.length} pzas</span></div><ul class="line-items-list">${itemsListHtml}</ul></div>`;
         });
     }
     cardsHtml += '</div>';
 
-    // Formato de hora para el footer del modal
     const lastPackerTimeStr = lastPacker.time.getTime() > 0 ? 
         lastPacker.time.toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
-        
     const colorProgreso = (appPackedQty >= appOrderQty && appOrderQty > 0) ? 'color:var(--success-color);' : 'color:var(--danger-color);';
 
     const modalBody = `
@@ -6078,11 +6066,16 @@ async function mostrarModalEstatusOrden(ordenData) {
                 <span style="font-weight:bold; font-size:1.2rem; ${colorProgreso}">
                     ${appPackedQty} / ${appOrderQty}
                 </span>
-                <br><small>Progreso Real (App)</small>
+                <br><small>Progreso Real</small>
             </div>
         </div>
 
-        <h5 style="margin:0 0 10px 0; color:var(--text-secondary);">Detalle de Rastreo (Activos: ${lines.reduce((acc, l) => acc + groupedLines[l].length, 0)})</h5>
+        <h5 style="margin:0 0 10px 0; color:var(--text-secondary);">Ritmo de Empaque (Pzas/Hora)</h5>
+        <div class="modal-chart-container">
+            <canvas id="modalHourlyChart"></canvas>
+        </div>
+
+        <h5 style="margin:15px 0 10px 0; color:var(--text-secondary);">Detalle de Rastreo (Activos: ${lines.reduce((acc, l) => acc + groupedLines[l].length, 0)})</h5>
         ${cardsHtml}
 
         <div class="last-packer-info">
@@ -6090,14 +6083,90 @@ async function mostrarModalEstatusOrden(ordenData) {
             <div style="display:grid; grid-template-columns: 1fr 1fr;">
                 <div><strong>Usuario:</strong> ${lastPacker.name}</div>
                 <div style="text-align:right;"><strong>Hora:</strong> ${lastPackerTimeStr}</div>
-                <div style="grid-column: 1 / -1; margin-top: 4px; font-size: 0.85em; color: var(--text-secondary);">
-                    Línea Empaque: <strong>${lastPacker.line}</strong>
-                </div>
+                <div style="grid-column: 1 / -1; margin-top: 4px; font-size: 0.85em; color: var(--text-secondary);">Línea Empaque: <strong>${lastPacker.line}</strong></div>
             </div>
         </div>
     `;
 
     showModal('Detalle de Estatus de Orden', modalBody);
+
+    // --- F. RENDERIZAR GRÁFICA (Después de que el modal existe) ---
+    // Pequeño delay para asegurar que el DOM del modal ya está pintado
+    setTimeout(() => {
+        renderModalChart(chartLabels, chartData);
+    }, 100);
+}
+
+// --- FUNCIÓN HELPER PARA DIBUJAR LA GRÁFICA ---
+function renderModalChart(labels, data) {
+    const ctx = document.getElementById('modalHourlyChart');
+    if (!ctx) return;
+
+    // Destruir gráfica anterior si existe para evitar superposiciones
+    if (modalChartInstance) {
+        modalChartInstance.destroy();
+        modalChartInstance = null;
+    }
+
+    if (data.length === 0) {
+        // Si no hay datos, mostrar texto en el canvas (opcional)
+        return;
+    }
+
+    // Colores según tema (puedes ajustar)
+    const barColor = getComputedStyle(document.body).getPropertyValue('--primary-color').trim() || '#34D399';
+    const gridColor = 'rgba(255, 255, 255, 0.1)';
+    const textColor = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim();
+
+    modalChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Piezas Empacadas',
+                data: data,
+                backgroundColor: barColor,
+                borderRadius: 4,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }, // No necesitamos leyenda, es obvio
+                title: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.raw} piezas`;
+                        }
+                    }
+                },
+                datalabels: { // Si usas el plugin de etiquetas
+                    display: true,
+                    color: textColor,
+                    anchor: 'end',
+                    align: 'top',
+                    offset: -2,
+                    font: { size: 10, weight: 'bold' },
+                    formatter: (value) => value > 0 ? value : '' // Solo muestra si > 0
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor, drawBorder: false },
+                    ticks: { color: textColor, font: { size: 10 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: textColor, font: { size: 10 } }
+                }
+            }
+        },
+        plugins: [ChartDataLabels] // Asegúrate de tener este plugin cargado en el HTML, si no, bórralo
+    });
 }
 
 // =======================================================================================
