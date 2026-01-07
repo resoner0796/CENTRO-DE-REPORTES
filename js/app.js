@@ -5883,11 +5883,32 @@ async function consultarOrdenesDelDia() {
     }
 }
 
-// 5. RENDERIZADO TABLA (BOTÓN ASEGURADO)
+// 5. RENDERIZADO TABLA (VERSIÓN BLINDADA: REGENERA HEADERS)
 function renderOrdenesDiaTable(data) {
-    const table = doc('dataTableOrdenesDia').querySelector('tbody');
+    const table = doc('dataTableOrdenesDia');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+
+    // 1. REGENERAR ENCABEZADOS (Siempre, para evitar desfaces)
+    // Definimos las 12 columnas exactas
+    thead.innerHTML = `
+        <tr>
+            <th>Orden</th>
+            <th>Catálogo</th>
+            <th>Material</th>
+            <th>Special Stock</th>
+            <th>Fibras</th>
+            <th>Term. (Falt)</th>
+            <th>Total Orden</th>
+            <th>Total Conf. (SAP)</th>
+            <th>Faltante SAP</th>
+            <th>Faltante FWD</th>
+            <th>Diferencia</th> <th>Status</th>
+        </tr>
+    `;
+
     if (!data || data.length === 0) {
-        table.innerHTML = '<tr><td colspan="11" style="text-align:center;">Sin datos.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Sin datos para mostrar.</td></tr>';
         return;
     }
 
@@ -5896,7 +5917,7 @@ function renderOrdenesDiaTable(data) {
 
     let html = '';
     data.forEach((row, index) => {
-        // Pintar verde si ya terminaron en FWD
+        // Lógica de colores
         const isCompleteFWD = row.faltanteFWD === 0;
         const trClass = isCompleteFWD ? 'row-today' : '';
 
@@ -5904,8 +5925,13 @@ function renderOrdenesDiaTable(data) {
         const hasLiveData = !!row.rawData;
         const btnOpacity = hasLiveData ? '1' : '0.5';
 
-        // Destacar Faltante FWD si es diferente a SAP
-        const colorFaltanteFWD = (row.faltanteFWD === 0 && row.faltanteSAP > 0) ? 'var(--success-color)' : 'inherit';
+        // Destacar si FWD va mejor que SAP
+        const colorFaltanteFWD = (row.faltanteFWD === 0 && row.faltanteSAP > 0) ? 'var(--success-color)' : (row.faltanteFWD > 0 ? 'var(--danger-color)' : 'inherit');
+
+        // Columna Diferencia (Opcional visual)
+        const dif = row.faltanteSAP - row.faltanteFWD;
+        const difText = dif > 0 ? `+${dif}` : (dif < 0 ? dif : '-');
+        const difColor = dif > 0 ? 'var(--success-color)' : 'inherit';
 
         html += `<tr class="${trClass}">
             <td style="font-weight:bold;">${row.id}</td>
@@ -5916,19 +5942,24 @@ function renderOrdenesDiaTable(data) {
             <td style="text-align:center; font-weight:bold;">${row.termFaltante.toLocaleString()}</td>
             <td style="text-align:center;">${row.totalOrden}</td>
             <td style="text-align:center;">${row.totalConfirmadoSAP}</td>
+
             <td style="text-align:center; font-weight:bold;">${row.faltanteSAP}</td>
+
             <td style="text-align:center; font-weight:bold; color:${colorFaltanteFWD};">${row.faltanteFWD}</td>
 
+            <td style="text-align:center; color:${difColor}; font-size:0.75rem;">${difText}</td>
+
             <td style="text-align:center;">
-                <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}">
+                <button class="btn-status" data-index="${index}" style="opacity:${btnOpacity}; border-color:${btnColor}; color:${btnColor === '#f59e0b' ? 'var(--text-primary)' : 'white'}; background-color:${btnColor === '#f59e0b' ? 'transparent' : btnColor}; padding: 4px 8px; font-size: 0.75rem;">
                     Ver Estatus
                 </button>
             </td>
         </tr>`;
     });
-    table.innerHTML = html;
+    tbody.innerHTML = html;
 
-    doc('dataTableOrdenesDia').querySelectorAll('.btn-status').forEach(btn => {
+    // Listeners del botón
+    table.querySelectorAll('.btn-status').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = e.target.dataset.index;
             if (data[idx].rawData) mostrarModalEstatusOrden(data[idx]);
