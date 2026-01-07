@@ -4777,7 +4777,7 @@ function showBoxDetailsModal(bxidDetails, statusText, folio) {
 
 // --- FUERA DEL DOMContentLoaded ---
 
-// --- AJUSTE: Función consultarTerminacionesConfirmadas con FILTRO DE ÁREA en la consulta ---
+// --- CORRECCIÓN FINAL: CALCULAR TERMINACIONES (CON CRUCE DE USUARIOS) ---
 async function consultarTerminacionesConfirmadas() {
     const fechaInput = doc('prodTarimas_fecha').value;
     const turnoSeleccionado = doc('prodTarimas_turno').value;
@@ -4791,25 +4791,25 @@ async function consultarTerminacionesConfirmadas() {
     const btn = doc('calcularTerminacionesDiaBtn');
     if (!btn) return;
     btn.disabled = true;
-    btn.textContent = `Calculando ${turnoSeleccionado} (${areaSeleccionada === 'ALL' ? 'Todas' : areaSeleccionada})...`;
+    btn.textContent = `Calculando...`;
+    
+    // Limpiamos caché de órdenes para asegurar datos frescos si se vuelve a consultar
     orderDataCache.clear(); 
 
     const parts = fechaInput.split('-');
     const fechaSeleccionadaStr_render = `${parts[2]}/${parts[1]}/${parts[0]}`;
     const fechaSeleccionadaStr_compare = `${parts[0]}-${parts[1]}-${parts[2]}`;
-    console.log(`[TermConf] Calculando para Fecha: ${fechaSeleccionadaStr_compare}, Turno: ${turnoSeleccionado}, Área: ${areaSeleccionada}`);
-
+    
     const dashboardContainer = doc('terminacionesDashboardContainer');
     const tableContainer = doc('tarimasTableContainer'); 
 
     if (tableContainer) tableContainer.style.display = 'none'; 
     if (!dashboardContainer) {
-        console.error("[TermConf] Elemento #terminacionesDashboardContainer no encontrado.");
-        showModal('Error Interno', '<p>No se pudo encontrar el contenedor del dashboard.</p>');
+        console.error("[TermConf] Elemento dashboard no encontrado.");
         btn.disabled = false; btn.textContent = 'Calcular Terminaciones del Turno';
         return;
     }
-    dashboardContainer.innerHTML = '<p style="text-align:center;">Consultando tarimas...</p>'; 
+    dashboardContainer.innerHTML = '<p style="text-align:center;">Analizando tarimas y consultando órdenes...</p>'; 
     dashboardContainer.style.display = 'block';
 
     let granTotalTerminaciones = 0; 
@@ -4821,60 +4821,63 @@ async function consultarTerminacionesConfirmadas() {
     const summaryByOrderCatalog = {};
 
     try {
-        // --- ¡AQUÍ ESTÁ EL AJUSTE! ---
-        // 1. Construir la consulta base
-        let query = db.collection('tarimas_confirmadas');
+        // 1. CARGAR MAPA DE USUARIOS (EL FIX MAESTRO)
+        // Esto nos permite saber el área aunque la tarima no la tenga guardada
+        const usersMap = await ensureUsersCache();
 
-        // 2. Aplicar filtro de área SI NO es "Todas"
-        if (areaSeleccionada !== 'ALL') {
-            query = query.where('area', '==', areaSeleccionada);
-            console.log(`[TermConf] Aplicando filtro de área en consulta: ${areaSeleccionada}`);
-        } else {
-            console.log(`[TermConf] Consultando tarimas de todas las áreas.`);
-        }
+        // 2. CONSULTA SIN FILTRO DE ÁREA (Para no perder datos viejos)
+        let query = db.collection('tarimas_confirmadas');
         
-        // 3. Aplicar filtros de fecha/hora para optimizar
+        // Filtramos solo por fecha/hora (esto sí lo tienen todas)
         const { startTime, endTime } = getShiftDateRange(fechaInput, turnoSeleccionado);
         query = query.where('fecha', '>=', startTime).where('fecha', '<=', endTime);
-        // --- FIN DEL AJUSTE ---
 
-        // 4. Ejecutar la consulta (ahora potencialmente filtrada por área)
         const palletsSnapshot = await query.get();
 
         if (palletsSnapshot.empty) {
-            throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render}${areaSeleccionada !== 'ALL' ? ' en el área ' + areaSeleccionada : ''}.`);
+            throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render}.`);
         }
 
+        // 3. FILTRADO INTELIGENTE EN MEMORIA
         let tarimasDelTurno = [];
+        
         palletsSnapshot.docs.forEach(docSnap => {
             const palletData = docSnap.data();
-            if (!palletData || typeof palletData !== 'object' || !palletData.fecha || typeof palletData.fecha.toDate !== 'function' || !palletData.folio || !palletData.gafete || !Array.isArray(palletData.cajas) || palletData.cajas.length === 0) return;
+            // Validaciones básicas
+            if (!palletData || !palletData.fecha || !palletData.cajas) return;
+
             try {
                 const palletConfirmationDate = palletData.fecha.toDate();
                 const { shift, dateKey } = getWorkShiftAndDate(palletConfirmationDate);
                 
-                // 5. Doble verificación de turno/fecha
                 if (dateKey === fechaSeleccionadaStr_compare && shift === turnoSeleccionado) {
-                    tarimasDelTurno.push({
-                        folio: palletData.folio,
-                        cajas: palletData.cajas,
-                        // ¡Importante! Guardamos el área de la tarima para la lógica de cálculo
-                        area: palletData.area || (areaSeleccionada !== 'ALL' ? areaSeleccionada : 'Indefinida') 
-                    });
+                    // --- AQUÍ RECUPERAMOS EL ÁREA PERDIDA ---
+                    const usuario = (palletData.gafete || '').toUpperCase();
+                    const areaReal = palletData.area || usersMap.get(usuario) || 'Indefinida';
+
+                    // APLICAMOS EL FILTRO DE ÁREA AQUÍ
+                    if (areaSeleccionada === 'ALL' || areaReal === areaSeleccionada) {
+                        tarimasDelTurno.push({
+                            folio: palletData.folio,
+                            cajas: palletData.cajas,
+                            // Guardamos el área calculada para usarla al buscar la orden
+                            area: areaReal 
+                        });
+                    }
                 }
-            } catch { /* Ignorar */ }
+            } catch (err) { console.error("Error procesando data de tarima:", err); }
         });
 
         if (tarimasDelTurno.length === 0) {
-             throw new Error(`No se encontraron tarimas confirmadas para el turno ${turnoSeleccionado} en la fecha ${fechaSeleccionadaStr_render}${areaSeleccionada !== 'ALL' ? ' en el área ' + areaSeleccionada : ''} (verificación post-consulta).`);
+             throw new Error(`Se encontraron tarimas, pero ninguna coincide con el Área ${areaSeleccionada} (según el usuario que la creó).`);
         }
-        totalTarimasProcesadas = tarimasDelTurno.length;
-        console.log(`[TermConf] ${totalTarimasProcesadas} tarimas encontradas (después de filtrar por área en consulta).`);
-        dashboardContainer.innerHTML = `<p style="text-align:center;">Consultando datos de órdenes para ${totalTarimasProcesadas} tarimas...</p>`;
 
-        // 6. Procesar Cajas y Órdenes
+        totalTarimasProcesadas = tarimasDelTurno.length;
+        console.log(`[TermConf] ${totalTarimasProcesadas} tarimas válidas para procesar.`);
+
+        // 4. PROCESAR CAJAS Y ÓRDENES (LÓGICA EXISTENTE OPTIMIZADA)
         for (const tarima of tarimasDelTurno) {
-            // ¡Importante! Usamos el área de la tarima actual.
+            // Usamos el área que acabamos de calcular (ej. "MULTIPORT")
             const areaDeLaTarima = tarima.area; 
 
             for (const caja of tarima.cajas) {
@@ -4884,33 +4887,46 @@ async function consultarTerminacionesConfirmadas() {
 
                 if (numeroOrdenLimpio && codigoCajaActual) {
                     let orderData = null;
+                    
+                    // a) Revisar Caché
                     if (orderDataCache.has(numeroOrdenLimpio)) { 
                         orderData = orderDataCache.get(numeroOrdenLimpio); 
                     } else {
                         ordenesConsultadas.add(numeroOrdenLimpio);
-                         try {
-                             let orderDocRef;
-                             // ¡IMPORTANTE! La búsqueda de órdenes AHORA USA el 'areaDeLaTarima'
-                             if (areaDeLaTarima === 'ALL' || areaDeLaTarima === 'Indefinida' || areaDeLaTarima === 'Desconocida') {
-                                 const orderQuery = await db.collectionGroup('orders').where(firebase.firestore.FieldPath.documentId(), '==', numeroOrdenLimpio).limit(1).get();
-                                 if (!orderQuery.empty) orderDocRef = orderQuery.docs[0];
-                             } else {
-                                 const docSnapshot = await db.collection('areas').doc(areaDeLaTarima).collection('orders').doc(numeroOrdenLimpio).get();
-                                 if (docSnapshot.exists) orderDocRef = docSnapshot;
-                             }
-                             
-                             if (orderDocRef) {
-                                 orderData = orderDocRef.data();
-                                 if (orderData) { orderDataCache.set(numeroOrdenLimpio, orderData); ordenesConDatos.add(numeroOrdenLimpio); }
-                                 else { orderDataCache.set(numeroOrdenLimpio, null); }
-                             } else { orderDataCache.set(numeroOrdenLimpio, null); }
-                         } catch (error) { orderDataCache.set(numeroOrdenLimpio, null); console.error(`[TermConf] Error buscando orden ${numeroOrdenLimpio}:`, error);}
+                        try {
+                            let orderDocRef;
+                            // b) Buscar Orden: Si tenemos área, vamos directo. Si no, búsqueda global (más lenta)
+                            if (areaDeLaTarima === 'ALL' || areaDeLaTarima === 'Indefinida') {
+                                const orderQuery = await db.collectionGroup('orders').where(firebase.firestore.FieldPath.documentId(), '==', numeroOrdenLimpio).limit(1).get();
+                                if (!orderQuery.empty) orderDocRef = orderQuery.docs[0];
+                            } else {
+                                // Búsqueda rápida directa al path del área
+                                const docSnapshot = await db.collection('areas').doc(areaDeLaTarima).collection('orders').doc(numeroOrdenLimpio).get();
+                                if (docSnapshot.exists) orderDocRef = docSnapshot;
+                            }
+                            
+                            if (orderDocRef) {
+                                orderData = orderDocRef.data();
+                                if (orderData) { 
+                                    orderDataCache.set(numeroOrdenLimpio, orderData); 
+                                    ordenesConDatos.add(numeroOrdenLimpio); 
+                                } else { 
+                                    orderDataCache.set(numeroOrdenLimpio, null); 
+                                }
+                            } else { 
+                                orderDataCache.set(numeroOrdenLimpio, null); 
+                            }
+                        } catch (error) { 
+                            console.error(`[TermConf] Error buscando orden ${numeroOrdenLimpio}:`, error);
+                            orderDataCache.set(numeroOrdenLimpio, null);
+                        }
                     } 
 
+                    // c) Calcular Terminaciones (Si encontramos la orden)
                     if (orderData && orderData.catalogNumber && Array.isArray(orderData.empaqueData)) {
                         const catalogNumber = orderData.catalogNumber;
                         
-                        // 7. ¡AQUÍ USAMOS EL ÁREA DE LA TARIMA PARA EL CÁLCULO!
+                        // Calculadora de fibras usando el Área Correcta
                         const fibras = calculateTerminaciones(catalogNumber, areaDeLaTarima); 
 
                         if (fibras > 0) {
@@ -4922,6 +4938,7 @@ async function consultarTerminacionesConfirmadas() {
                                     granTotalTerminaciones += terminacionesCaja;
                                     cajasProcesadasConTerminaciones++;
                                     
+                                    // Agregar al resumen desglosado
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio]) { summaryByOrderCatalog[numeroOrdenLimpio] = {}; }
                                     if (!summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber]) { summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber] = { piezas: 0, terminaciones: 0 }; }
                                     summaryByOrderCatalog[numeroOrdenLimpio][catalogNumber].piezas += piezas;
@@ -4934,15 +4951,12 @@ async function consultarTerminacionesConfirmadas() {
             }
         }
 
-        console.log(`[TermConf] Cálculo finalizado. Total Terminaciones: ${granTotalTerminaciones}. Órdenes buscadas: ${ordenesConsultadas.size}. Órdenes con datos: ${ordenesConDatos.size}. Cajas sumadas: ${cajasProcesadasConTerminaciones}/${totalCajasConsultadas}.`);
         renderTerminacionesDashboard(granTotalTerminaciones, totalTarimasProcesadas, totalCajasConsultadas, fechaSeleccionadaStr_render, turnoSeleccionado, areaSeleccionada, summaryByOrderCatalog);
 
     } catch (e) {
         console.error("[TermConf] Error:", e);
-        const currentDashboard = doc('terminacionesDashboardContainer');
-        if (currentDashboard) {
-            currentDashboard.innerHTML = `<h4 style='color: var(--danger-color); text-align: center;'>Error</h4><p style='text-align: center;'>${e.message}</p>`;
-            currentDashboard.style.display = 'block';
+        if (dashboardContainer) {
+            dashboardContainer.innerHTML = `<h4 style='color: var(--danger-color); text-align: center;'>Error</h4><p style='text-align: center;'>${e.message}</p>`;
         }
     } finally {
          const currentBtn = doc('calcularTerminacionesDiaBtn');
