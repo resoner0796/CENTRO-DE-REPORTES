@@ -6379,6 +6379,10 @@ function abrirModalProyeccion() {
 }
 
 // 3. Calcular y Generar Reporte
+// =================================================================
+// --- BLOQUE FINAL: PROYECCIÓN DE FALTANTES SAP (LÓGICA + VISTA) ---
+// =================================================================
+
 async function calcularProyeccionTerminaciones() {
     const fInicio = document.getElementById('proyeccion_f_inicio').value;
     const fFin = document.getElementById('proyeccion_f_fin').value;
@@ -6391,85 +6395,98 @@ async function calcularProyeccionTerminaciones() {
     }
 
     btn.disabled = true;
-    btn.textContent = "Calculando...";
+    btn.textContent = "Consultando SAP...";
 
     try {
-        // A. Consultar Firebase (Optimizada por fecha)
-        const startDate = new Date(`${fInicio}T00:00:00`);
-        const endDate = new Date(`${fFin}T00:00:00`);
-        // Ajustamos endDate para incluir todo el día final
-        endDate.setHours(23, 59, 59, 999); 
+        // 1. CONVERTIR FECHAS A SERIAL EXCEL
+        // (Lógica necesaria para buscar en sap_historico)
+        const jsDateToExcel = (dateString) => {
+            const date = new Date(dateString + 'T00:00:00');
+            const offset = date.getTimezoneOffset() * 60000;
+            const adjustedDate = new Date(date.getTime() - offset);
+            return (adjustedDate.getTime() / 86400000) + 25569;
+        };
 
-        let query = area === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(area).collection('orders');
+        const startSerial = Math.floor(jsDateToExcel(fInicio));
+        const endSerial = Math.floor(jsDateToExcel(fFin)) + 1;
+
+        // 2. CONSULTAR SAP HISTÓRICO
+        let query = db.collection('areas').doc(area).collection('sap_historico');
         
-        // Filtramos por orderDate (Fecha SAP)
-        query = query.where('orderDate', '>=', startDate).where('orderDate', '<=', endDate);
+        // Buscamos por la columna 'Finish' (Fecha promesa SAP)
+        query = query.where('Finish', '>=', startSerial).where('Finish', '<', endSerial);
 
         const snapshot = await query.get();
 
         if (snapshot.empty) {
-            showModal('Sin Datos', '<p>No hay órdenes programadas en ese rango.</p>');
+            showModal('Sin Datos SAP', '<p>No se encontraron órdenes pendientes en SAP para este rango.</p>');
             return;
         }
 
-        // B. Procesar Datos (Agrupar)
-        const pivotData = {}; // Estructura: { "2026-01-05": { "12 Fibras": 500, "24 Fibras": 100 } }
-        const fiberTypes = new Set(); // Para saber las columnas (4, 6, 12, 24...)
+        // 3. PROCESAR Y AGRUPAR
+        const pivotData = {}; 
+        const fiberTypes = new Set(); 
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            const fechaRaw = data.orderDate ? data.orderDate.toDate() : null;
             
-            if (fechaRaw) {
-                // Formato de fecha para la fila: DD/MM/YYYY
-                const fechaKey = fechaRaw.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            // Convertir Serial a Fecha legible
+            const fechaObj = excelSerialToDateObject(data['Finish']);
+            
+            if (fechaObj) {
+                // Clave para la fila: 05/01/2026
+                const fechaKey = fechaObj.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 
-                // Calcular Fibras
-                const catalogo = data.catalogNumber || '';
-                const cantidad = Number(data.orderQty) || 0; // Usamos Cantidad PLANEADA (Total Orden)
-                
-                // Usamos tu función helper existente si está disponible, si no, la lógica básica
-                let numFibras = 0;
-                if (typeof calculateTerminaciones === 'function') {
-                    // Si ya tienes la función del otro reporte, úsala (es más precisa con reglas de área)
-                    numFibras = calculateTerminaciones(catalogo, area); 
-                } else {
-                    // Fallback básico
-                    const char = catalogo.substring(3, 4).toUpperCase();
-                    numFibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-                }
+                // Dato duro de SAP
+                const faltanteSAP = Number(data['Faltante']) || 0; 
 
-                if (numFibras > 0) {
-                    const labelFibra = `${numFibras} Fibras`;
-                    fiberTypes.add(labelFibra);
-                    const terminaciones = numFibras * cantidad;
-
-                    if (!pivotData[fechaKey]) pivotData[fechaKey] = {};
-                    if (!pivotData[fechaKey][labelFibra]) pivotData[fechaKey][labelFibra] = 0;
+                // Solo nos importa si hay trabajo pendiente
+                if (faltanteSAP > 0) {
+                    const catalogo = data['Catalogo'] || '';
                     
-                    pivotData[fechaKey][labelFibra] += terminaciones;
+                    // Calcular Fibras (usa tu función helper si existe, si no, usa lógica básica)
+                    let numFibras = 0;
+                    if (typeof calculateTerminaciones === 'function') {
+                        numFibras = calculateTerminaciones(catalogo, area); 
+                    } else {
+                        const char = catalogo.substring(3, 4).toUpperCase();
+                        numFibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+                    }
+
+                    if (numFibras > 0) {
+                        const labelFibra = `${numFibras} Fibras`;
+                        fiberTypes.add(labelFibra);
+                        
+                        // CÁLCULO FINAL: Faltante * Fibras
+                        const terminacionesPendientes = numFibras * faltanteSAP;
+
+                        if (!pivotData[fechaKey]) pivotData[fechaKey] = {};
+                        if (!pivotData[fechaKey][labelFibra]) pivotData[fechaKey][labelFibra] = 0;
+                        
+                        pivotData[fechaKey][labelFibra] += terminacionesPendientes;
+                    }
                 }
             }
         });
 
-        // C. Renderizar Tabla Pivote
+        // 4. RENDERIZAR
         renderPivotTable(pivotData, Array.from(fiberTypes).sort((a,b) => parseInt(a)-parseInt(b)));
 
     } catch (e) {
-        console.error("Error proyección:", e);
-        // Si falta índice, avisar
+        console.error("Error proyección SAP:", e);
         if (e.code === 'failed-precondition') {
-             alert("Falta crear un índice en Firebase para consultar por fecha. Revisa la consola.");
+             showModal('Falta Índice', '<p>Firebase necesita un índice compuesto (Finish ASC) para esta consulta. Revisa la consola (F12).</p>');
         } else {
-             alert("Error al calcular datos.");
+             alert("Error al consultar datos: " + e.message);
         }
     } finally {
-        // Como vamos a cambiar el contenido del modal, no necesitamos restaurar el botón
+        btn.disabled = false;
+        btn.textContent = "Generar Tabla Pivote";
     }
 }
 
+// --- FUNCIÓN DE VISUALIZACIÓN (ESTILO "PENDIENTES") ---
 function renderPivotTable(pivotData, fiberColumns) {
-    // Ordenar fechas cronológicamente
     const sortedDates = Object.keys(pivotData).sort((a, b) => {
         const da = new Date(a.split('/').reverse().join('-'));
         const db = new Date(b.split('/').reverse().join('-'));
@@ -6477,28 +6494,27 @@ function renderPivotTable(pivotData, fiberColumns) {
     });
 
     if (sortedDates.length === 0) {
-        showModal('Sin Resultados', '<p>Se encontraron órdenes pero ninguna generó terminaciones válidas.</p>');
+        showModal('Todo Completo', '<p>SAP indica que no hay faltantes programados para estas fechas. ¡Todo al 100! 🌟</p>');
         return;
     }
 
-    // Totales por Columna (Fibras)
     const colTotals = {};
     fiberColumns.forEach(f => colTotals[f] = 0);
     let grandTotalGeneral = 0;
 
-    // Construir HTML
+    // Título y Estilos Rojos (Peligro/Pendiente)
     let html = `
         <div style="margin-bottom:15px; text-align:center;">
-            <h4>Proyección de Terminaciones</h4>
-            <p style="font-size:0.9em; color:var(--text-secondary);">Basado en Cantidad Total de la Orden (Planeado)</p>
+            <h4>Proyección de Faltantes (SAP)</h4>
+            <p style="font-size:0.9em; color:var(--text-secondary);">Calculado sobre: <span style="color:var(--danger-color); font-weight:bold;">Columna 'Faltante' x Fibras</span></p>
         </div>
         <div class="table-wrapper" style="max-height: 60vh;">
             <table class="pivot-table" style="width:100%; border-collapse:collapse; font-size:0.9em;">
                 <thead>
                     <tr style="background:var(--surface-hover-color);">
-                        <th style="padding:10px; text-align:left; border-bottom:2px solid var(--border-color);">Fecha</th>
+                        <th style="padding:10px; text-align:left; border-bottom:2px solid var(--border-color);">Fecha SAP</th>
                         ${fiberColumns.map(f => `<th style="padding:10px; text-align:center; border-bottom:2px solid var(--border-color);">${f}</th>`).join('')}
-                        <th style="padding:10px; text-align:right; border-bottom:2px solid var(--border-color); color:var(--primary-color);">Total Día</th>
+                        <th style="padding:10px; text-align:right; border-bottom:2px solid var(--border-color); color:var(--danger-color);">Total Pendiente</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -6516,22 +6532,21 @@ function renderPivotTable(pivotData, fiberColumns) {
             rowTotal += val;
             colTotals[fibra] += val;
             
-            // Estilo visual: opacidad baja si es 0 para que no haga ruido
-            const style = val === 0 ? 'color:var(--text-secondary); opacity:0.3;' : '';
+            const style = val === 0 ? 'color:var(--text-secondary); opacity:0.3;' : 'font-weight:500;';
             html += `<td style="padding:8px; text-align:center; ${style}">${val.toLocaleString()}</td>`;
         });
 
         grandTotalGeneral += rowTotal;
-        html += `<td style="padding:8px; text-align:right; font-weight:bold; color:var(--primary-color);">${rowTotal.toLocaleString()}</td>`;
+        html += `<td style="padding:8px; text-align:right; font-weight:bold; color:var(--danger-color);">${rowTotal.toLocaleString()}</td>`;
         html += `</tr>`;
     });
 
-    // Fila de Totales Generales
+    // Fila de Totales
     html += `
                 <tr style="background:var(--surface-hover-color); font-weight:bold; border-top:2px solid var(--border-color);">
-                    <td style="padding:12px 8px;">TOTAL PERIODO</td>
+                    <td style="padding:12px 8px;">TOTAL CARGA</td>
                     ${fiberColumns.map(f => `<td style="padding:12px 8px; text-align:center;">${colTotals[f].toLocaleString()}</td>`).join('')}
-                    <td style="padding:12px 8px; text-align:right; font-size:1.1em; color:var(--success-color);">${grandTotalGeneral.toLocaleString()}</td>
+                    <td style="padding:12px 8px; text-align:right; font-size:1.1em; color:var(--danger-color);">${grandTotalGeneral.toLocaleString()}</td>
                 </tr>
             </tbody>
         </table>
@@ -6539,7 +6554,6 @@ function renderPivotTable(pivotData, fiberColumns) {
     <button class="btn" style="width:100%; margin-top:15px;" onclick="exportPivotToImage()">📸 Descargar Imagen</button>
     `;
 
-    // Reutilizamos el modal para mostrar la tabla (reemplazando los inputs)
     const modalBody = document.getElementById('modalBody');
     modalBody.innerHTML = html;
 }
