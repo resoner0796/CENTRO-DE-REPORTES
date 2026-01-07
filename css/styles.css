@@ -1345,22 +1345,41 @@ body.dark-theme .export-mode p {
     font-size: 0.8rem; /* Letra un pelín más chica para acomodar 11 columnas */
 }
 
+/* --- 3. Ajuste Fino de la Tabla (12 Columnas: SAP + FWD) --- */
+#dataTableOrdenesDia {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#dataTableOrdenesDia th,
+#dataTableOrdenesDia td {
+    text-align: center !important;
+    vertical-align: middle;
+    padding: 6px 4px; /* Padding reducido */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.75rem; /* Letra compacta para que quepa todo */
+}
+
 /* 1. Orden */
 #dataTableOrdenesDia th:nth-child(1), td:nth-child(1) { width: 9%; }
 
 /* 2. Catálogo (El más ancho) */
 #dataTableOrdenesDia th:nth-child(2), td:nth-child(2) {
-    width: 16%;
+    width: 15%;
     white-space: normal;
-    line-height: 1.1;
+    line-height: 1;
     text-align: left !important;
 }
 
 /* 3. Material */
-#dataTableOrdenesDia th:nth-child(3), td:nth-child(3) { width: 9%; }
+#dataTableOrdenesDia th:nth-child(3), td:nth-child(3) { width: 8%; }
 
 /* 4. Special Stock */
-#dataTableOrdenesDia th:nth-child(4), td:nth-child(4) { width: 8%; }
+#dataTableOrdenesDia th:nth-child(4), td:nth-child(4) { width: 7%; }
 
 /* 5. Fibras */
 #dataTableOrdenesDia th:nth-child(5), td:nth-child(5) { width: 5%; }
@@ -1377,10 +1396,10 @@ body.dark-theme .export-mode p {
 /* 9. Faltante SAP */
 #dataTableOrdenesDia th:nth-child(9), td:nth-child(9) { width: 7%; }
 
-/* 10. Faltante FWD (Nueva) */
-#dataTableOrdenesDia th:nth-child(10), td:nth-child(10) { width: 8%; }
+/* 10. Faltante FWD */
+#dataTableOrdenesDia th:nth-child(10), td:nth-child(10) { width: 7%; }
 
-/* 11. Status (Botón) - AQUÍ ESTABA EL PROBLEMA */
+/* 11. Status (Botón) */
 #dataTableOrdenesDia th:nth-child(11), td:nth-child(11) { width: 10%; }
 
 /* --- Estilos Gráfica Modal --- */
