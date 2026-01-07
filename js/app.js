@@ -5726,7 +5726,7 @@ function formatShortDateTime(date) {
 }
 
 
- // 4. CONSULTA HÍBRIDA (CON KPI RESTAURADO + FALTANTE FWD)
+ // 4. CONSULTA HÍBRIDA (KPI TERMINACIONES: STRICTLY SAP)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
@@ -5738,13 +5738,12 @@ async function consultarOrdenesDelDia() {
 
     const btn = doc('consultarOrdenesDiaBtn');
     btn.disabled = true;
-    btn.textContent = 'Analizando...';
+    btn.textContent = 'Analizando SAP...';
 
-    // Limpieza inicial
+    // Limpieza
     const tbody = doc('dataTableOrdenesDia').querySelector('tbody');
     tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Cargando datos...</td></tr>';
-
-    // Reset de TODOS los KPIs
+    
     ['kpiOrdersTotal', 'kpiOrdersClosed', 'kpiOrdersMissing', 'kpiTerminacionesMissing'].forEach(id => {
         const el = doc(id);
         if(el) el.textContent = '-';
@@ -5772,13 +5771,12 @@ async function consultarOrdenesDelDia() {
         const ordersSnapshot = await ordersRef.get();
 
         let ordenesFinales = [];
-
-        // --- INICIALIZACIÓN CORRECTA DE STATS ---
-        let stats = {
-            total: 0,
-            cerradas: 0,
+        
+        let stats = { 
+            total: 0, 
+            cerradas: 0, 
             faltantes: 0,
-            terminacionesPendientes: 0 // <--- Aquí revivimos el KPI
+            terminacionesPendientes: 0 // KPI SAP
         };
 
         ordersSnapshot.forEach(docSnap => {
@@ -5787,27 +5785,27 @@ async function consultarOrdenesDelDia() {
 
             const sapData = sapMap.get(docId);
             const liveDate = normalizeDate(liveData.orderDate);
-
+            
             if (sapData || liveDate === fechaInput) {
-
+                
                 const catalogo = sapData?.['Catalogo'] || liveData.catalogNumber || 'N/A';
                 const material = sapData?.['Material'] || 'N/A';
                 const specialStock = sapData?.['Special Stock'] || 'N/A';
 
                 const totalOrden = Number(sapData?.['Total orden']) || Number(liveData.orderQty) || 0;
-
-                // Total Confirmado SAP (Estático del Excel)
-                const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined)
-                                        ? Number(sapData['Total confirmado'])
+                
+                // Total Confirmado SAP
+                const totalConfirmadoSAP = (sapData && sapData['Total confirmado'] !== undefined) 
+                                        ? Number(sapData['Total confirmado']) 
                                         : 0;
 
-                // Total Confirmado FWD (Real App)
+                // Total Confirmado FWD
                 let totalConfirmadoFWD = Number(liveData.packedQty) || 0;
                 if (totalConfirmadoFWD === 0 && liveData.empaqueData) {
                     let empaqueArray = [];
                     if(Array.isArray(liveData.empaqueData)) empaqueArray = liveData.empaqueData;
                     else if(typeof liveData.empaqueData === 'object') empaqueArray = Object.values(liveData.empaqueData);
-
+                    
                     empaqueArray.forEach(box => { if(box.serials) totalConfirmadoFWD += box.serials.length; });
                 }
 
@@ -5821,54 +5819,52 @@ async function consultarOrdenesDelDia() {
 
                 const faltanteFWD = Math.max(0, totalOrden - totalConfirmadoFWD);
 
-                // Cálculo Fibras
+                // Cálculo Term. (Basado en SAP)
                 const char = catalogo.substring(3, 4).toUpperCase();
                 const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-
-                // Cálculo Term. (Basado en SAP para la tabla y KPI)
-                const termFaltante = faltanteSAP * fibras;
+                const termFaltante = faltanteSAP * fibras; // Esto es LO PENDIENTE SEGÚN SAP
 
                 const status = (faltanteFWD === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
 
                 ordenesFinales.push({
                     id: docId,
                     catalogo, material, specialStock, fibras, termFaltante,
-                    totalOrden,
+                    totalOrden, 
                     totalConfirmadoSAP,
                     faltanteSAP,
                     faltanteFWD,
                     status,
-                    rawData: liveData
+                    rawData: liveData 
                 });
 
-                // --- SUMA DE KPIs ---
+                // --- ACTUALIZACIÓN DE STATS ---
                 stats.total++;
-                // Usamos FWD para determinar si está "Cerrada" realmente en piso
+
+                // 1. KPI Terminaciones (CORRECCIÓN: Se suma SIEMPRE, basado en SAP)
+                // No importa si en FWD ya acabaron, si SAP dice que falta, aquí se cuenta.
+                stats.terminacionesPendientes += termFaltante; 
+
+                // 2. Conteo de Órdenes (Visual - Basado en realidad FWD)
                 if (faltanteFWD === 0 && totalOrden > 0) {
                     stats.cerradas++;
                 } else {
                     stats.faltantes++;
-                    // Sumamos al KPI de Terminaciones (Usando el dato SAP que pediste)
-                    stats.terminacionesPendientes += termFaltante;
                 }
             }
         });
 
         if (ordenesFinales.length === 0) {
             renderOrdenesDiaTable([]);
-            // Si no hay datos, pero el botón de KPI existe, ponerlo en 0
             if(doc('kpiTerminacionesMissing')) doc('kpiTerminacionesMissing').textContent = '0';
             alert(`No hay órdenes para ${fechaInput} en ${areaInput}.`);
         } else {
             renderOrdenesDiaTable(ordenesFinales);
         }
 
-        // --- ACTUALIZACIÓN DE INTERFAZ DE KPIs ---
         doc('kpiOrdersTotal').textContent = stats.total;
         doc('kpiOrdersClosed').textContent = stats.cerradas;
         doc('kpiOrdersMissing').textContent = stats.faltantes;
-
-        // Actualizamos el nuevo KPI
+        
         if(doc('kpiTerminacionesMissing')) {
             doc('kpiTerminacionesMissing').textContent = stats.terminacionesPendientes.toLocaleString();
         }
