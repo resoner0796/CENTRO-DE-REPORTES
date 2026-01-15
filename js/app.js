@@ -119,7 +119,7 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
                     moonIcon.style.display = theme === 'light' ? 'block' : 'none';
                 }
             });
-            if (productionChart || fiberPieChart1 || fiberPieChart2 || production20Chart || weeklyProductionChart || productionDailyChart) {
+            if (productionChart || fiberPieChart1 || fiberPieChart2 || weeklyProductionChart) {
                 updateChartTheme();
             }
         }
@@ -2147,7 +2147,7 @@ function renderProductionChart(data, shiftStartTime, turno) {
         }
 
         function updateChartTheme() {
-    const charts = [productionChart, ...fiberPieCharts, production20Chart, productionDailyChart, weeklyProductionChart, graficaSemanalDailyInstance, productionCalidadChart, graficaSemanalCalidadInstance, liveProductionChart, graficaSemanalInstance].filter(Boolean);
+    const charts = [productionChart, weeklyProductionChart, liveProductionChart].filter(Boolean);
     if (charts.length === 0) return;
     const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
     const tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick-color').trim();
