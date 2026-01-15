@@ -522,7 +522,6 @@ async function saveTerminacionesSettings() {
                 params.produccion_hora_config = { packers: [], ...data };
                 applyProduccionHoraConfig();
             }
-        }
     } catch(e) { console.error(`Error al cargar ${configKey}:`, e); }
 }
         function applyProduccionHoraConfig() {
