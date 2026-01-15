@@ -34,14 +34,9 @@
         let globalAreasCache = null; // Para no gastar lecturas recargando el select de áreas
         let reportData = { zpptwc: null, coois: null };
         let productionChart = null;
-        let production20Chart = null;
-        let productionDailyChart = null;
-        let productionCalidadChart = null;
         let fiberPieCharts = [];
         let productionReportData = null;
         let graficaSemanalInstance = null;
-        let graficaSemanalDailyInstance = null;
-        let graficaSemanalCalidadInstance = null;
         let weeklyProductionChart = null;
         let liveListener = null; // El "listener" que escucha en vivo
         let liveProductionChart = null; // La gráfica de barras en vivo
@@ -620,19 +615,13 @@ async function saveTerminacionesSettings() {
         setupFileHandler('fileDropArea901', 'fileInput901', '901');
 setupFileHandler('fileDropAreaZpptwc', 'fileInputZpptwc', 'zpptwc');
 setupFileHandler('fileDropAreaCoois', 'fileInputCoois', 'coois');
-setupFileHandler('fileDropAreaProd20', 'fileInputProd20', 'produccion20');
-setupFileHandler('fileDropAreaProdDaily', 'fileInputProdDaily', 'produccionDaily');
-setupFileHandler('fileDropAreaProdCalidad', 'fileInputProdCalidad', 'produccionCalidad');
 setupFileHandler('fileDropAreaBoxID', 'fileInputBoxID', 'boxID'); // <-- ESTA ES LA LÍNEA CRÍTICA
 setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
 
         function handleFile(files, configKey) {
     // Lista de funciones que solo pueden procesar un archivo a la vez
     const singleFileFunctions = [
-        '901', 
-        'produccion20', 
-        'produccionDaily', 
-        'produccionCalidad', 
+        '901',  
         'zpptwc', 
         'coois'
     ];
@@ -650,9 +639,6 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
 
         // Llamamos a la función correcta con UN SOLO archivo
         if (configKey === '901') handle901File(file);
-        if (configKey === 'produccion20') handleProduccion20File(file);
-        if (configKey === 'produccionDaily') handleProduccionDailyFile(file);
-        if (configKey === 'produccionCalidad') handleProduccionCalidadFile(file);
         
         // Esta es la lógica original para los archivos de Terminaciones
         if (configKey === 'zpptwc' || configKey === 'coois') {
@@ -4691,15 +4677,10 @@ async function loadAreasForOrdenesDia() {
         doc('prod_fecha_unica').value = formatDate(today);
         doc('prod_fecha_inicio').value = formatDate(pastDate);
         doc('prod_fecha_fin').value = formatDate(today);
-        doc('prod20_fecha').value = formatDate(today);
-        doc('prodDaily_fecha').value = formatDate(today);
-        doc('prodCalidad_fecha').value = formatDate(today);
         
         const currentShift = getAutoCurrentShift();
         doc('prod_turno').value = currentShift;
-        doc('prod20_turno').value = currentShift;
-        doc('prodDaily_turno').value = currentShift;
-        doc('prodCalidad_turno').value = currentShift;
+        
 
         applyTheme(currentTheme);
         Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
