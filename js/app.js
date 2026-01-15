@@ -791,7 +791,7 @@ function showLiveDashboard() {
     // Solo escuchamos órdenes que se hayan "tocado" (actualizado) en las últimas 48 horas.
     // Esto cubre sobradamente el turno actual y evita bajar el historial de años pasados.
     const cutoffDate = new Date();
-    cutoffDate.setHours(cutoffDate.getHours() - 48); // 48 horas atrás
+    cutoffDate.setHours(cutoffDate.getHours() - 36); // 48 horas atrás
 
     console.log(`📡 Iniciando listener EN VIVO para ${areaALeer} (Actividad desde: ${cutoffDate.toLocaleString()})`);
     
