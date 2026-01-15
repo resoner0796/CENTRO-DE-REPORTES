@@ -101,7 +101,7 @@ doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('termi
        doc('consultarTarimasBtn').addEventListener('click', consultarTarimas);
 		doc('calcularTerminacionesDiaBtn').addEventListener('click', consultarTerminacionesConfirmadas);
 		doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
-doc('liveDashboardBtn').addEventListener('click', () => showLiveDashboard());
+doc('liveDashboardBtn').addEventListener('click', () => Dashboard());
 document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => {
         if (activeView === 'liveDashboard') {
             stopLiveDashboard(); // Apagamos el listener si estábamos en el dashboard
@@ -753,8 +753,6 @@ async function loadAreasForTarimasReport() {
 // --- INICIO: LÓGICA DEL DASHBOARD EN VIVO ---
 // =======================================================================================
 
-// --- FUNCIÓN DE REEMPLAZO (showLiveDashboard) ---
-// --- OPTIMIZACIÓN FINAL: DASHBOARD EN VIVO (LISTENER CON FILTRO) ---
 function showLiveDashboard() {
     // 1. Obtener la fecha y turno de TRABAJO actual
     const now = new Date();
@@ -763,7 +761,7 @@ function showLiveDashboard() {
     // 2. Calcular el rango de horas para ESE turno
     const { startTime } = getShiftDateRange(fechaDeTrabajoActual, turnoActual); 
     
-    const areaALeer = "MULTIPORT"; // Asumimos esta área (puedes hacerlo dinámico si quieres)
+    const areaALeer = "MULTIPORT"; 
     doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
 
     renderLiveChart({}, [], startTime); 
@@ -775,7 +773,7 @@ function showLiveDashboard() {
         liveListener = null;
     }
 
-    // Pre-calcular empacadores (sin cambios)
+    // Pre-calcular empacadores
     const allPackers = params.produccion_hora_config.packers || [];
     const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
     const empacadoresPorLinea = new Map(); 
@@ -787,19 +785,18 @@ function showLiveDashboard() {
         empacadoresPorLinea.get(lineaNum).add(p.id);
     });
     
-    // --- AQUÍ ESTÁ EL AHORRO MASIVO ---
-    // Solo escuchamos órdenes que se hayan "tocado" (actualizado) en las últimas 48 horas.
-    // Esto cubre sobradamente el turno actual y evita bajar el historial de años pasados.
-    const cutoffDate = new Date();
-    cutoffDate.setHours(cutoffDate.getHours() - 36); // 48 horas atrás
+    // --- CORRECCIÓN AQUÍ: FRANCOTIRADOR AJUSTADO ---
+    // En lugar de 48 horas, usamos la hora de inicio del turno menos 30 mins de colchón.
+    const cutoffDate = new Date(startTime);
+    cutoffDate.setMinutes(cutoffDate.getMinutes() - 30); 
 
-    console.log(`📡 Iniciando listener EN VIVO para ${areaALeer} (Actividad desde: ${cutoffDate.toLocaleString()})`);
+    console.log(`📡 Listener VIVO: Buscando cambios desde ${cutoffDate.toLocaleTimeString()}`);
     
     liveListener = db.collection("areas").doc(areaALeer).collection("orders")
-        .where('lastUpdated', '>=', cutoffDate) // <--- EL FILTRO DE ORO 💰
+        .where('lastUpdated', '>=', cutoffDate) // <--- AHORA SÍ FILTRA CHIDO
         .onSnapshot(querySnapshot => {
             
-            console.log("¡Datos en vivo recibidos!", querySnapshot.size, "órdenes activas analizadas.");
+            console.log(`¡Datos recibidos! ${querySnapshot.size} órdenes activas en este turno.`);
             let allOrders = [];
             querySnapshot.forEach(doc => {
                 allOrders.push(doc.data());
@@ -809,11 +806,10 @@ function showLiveDashboard() {
 
         }, error => {
             console.error("¡Error en el listener en vivo!:", error);
-            // Si falta el índice, avisamos
             if (error.code === 'failed-precondition') {
-                doc('liveFeedContent').innerHTML = `<p style="color:var(--warning-color);">⚠️ Falta Índice en Firebase. Abre la consola (F12) y crea el índice para 'lastUpdated'.</p>`;
+                doc('liveFeedContent').innerHTML = `<p style="color:var(--warning-color);">⚠️ Falta Índice. Abre consola (F12).</p>`;
             } else {
-                doc('liveFeedContent').innerHTML = `<p style="color:var(--danger-color);">Error de conexión con Firebase.</p>`;
+                // doc('liveFeedContent').innerHTML = ... (Si tienes un div para errores)
             }
         });
 }
@@ -1530,9 +1526,7 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
             }
         }
 
-        // --- FUNCIÓN DE REEMPLAZO (generarReportePorHora) ---
-// --- OPTIMIZACIÓN 3: REPORTE POR HORA (FILTRO LASTUPDATED) ---
-async function generarReportePorHora() {
+       async function generarReportePorHora() {
     const btn = doc('generarReporteProduccionBtn');
     btn.disabled = true; btn.textContent = 'Analizando actividad reciente...';
     doc('exportChartBtn').style.display = 'none';
@@ -1549,7 +1543,7 @@ async function generarReportePorHora() {
         // 1. OBTENER RANGO DE TIEMPO DEL TURNO
         const { startTime, endTime } = getShiftDateRange(selectedDateStr, selectedTurno);
 
-        // 2. CONFIGURACIÓN DE EMPACADORES (Igual que antes)
+        // 2. CONFIGURACIÓN DE EMPACADORES
         const todosLosEmpacadores = params.produccion_hora_config.packers || [];
         const empacadoresFiltrados = todosLosEmpacadores.filter(p => 
             (p.area === selectedArea || selectedArea === 'ALL' || p.area === 'ALL') && p.turno === selectedTurno
@@ -1568,34 +1562,36 @@ async function generarReportePorHora() {
             empacadoresPorLinea.get(lineaNum).add(p.id);
         });
 
-        // 3. CONSULTA INTELIGENTE (LA MAGIA DEL AHORRO) 💰
-        // Solo traemos órdenes que se hayan "tocado" (actualizado) desde que empezó el turno.
-        // Damos un margen de seguridad de 2 horas antes del inicio del turno.
+        // 3. CONSULTA INTELIGENTE
+        // Usamos la hora de inicio del turno - 1 hora como buffer
         const bufferDate = new Date(startTime);
-        bufferDate.setHours(bufferDate.getHours() - 2);
+        bufferDate.setHours(bufferDate.getHours() - 1);
 
-        console.log(`[Producción] Buscando órdenes activas desde: ${bufferDate.toLocaleString()}`);
+        console.log(`[Producción] Consultando cambios desde: ${bufferDate.toLocaleString()}`);
 
         let query = selectedArea === 'ALL' ? db.collectionGroup('orders') : db.collection('areas').doc(selectedArea).collection('orders');
         
-        // --- EL FILTRO DE ORO ---
-        // Si la orden no se actualizó hoy, NO LA BAJAMOS.
+        // Filtro por fecha de actualización
         query = query.where('lastUpdated', '>=', bufferDate);
 
         const snapshot = await query.get();
-        console.log(`[Producción] Órdenes activas encontradas: ${snapshot.size}`);
+        console.log(`[Producción] Descargadas: ${snapshot.size} órdenes (potencialmente activas).`);
 
-        // 4. PROCESAR DATOS (Esto sigue igual, pero procesa menos basura)
+        // 4. PROCESAR DATOS
         let allPackedItems = [];
+        let validOrdersCount = 0; // Contador para ver cuántas sí sirvieron
+
         if (!snapshot.empty) {
             snapshot.forEach(orderDoc => {
                 const orderData = orderDoc.data();
+                let orderHasValidData = false;
+
                 if (Array.isArray(orderData.empaqueData)) {
                     orderData.empaqueData.forEach(box => {
                         if (Array.isArray(box.serials)) {
                             box.serials.forEach(item => {
                                 const packedDate = excelSerialToDateObject(item['Finish Packed Date']);
-                                // Filtro exacto de hora
+                                // Filtro exacto de hora (AQUÍ ES DONDE SE DESCARTAN LAS SOBRANTES)
                                 if (packedDate && packedDate >= startTime && packedDate <= endTime) {
                                     const empacador = (item['Employee ID'] || '').toString().toUpperCase();
                                     let lineaAsignada = null;
@@ -1606,6 +1602,7 @@ async function generarReportePorHora() {
                                         }
                                     }
                                     if (lineaAsignada) {
+                                        orderHasValidData = true;
                                         allPackedItems.push({
                                             orden: orderDoc.id, catalogo: orderData.catalogNumber || 'N/A',
                                             empacador: empacador, timestamp: packedDate,
@@ -1618,12 +1615,13 @@ async function generarReportePorHora() {
                         }
                     });
                 }
+                if (orderHasValidData) validOrdersCount++;
             });
         }
         
-        // ... (El resto del procesamiento de allPackedItems y renderizado es idéntico a tu código original)
-        // Solo copiamos la parte de procesamiento para no cortar el flujo
-        
+        console.log(`[Producción] De las ${snapshot.size} descargadas, solo ${validOrdersCount} tenían datos reales para este turno.`);
+
+        // ... (El resto del procesamiento sigue igual)
         const detailedData = allPackedItems.map(item => {
             const char = (item.catalogo || '').substring(3, 4).toUpperCase();
             const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
@@ -1675,7 +1673,6 @@ async function generarReportePorHora() {
 
     } catch (e) {
         console.error("Error report hourly:", e);
-        // Si falla por índice, avisamos al usuario
         if (e.code === 'failed-precondition') {
              showModal('Falta Índice', '<p>Firebase requiere un índice para esta consulta optimizada. Abre la consola (F12) y haz clic en el enlace.</p>', 'warning');
         } else {
