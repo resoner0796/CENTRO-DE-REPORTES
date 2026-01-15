@@ -36,7 +36,6 @@
         let productionChart = null;
         let fiberPieCharts = [];
         let productionReportData = null;
-        let graficaSemanalInstance = null;
         let weeklyProductionChart = null;
         let liveListener = null; // El "listener" que escucha en vivo
         let liveProductionChart = null; // La gráfica de barras en vivo
@@ -506,12 +505,6 @@ async function saveTerminacionesSettings() {
         '901_config': '901_params',
         'terminaciones_config': 'terminaciones_params_v2',
         'produccion_hora_config': 'produccion_hora_params',
-        'produccion_20_config': 'produccion_20_params',
-		// --- NUEVA LÍNEA ---
-		'produccion_20_empleados_config': 'produccion_20_empleados_params', 
-		// --- FIN NUEVA LÍNEA ---
-        'produccion_daily_config': 'produccion_daily_params',
-        'produccion_calidad_config': 'produccion_calidad_params',
         'terminaciones_areas_config': 'terminaciones_areas_params'
     };
     const docId = docIdMap[configKey];
@@ -521,13 +514,6 @@ async function saveTerminacionesSettings() {
         const docRef = await db.collection('report_configs').doc(docId).get();
         if (docRef.exists) {
             const data = docRef.data();
-            // ¡AQUÍ ESTÁ EL AJUSTE!
-            if (configKey === 'produccion_20_config' || configKey === 'produccion_daily_config' || configKey === 'produccion_calidad_config' || configKey === 'terminaciones_areas_config') {
-                params[configKey] = { ...params[configKey], ...data };
-			// --- NUEVO ELSE IF ---
-			} else if (configKey === 'produccion_20_empleados_config') {
-				params.produccion_20_empleados_config = { empleados: [], ...data };
-			// --- FIN NUEVO ELSE IF ---
             } else if (configKey === '901_config') {
                 params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
             } else if (configKey === 'terminaciones_config') {
@@ -2882,12 +2868,6 @@ function exportSummaryAsJPG() {
             });
         }
 
-
-
- // --- INICIO: LÓGICA REPORTE TARIMAS CONFIRMADAS ---
-        
-// --- FUERA DEL DOMContentLoaded ---
-
 // =================================================================
 // --- CORRECCIÓN FINAL TARIMAS: VARIABLES + FUNCIONES DE SOPORTE ---
 // =================================================================
@@ -3248,10 +3228,6 @@ function showBoxDetailsModal(bxidDetails, statusText, folio) {
      }
 }
 	   
-// --- PONER ESTA FUNCIÓN FUERA DEL DOMContentLoaded ---
-// --- FUERA DEL DOMContentLoaded ---
-
-// --- FUERA DEL DOMContentLoaded ---
 
 // --- CORRECCIÓN FINAL: CALCULAR TERMINACIONES (CON CRUCE DE USUARIOS) ---
 async function consultarTerminacionesConfirmadas() {
@@ -3694,10 +3670,6 @@ async function saveAreaConfig() {
         showModal('Error', '<p>No se pudo guardar la configuración en la base de datos.</p>');
     }
 }
-
-// =======================================================================================
-// --- FIN: LÓGICA REPORTE PRODUCCIÓN CALIDAD ---
-// =======================================================================================
 
 // =======================================================================================
 // --- INICIO: LÓGICA REPORTE ÓRDENES DEL DÍA (FINAL - SEPARACIÓN SAP/APP) ---
