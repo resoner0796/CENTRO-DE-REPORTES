@@ -101,7 +101,7 @@ doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('termi
        doc('consultarTarimasBtn').addEventListener('click', consultarTarimas);
 		doc('calcularTerminacionesDiaBtn').addEventListener('click', consultarTerminacionesConfirmadas);
 		doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
-doc('liveDashboardBtn').addEventListener('click', () => Dashboard());
+doc('liveDashboardBtn').addEventListener('click', () => showLiveDashboard());
 document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => {
         if (activeView === 'liveDashboard') {
             stopLiveDashboard(); // Apagamos el listener si estábamos en el dashboard
