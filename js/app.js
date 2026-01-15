@@ -18,18 +18,19 @@
         let session = { isMaster: false };
         let activeView = 'menu';
         let params = {
-            '901_config': { columns: [], userFilter: [] },
-            terminaciones_config: {
-                zpptwc_cols: [],
-                coois_cols: [],
-                final_cols: [],
-                area_config: { source_col: '', mappings: [] }
-            },
-            produccion_hora_config: {
-                packers: []
-            }
-            
-       };
+    '901_config': { columns: [], userFilter: [] },
+    terminaciones_config: {
+        zpptwc_cols: [],
+        coois_cols: [],
+        final_cols: [],
+        area_config: { source_col: '', mappings: [] },
+        fiber_rules: {} // Aseguramos que esto exista
+    },
+    produccion_hora_config: {
+        packers: []
+    },
+    terminaciones_areas_config: {} // Agregamos este para que no falle al cargar
+};
 		// --- VARIABLE GLOBAL NUEVA ---
         let globalAreasCache = null; // Para no gastar lecturas recargando el select de áreas
         let reportData = { zpptwc: null, coois: null };
@@ -500,30 +501,38 @@ async function saveTerminacionesSettings() {
 }
 
         // --- INICIO: CARGA DE DATOS (PARAMS Y ARCHIVOS) ---
-        async function loadParams(configKey) {
-    const docIdMap = {
-        '901_config': '901_params',
-        'terminaciones_config': 'terminaciones_params_v2',
-        'produccion_hora_config': 'produccion_hora_params',
-        'terminaciones_areas_config': 'terminaciones_areas_params'
-    };
-    const docId = docIdMap[configKey];
-    if (!docId) return;
+        // --- COPIA Y PEGA ESTO PARA REEMPLAZAR TU loadParams ACTUAL ---
+async function loadParams(configKey) {
+    const docIdMap = {
+        '901_config': '901_params',
+        'terminaciones_config': 'terminaciones_params_v2',
+        'produccion_hora_config': 'produccion_hora_params',
+        'terminaciones_areas_config': 'terminaciones_areas_params'
+    };
+    const docId = docIdMap[configKey];
+    if (!docId) return;
 
-    try {
-        const docRef = await db.collection('report_configs').doc(docId).get();
-        if (docRef.exists) {
-            const data = docRef.data();
-            } else if (configKey === '901_config') {
-                params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
-            } else if (configKey === 'terminaciones_config') {
-                params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
-            } else if (configKey === 'produccion_hora_config') {
-                params.produccion_hora_config = { packers: [], ...data };
-                applyProduccionHoraConfig();
-            }
-    } catch(e) { console.error(`Error al cargar ${configKey}:`, e); }
+    try {
+        const docRef = await db.collection('report_configs').doc(docId).get();
+        if (docRef.exists) {
+            const data = docRef.data();
+            
+            // Lógica corregida y limpia
+            if (configKey === '901_config') {
+                params[configKey] = { columns: data.columns || [], userFilter: data.userFilter || [] };
+            } else if (configKey === 'terminaciones_config') {
+                params.terminaciones_config = { zpptwc_cols: [], coois_cols: [], final_cols: [], area_config: { source_col: '', mappings: [] }, ...data };
+            } else if (configKey === 'produccion_hora_config') {
+                params.produccion_hora_config = { packers: [], ...data };
+                applyProduccionHoraConfig();
+            } else if (configKey === 'terminaciones_areas_config') {
+                if (!params.terminaciones_areas_config) params.terminaciones_areas_config = {};
+                params.terminaciones_areas_config = { ...params.terminaciones_areas_config, ...data };
+            }
+        }
+    } catch(e) { console.error(`Error al cargar ${configKey}:`, e); }
 }
+		
         function applyProduccionHoraConfig() {
         }
 
