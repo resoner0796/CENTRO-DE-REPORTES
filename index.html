@@ -219,11 +219,25 @@
     </div>
 </div>
         
-      <div id="viewLiveDashboard" style="display: none; opacity: 0;">
+     <div id="viewLiveDashboard" style="display: none; opacity: 0;">
     <div class="live-dashboard-wrapper">
 
         <header class="live-dashboard-header animated-startup" style="animation-delay: 0.1s;">
-            <h3 id="liveTurnoTitle">Turno: Cargando...</h3>
+            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                <h3 id="liveTurnoTitle" style="margin-bottom: 5px;">Monitor en Vivo</h3>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); opacity: 0.8;">Selecciona un área para conectar</span>
+            </div>
+
+            <div class="dashboard-controls-bar" style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <select id="live_area" style="padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); min-width: 150px;">
+                    <option value="" disabled selected>Cargando áreas...</option>
+                </select>
+
+                <button id="btnToggleLive" class="btn btn-small" style="display: flex; align-items: center; gap: 6px; background-color: var(--success-color); color: white; border: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <span>Conectar</span>
+                </button>
+            </div>
 
             <div class="header-buttons">
                 <button class="backToMenuBtn icon-btn" title="Regresar al Menú">
@@ -234,44 +248,26 @@
                         <path d="m12 19-7-7 7-7" />
                     </svg>
                 </button>
-
                 <button class="themeToggleBtn icon-btn" title="Cambiar Tema">
-                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y2="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-
-                    <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg"
-                        width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3A7 7 0 0 0 21 12.79z"></path>
-                    </svg>
+                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y2="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg class="moon-icon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3A7 7 0 0 0 21 12.79z"></path></svg>
                 </button>
             </div>
         </header>
 
-        <section id="kpiCardContainer" class="dashboard-kpi-container animated-startup"
-            style="animation-delay: 0.15s;">
-            </section>
+        <section id="kpiCardContainer" class="dashboard-kpi-container animated-startup" style="animation-delay: 0.15s;">
+            <p style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); margin-top: 20px;">Selecciona un área y presiona "Conectar" para ver la producción en tiempo real.</p>
+        </section>
 
         <div class="card animated-startup" style="animation-delay: 0.2s;">
             <h5>Producción por Hora (En Vivo)</h5>
             <div id="liveChartContainer" style="flex-grow: 1; position: relative; min-height: 35vh;">
                 <canvas id="liveProduccionChart"></canvas>
             </div>
-            <span id="liveChartLastScan" class="last-scan-label"></span>
+            <span id="liveChartLastScan" class="last-scan-label">Esperando conexión...</span>
         </div>
 
-        </div>
+    </div>
 </div>
         
         <div id="view901">
