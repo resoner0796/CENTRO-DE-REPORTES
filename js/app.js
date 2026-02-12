@@ -3826,7 +3826,7 @@ function formatShortDateTime(date) {
 }
 
 
- // 4. CONSULTA HÍBRIDA OPTIMIZADA (FRANCOTIRADOR + DESGLOSE FIBRAS)
+// 4. CONSULTA HÍBRIDA OPTIMIZADA (FRANCOTIRADOR + DESGLOSE FIBRAS + CEREBRO GLOBAL)
 async function consultarOrdenesDelDia() {
     const fechaInput = doc('ordenesDia_fecha').value;
     const areaInput = doc('ordenesDia_area').value;
@@ -3935,9 +3935,9 @@ async function consultarOrdenesDelDia() {
 
             const faltanteFWD = Math.max(0, totalOrden - totalConfirmadoFWD);
 
-            // Terminaciones
-            const char = catalogo.substring(3, 4).toUpperCase();
-            const fibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+            // --- AQUÍ ESTÁ EL AJUSTE PARA GLOBALIZAR ---
+            // Usamos la función global calculateTerminaciones pasando el catálogo y el área seleccionada
+            const fibras = calculateTerminaciones(catalogo, areaInput);
             const termFaltante = faltanteSAP * fibras; 
 
             const status = (faltanteFWD === 0 && totalOrden > 0) ? 'Completa' : 'Incompleta';
@@ -4448,7 +4448,6 @@ async function calcularProyeccionTerminaciones() {
 
     try {
         // 1. CONVERTIR FECHAS A SERIAL EXCEL
-        // (Lógica necesaria para buscar en sap_historico)
         const jsDateToExcel = (dateString) => {
             const date = new Date(dateString + 'T00:00:00');
             const offset = date.getTimezoneOffset() * 60000;
@@ -4493,14 +4492,9 @@ async function calcularProyeccionTerminaciones() {
                 if (faltanteSAP > 0) {
                     const catalogo = data['Catalogo'] || '';
                     
-                    // Calcular Fibras (usa tu función helper si existe, si no, usa lógica básica)
-                    let numFibras = 0;
-                    if (typeof calculateTerminaciones === 'function') {
-                        numFibras = calculateTerminaciones(catalogo, area); 
-                    } else {
-                        const char = catalogo.substring(3, 4).toUpperCase();
-                        numFibras = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
-                    }
+                    // --- AQUÍ ESTÁ EL AJUSTE FINAL: USO DIRECTO DEL CEREBRO GLOBAL ---
+                    // Pasamos el catálogo y el área seleccionada para que respete tus reglas
+                    const numFibras = calculateTerminaciones(catalogo, area);
 
                     if (numFibras > 0) {
                         const labelFibra = `${numFibras} Fibras`;
@@ -4533,7 +4527,6 @@ async function calcularProyeccionTerminaciones() {
         btn.textContent = "Generar Tabla Pivote";
     }
 }
-
 
    // --- FUNCIÓN DE VISUALIZACIÓN (DISEÑO LIMPIO Y PROFESIONAL) ---
 function renderPivotTable(pivotData, fiberColumns) {
