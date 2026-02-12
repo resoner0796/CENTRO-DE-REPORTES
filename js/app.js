@@ -95,6 +95,7 @@ if(doc('consultarTerminacionesHistoricoBtn')) {
         doc('ordenesDia_fecha').value = today.toISOString().split('T')[0];
     }
 });
+		doc('btnToggleLive').addEventListener('click', toggleLiveMonitoring);
 doc('view901Btn').addEventListener('click', () => switchView('901'));
 doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
 		doc('reporteTarimasBtn').addEventListener('click', () => switchView('tarimasConfirmadas'));
@@ -753,67 +754,132 @@ async function loadAreasForTarimasReport() {
 // --- INICIO: LÓGICA DEL DASHBOARD EN VIVO ---
 // =======================================================================================
 
-function showLiveDashboard() {
-    // 1. Obtener la fecha y turno de TRABAJO actual
-    const now = new Date();
-    const { shift: turnoActual, dateKey: fechaDeTrabajoActual } = getWorkShiftAndDate(now);
-    
-    // 2. Calcular el rango de horas para ESE turno
-    const { startTime } = getShiftDateRange(fechaDeTrabajoActual, turnoActual); 
-    
-    const areaALeer = "MULTIPORT"; 
-    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
+async function showLiveDashboard() {
+    switchView('liveDashboard');
 
-    renderLiveChart({}, [], startTime); 
-    switchView('liveDashboard'); 
+    // Cargar las áreas en el selector (usando tu caché optimizada)
+    await populateAreaSelect('live_area', false);
 
-    if (liveListener) {
-        console.log("Deteniendo listener anterior...");
-        liveListener();
-        liveListener = null;
+    // Resetear visualmente si no hay un listener activo
+    if (!liveListener) {
+        doc('liveTurnoTitle').textContent = 'Monitor en Vivo';
+        doc('kpiCardContainer').innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); margin-top: 20px;">Selecciona un área y presiona "Conectar".</p>`;
+
+        // Resetear botón a estado "Conectar"
+        const btn = doc('btnToggleLive');
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Conectar</span>`;
+        btn.style.backgroundColor = 'var(--success-color)';
+
+        // Limpiar gráfica
+        renderLiveChart({}, [], new Date());
     }
-
-    // Pre-calcular empacadores
-    const allPackers = params.produccion_hora_config.packers || [];
-    const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
-    const empacadoresPorLinea = new Map(); 
-    empacadoresFiltrados.forEach(p => {
-        const lineaNum = String(p.linea);
-        if (!empacadoresPorLinea.has(lineaNum)) {
-            empacadoresPorLinea.set(lineaNum, new Set());
-        }
-        empacadoresPorLinea.get(lineaNum).add(p.id);
-    });
-    
-    // --- CORRECCIÓN AQUÍ: FRANCOTIRADOR AJUSTADO ---
-    // En lugar de 48 horas, usamos la hora de inicio del turno menos 30 mins de colchón.
-    const cutoffDate = new Date(startTime);
-    cutoffDate.setMinutes(cutoffDate.getMinutes() - 30); 
-
-    console.log(`📡 Listener VIVO: Buscando cambios desde ${cutoffDate.toLocaleTimeString()}`);
-    
-    liveListener = db.collection("areas").doc(areaALeer).collection("orders")
-        .where('lastUpdated', '>=', cutoffDate) // <--- AHORA SÍ FILTRA CHIDO
-        .onSnapshot(querySnapshot => {
-            
-            console.log(`¡Datos recibidos! ${querySnapshot.size} órdenes activas en este turno.`);
-            let allOrders = [];
-            querySnapshot.forEach(doc => {
-                allOrders.push(doc.data());
-            });
-            
-            updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, startTime, empacadoresPorLinea);
-
-        }, error => {
-            console.error("¡Error en el listener en vivo!:", error);
-            if (error.code === 'failed-precondition') {
-                doc('liveFeedContent').innerHTML = `<p style="color:var(--warning-color);">⚠️ Falta Índice. Abre consola (F12).</p>`;
-            } else {
-                // doc('liveFeedContent').innerHTML = ... (Si tienes un div para errores)
-            }
-        });
 }
 
+		function toggleLiveMonitoring() {
+    const btn = doc('btnToggleLive');
+    const areaSelect = doc('live_area');
+    const areaALeer = areaSelect.value;
+
+    // A. SI YA ESTAMOS ESCUCHANDO -> DETENER
+    if (liveListener) {
+        stopLiveDashboard();
+
+        // Actualizar UI del botón
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Conectar</span>`;
+        btn.style.backgroundColor = 'var(--success-color)';
+        areaSelect.disabled = false; // Habilitar selector
+        doc('liveTurnoTitle').textContent = 'Monitor en Vivo (Desconectado)';
+        doc('liveChartLastScan').innerHTML = 'Desconectado.';
+        return;
+    }
+
+    // B. SI VAMOS A INICIAR -> VALIDAR Y CONECTAR
+    if (!areaALeer) {
+        showModal('Falta Área', '<p>Por favor selecciona un área para monitorear.</p>');
+        return;
+    }
+
+    // Bloquear UI mientras carga
+    btn.disabled = true;
+    areaSelect.disabled = true;
+    btn.textContent = 'Conectando...';
+
+    try {
+        // 1. Calcular Contexto (Turno y Hora)
+        const now = new Date();
+        const { shift: turnoActual, dateKey: fechaDeTrabajoActual } = getWorkShiftAndDate(now);
+        const { startTime } = getShiftDateRange(fechaDeTrabajoActual, turnoActual);
+
+        // 2. Preparar UI
+        doc('liveTurnoTitle').textContent = `En Vivo: ${areaALeer} (${turnoActual})`;
+        doc('kpiCardContainer').innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-primary);">📡 Estableciendo enlace satelital con ${areaALeer}...</p>`;
+
+        // 3. Pre-calcular empacadores (Usando la config global)
+        const allPackers = params.produccion_hora_config.packers || [];
+        const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
+
+        const empacadoresPorLinea = new Map();
+        empacadoresFiltrados.forEach(p => {
+            const lineaNum = String(p.linea);
+            if (!empacadoresPorLinea.has(lineaNum)) empacadoresPorLinea.set(lineaNum, new Set());
+            empacadoresPorLinea.get(lineaNum).add(p.id);
+        });
+
+        // 4. OPTIMIZACIÓN FRANCOTIRADOR (El corte de tiempo)
+        // Solo traemos órdenes modificadas en la última hora (o desde el inicio del turno si es reciente)
+        // Esto evita que bajes 5000 órdenes viejas.
+        const cutoffDate = new Date(startTime);
+        cutoffDate.setMinutes(cutoffDate.getMinutes() - 30);
+
+        console.log(`📡 Listener START: Área=${areaALeer}, Cutoff=${cutoffDate.toLocaleTimeString()}`);
+
+        // 5. INICIAR LISTENER DE FIREBASE
+        liveListener = db.collection("areas").doc(areaALeer).collection("orders")
+            .where('lastUpdated', '>=', cutoffDate)
+            .onSnapshot(querySnapshot => {
+
+                // Feedback visual de "Heartbeat" (latido)
+                const lastScanEl = doc('liveChartLastScan');
+                if(lastScanEl) {
+                    lastScanEl.style.color = 'var(--success-color)';
+                    setTimeout(() => lastScanEl.style.color = '', 500);
+                }
+
+                console.log(`⚡ Update recibido: ${querySnapshot.size} docs activos.`);
+                let allOrders = [];
+                querySnapshot.forEach(doc => allOrders.push(doc.data()));
+
+                // Llamamos a la función de actualización (que ya usa el cerebro global)
+                updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, startTime, empacadoresPorLinea, areaALeer);
+
+            }, error => {
+                console.error("Error Listener:", error);
+                stopLiveDashboard(); // Apagar si falla
+                if (error.code === 'failed-precondition') {
+                    showModal('Falta Índice', '<p>Firebase requiere un índice compuesto para esta consulta optimizada. Revisa la consola.</p>');
+                } else {
+                    showModal('Error de Conexión', `<p>${error.message}</p>`);
+                }
+                // Resetear UI
+                btn.innerHTML = `<span>Conectar</span>`;
+                btn.style.backgroundColor = 'var(--success-color)';
+                areaSelect.disabled = false;
+                btn.disabled = false;
+            });
+
+        // 6. Actualizar Botón a estado "DETENER"
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>Detener</span>`;
+        btn.style.backgroundColor = 'var(--danger-color)';
+        btn.disabled = false;
+
+    } catch (e) {
+        console.error("Error al iniciar live:", e);
+        stopLiveDashboard();
+        btn.disabled = false;
+        areaSelect.disabled = false;
+    }
+}
+		
 function stopLiveDashboard() {
     if (liveListener) {
         console.log("Deteniendo listener en vivo...");
@@ -827,26 +893,23 @@ function stopLiveDashboard() {
 }
 
 // --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-// --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shiftStartTime, empacadoresPorLinea) {
-    let allPackedItems = [];
+function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shiftStartTime, empacadoresPorLinea, areaALeer) {
     let lastScan = { timestamp: new Date(0), empacador: 'N/A', linea: 'N/A' };
     const totalsByLine = {};
     const hourlyBins = Array(12).fill(0).map(() => ({}));
     const lineasEncontradas = new Set();
 
-    // 1. PROCESAR TODOS LOS DATOS (Sin cambios)
+    // 1. PROCESAR TODOS LOS DATOS
     allOrders.forEach(order => {
-        const empaqueArray = order.empaqueData || []; 
+        const empaqueArray = order.empaqueData || [];
         if (!Array.isArray(empaqueArray)) {
             if (typeof order.empaqueData.forEach === 'function') {
                 order.empaqueData.forEach(serialsInBox => empaqueArray.push({ serials: serialsInBox }));
             } else {
-                console.warn(`empaqueData de orden ${order.orderNumber} no es un array, saltando.`);
                 return;
             }
         }
-        
+
         empaqueArray.forEach(box => {
             const serialsInBox = box.serials;
             if (Array.isArray(serialsInBox)) {
@@ -869,12 +932,13 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
 
                         if (lineaAsignada) {
                             lineasEncontradas.add(lineaAsignada);
-                            const char = (order.catalogNumber || '').substring(3, 4).toUpperCase();
-                            const terminaciones = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+
+                            // --- USA EL CEREBRO GLOBAL CON EL ÁREA SELECCIONADA EN EL DROPDOWN ---
+                            const terminaciones = calculateTerminaciones(order.catalogNumber, areaALeer);
 
                             if (!totalsByLine[lineaAsignada]) totalsByLine[lineaAsignada] = { term: 0, pzas: 0 };
                             totalsByLine[lineaAsignada].term += terminaciones;
-                            totalsByLine[lineaAsignada].pzas++; // <-- ¡Aquí se cuentan las piezas!
+                            totalsByLine[lineaAsignada].pzas++;
 
                             const diffMillis = packedDate - shiftStartTime;
                             const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
@@ -895,8 +959,8 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
 
     const lineasOrdenadas = [...lineasEncontradas].sort();
 
-    // --- 2. ACTUALIZAR FEED DE ACTIVIDAD (AHORA DISCRETO) ---
-    const lastScanEl = doc('liveChartLastScan'); // <-- ¡NUEVO! Apunta al span en la gráfica
+    // --- 2. ACTUALIZAR FEED DE ACTIVIDAD ---
+    const lastScanEl = doc('liveChartLastScan');
     if (lastScan.timestamp > 0) {
         lastScanEl.innerHTML = `Último escaneo: ${lastScan.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${lastScan.linea})`;
     } else {
@@ -904,17 +968,16 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
     }
 
     // --- 3. ACTUALIZAR TARJETAS (KPIs) ---
-    const metaTurno = 5280; 
+    const metaTurno = 5280;
     const kpiContainer = doc('kpiCardContainer');
-    let kpiHtml = ''; 
+    let kpiHtml = '';
 
     lineasOrdenadas.forEach(lineaNombre => {
         const lineaNumero = lineaNombre.split(' ')[1];
-        
-        // --- ¡NUEVO! Obtenemos el total de piezas y terminaciones ---
+
         const totalTerm = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].term) ? totalsByLine[lineaNombre].term : 0;
         const totalPzas = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].pzas) ? totalsByLine[lineaNombre].pzas : 0;
-        
+
         const percent = (totalTerm / metaTurno) * 100;
         let progressClass = 'progress-bar-red';
         if (percent >= 80) progressClass = 'progress-bar-green';
@@ -928,7 +991,7 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
                 </div>
                 <h1 id="kpi-linea-${lineaNumero}-total">${totalTerm.toLocaleString()}</h1>
                 <h4 id="kpi-linea-${lineaNumero}-piezas" class="kpi-piezas">${totalPzas.toLocaleString()} Piezas</h4>
-                
+
                 <div class="kpi-progress-bar-container">
                     <div id="kpi-linea-${lineaNumero}-progress" class="kpi-progress-bar ${progressClass}" style="width: ${Math.min(percent, 100)}%;"></div>
                 </div>
@@ -943,9 +1006,10 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
         kpiContainer.innerHTML = kpiHtml;
     }
 
-    // --- 4. ACTUALIZAR GRÁFICA DE BARRAS (Sin cambios) ---
+    // --- 4. ACTUALIZAR GRÁFICA DE BARRAS ---
     renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
+
 
 // --- FUNCIÓN DE REEMPLAZO (renderLiveChart) ---
 function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
