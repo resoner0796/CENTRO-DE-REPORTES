@@ -1,4 +1,3 @@
-
  // --- INICIO: CONFIGURACIÓN Y VARIABLES GLOBALES ---
     const firebaseConfig = { apiKey: "AIzaSyDtlj3ppT9WBGMR60SZx0TZmAo3BXQWDXO", authDomain: "rastreador-de-ordenes.firebaseapp.com", projectId: "rastreador-de-ordenes", storageBucket: "rastreador-de-ordenes.appspot.com", messagingSenderId: "956052823395", appId: "1:956052823395:web:2ba74d9591d2b24c3cc756" };
     firebase.initializeApp(firebaseConfig);
@@ -7,15 +6,15 @@
     document.addEventListener('DOMContentLoaded', () => {
         const doc = (id) => document.getElementById(id);
         const views = {
-            menu: doc('menuView'),
-            '901': doc('view901'),
-            terminaciones: doc('viewTerminaciones'),
-            produccionHora: doc('viewProduccionHora'),
-            tarimasConfirmadas: doc('viewTarimasConfirmadas'), // <-- AÑADE ESTA
-            boxID: doc('viewBoxID'),
+            menu: doc('menuView'),
+            '901': doc('view901'),
+            terminaciones: doc('viewTerminaciones'),
+            produccionHora: doc('viewProduccionHora'),
+            tarimasConfirmadas: doc('viewTarimasConfirmadas'), // <-- AÑADE ESTA
+            boxID: doc('viewBoxID'),
             liveDashboard: doc('viewLiveDashboard'),
             ordenesDia: doc('viewOrdenesDia')
-        };
+        };
         let session = { isMaster: false };
         let activeView = 'menu';
         let params = {
@@ -40,7 +39,7 @@
         let productionReportData = null;
         let weeklyProductionChart = null;
         let liveListener = null; // El "listener" que escucha en vivo
-        let liveProductionChart = null; // La gráfica de barras en vivo
+        let liveProductionChart = null; // La gráfica de barras en vivo
 // --- INICIALIZACIÓN DE TERMINACIONES (Poner junto a tus otros listeners) ---
 const todayTerm = new Date();
 const lastWeekTerm = new Date();
@@ -57,34 +56,34 @@ if(doc('consultarTerminacionesHistoricoBtn')) {
 
         // --- INICIO: LÓGICA DE NAVEGACIÓN Y UI GENERAL ---
         function switchView(viewKey) {
-    const currentViewEl = views[activeView];
-    const nextViewEl = views[viewKey];
-    if (!nextViewEl) return;
-    activeView = viewKey;
-    currentViewEl.style.opacity = '0';
-    setTimeout(() => {
-        currentViewEl.style.display = 'none';
-        nextViewEl.style.display = 'block';
-        if (viewKey === 'menu') {
-            nextViewEl.style.display = 'flex';
-        }
-        requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
-        if (viewKey === 'produccionHora') {
-            loadAreasForProductionReport();
+    const currentViewEl = views[activeView];
+    const nextViewEl = views[viewKey];
+    if (!nextViewEl) return;
+    activeView = viewKey;
+    currentViewEl.style.opacity = '0';
+    setTimeout(() => {
+        currentViewEl.style.display = 'none';
+        nextViewEl.style.display = 'block';
+        if (viewKey === 'menu') {
+            nextViewEl.style.display = 'flex';
+        }
+        requestAnimationFrame(() => { nextViewEl.style.opacity = '1'; });
+        if (viewKey === 'produccionHora') {
+            loadAreasForProductionReport();
 	} else if (viewKey === 'tarimasConfirmadas') {
-                const today = new Date();
-                const year = today.getFullYear();
-                const month = String(today.getMonth() + 1).padStart(2, '0');
-                const day = String(today.getDate()).padStart(2, '0');
-                doc('prodTarimas_fecha').value = `${year}-${month}-${day}`;
-                doc('prodTarimas_turno').value = getAutoCurrentShift(); 
-                loadAreasForTarimasReport();
-                renderTarimasTable([]); // Limpia tabla
-              // --- LÍNEAS DE ERROR ELIMINADAS ---
-            } else if (viewKey === 'boxID') {
-            	doc('fileDropAreaBoxID').style.borderColor = 'var(--border-color)';
-        }
-    }, 300);
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                doc('prodTarimas_fecha').value = `${year}-${month}-${day}`;
+                doc('prodTarimas_turno').value = getAutoCurrentShift(); 
+                loadAreasForTarimasReport();
+                renderTarimasTable([]); // Limpia tabla
+              // --- LÍNEAS DE ERROR ELIMINADAS ---
+            } else if (viewKey === 'boxID') {
+            	doc('fileDropAreaBoxID').style.borderColor = 'var(--border-color)';
+        }
+    }, 300);
 }
 
         doc('reporteProduccionBtn').addEventListener('click', () => switchView('produccionHora'));
@@ -96,6 +95,7 @@ if(doc('consultarTerminacionesHistoricoBtn')) {
         doc('ordenesDia_fecha').value = today.toISOString().split('T')[0];
     }
 });
+		doc('btnToggleLive').addEventListener('click', toggleLiveMonitoring);
 doc('view901Btn').addEventListener('click', () => switchView('901'));
 doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('terminaciones'));
 		doc('reporteTarimasBtn').addEventListener('click', () => switchView('tarimasConfirmadas'));
@@ -104,11 +104,11 @@ doc('reporteTerminacionesBtn').addEventListener('click', () => switchView('termi
 		doc('reporteBoxIDBtn').addEventListener('click', () => switchView('boxID')); // <-- LÍNEA NUEVA
 doc('liveDashboardBtn').addEventListener('click', () => showLiveDashboard());
 document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener('click', () => {
-        if (activeView === 'liveDashboard') {
-            stopLiveDashboard(); // Apagamos el listener si estábamos en el dashboard
-        }
-        switchView('menu');
-    }));
+        if (activeView === 'liveDashboard') {
+            stopLiveDashboard(); // Apagamos el listener si estábamos en el dashboard
+        }
+        switchView('menu');
+    }));
 
         let currentTheme = localStorage.getItem('theme') || 'dark';
         function applyTheme(theme) {
@@ -164,12 +164,12 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
                     <div class="collapsible-content">
                         <p>Añada, edite o elimine empacadores para autocompletar en el panel de control. Los cambios se guardan al presionar el botón de abajo.</p>
                         <form id="addPackerForm">
-                            <input type="text" id="newPackerId" placeholder="ID Empacador" required>
-                            <select id="newPackerArea">${doc('prod_area').innerHTML}</select>
+                            <input type="text" id="newPackerId" placeholder="ID Empacador" required>
+                            <select id="newPackerArea">${doc('prod_area').innerHTML}</select>
                             <input type="number" id="newPackerLinea" placeholder="Línea #" required min="1" style="width: 100%; padding: 8px; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary);">
-                            <select id="newPackerTurno" required>${doc('prod_turno').innerHTML}</select>
-                            <button type="submit" class="btn" style="padding: 8px 12px; font-size: 1rem;">+</button>
-                        </form>
+                            <select id="newPackerTurno" required>${doc('prod_turno').innerHTML}</select>
+                            <button type="submit" class="btn" style="padding: 8px 12px; font-size: 1rem;">+</button>
+                        </form>
                         <ul id="packerList"></ul>
                     </div>
                 </div>
@@ -184,28 +184,28 @@ document.querySelectorAll('.backToMenuBtn').forEach(btn => btn.addEventListener(
             });
 
             doc('addPackerForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const newPacker = {
-                    id: doc('newPackerId').value.trim().toUpperCase(),
-                    area: doc('newPackerArea').value,
-                    linea: doc('newPackerLinea').value, // Asegúrate que este sea .value (del input numérico)
-                    turno: doc('newPackerTurno').value
-                };
+                e.preventDefault();
+                const newPacker = {
+                    id: doc('newPackerId').value.trim().toUpperCase(),
+                    area: doc('newPackerArea').value,
+                    linea: doc('newPackerLinea').value, // Asegúrate que este sea .value (del input numérico)
+                    turno: doc('newPackerTurno').value
+                };
 
-                // --- ¡LÓGICA MEJORADA! ---
-                // Buscamos si ya existe una entrada idéntica (mismo ID, misma Línea, mismo Turno)
-                const yaExiste = params.produccion_hora_config.packers.some(
-                    p => p.id === newPacker.id && p.linea === newPacker.linea && p.turno === newPacker.turno
-                );
+                // --- ¡LÓGICA MEJORADA! ---
+                // Buscamos si ya existe una entrada idéntica (mismo ID, misma Línea, mismo Turno)
+                const yaExiste = params.produccion_hora_config.packers.some(
+                    p => p.id === newPacker.id && p.linea === newPacker.linea && p.turno === newPacker.turno
+                );
 
-                if (newPacker.id && !yaExiste) {
-                    params.produccion_hora_config.packers.push(newPacker);
-                    renderPackerListInModal();
-                    doc('newPackerId').value = '';
-                } else if (newPacker.id && yaExiste) {
-                    alert("Error: Ese empacador ya está registrado en esa misma línea y turno.");
-                }
-            });
+                if (newPacker.id && !yaExiste) {
+                    params.produccion_hora_config.packers.push(newPacker);
+                    renderPackerListInModal();
+                    doc('newPackerId').value = '';
+                } else if (newPacker.id && yaExiste) {
+                    alert("Error: Ese empacador ya está registrado en esa misma línea y turno.");
+                }
+            });
 
             renderPackerListInModal();
         }
@@ -538,48 +538,48 @@ async function loadParams(configKey) {
         }
 
         // --- FUNCIÓN DE REEMPLAZO (JS) ---
-        function populatePackerSelects() {
-            const turno = doc('prod_turno').value;
-            const area = doc('prod_area').value;
-            const packers = params.produccion_hora_config.packers || [];
-            const container = doc('packerSelectsContainer');
-            
-            // 1. Encontrar todas las líneas únicas para este turno/área
-            const filteredPackers = packers.filter(p => p.turno === turno && (p.area === area || area === 'ALL' || p.area === 'ALL'));
-            const lineasUnicas = [...new Set(filteredPackers.map(p => p.linea))].sort((a, b) => a - b);
+        function populatePackerSelects() {
+            const turno = doc('prod_turno').value;
+            const area = doc('prod_area').value;
+            const packers = params.produccion_hora_config.packers || [];
+            const container = doc('packerSelectsContainer');
+            
+            // 1. Encontrar todas las líneas únicas para este turno/área
+            const filteredPackers = packers.filter(p => p.turno === turno && (p.area === area || area === 'ALL' || p.area === 'ALL'));
+            const lineasUnicas = [...new Set(filteredPackers.map(p => p.linea))].sort((a, b) => a - b);
 
-            // 2. Guardar selecciones actuales antes de limpiar
-            const currentSelections = {};
-            container.querySelectorAll('select').forEach(select => {
-                currentSelections[select.id] = select.value;
-            });
-            
-            // 3. Limpiar y regenerar
-            container.innerHTML = '';
-            
-            lineasUnicas.forEach(linea => {
-                const selectId = `prod_linea${linea}_packer`;
-                const packersDeLinea = filteredPackers.filter(p => p.linea === linea);
-                
-                let optionsHtml = '<option value="" disabled selected>Seleccionar...</option>';
-                packersDeLinea.sort((a,b) => a.id.localeCompare(b.id)).forEach(p => {
-                    optionsHtml += `<option value="${p.id}">${p.id}</option>`;
-                });
+            // 2. Guardar selecciones actuales antes de limpiar
+            const currentSelections = {};
+            container.querySelectorAll('select').forEach(select => {
+                currentSelections[select.id] = select.value;
+            });
+            
+            // 3. Limpiar y regenerar
+            container.innerHTML = '';
+            
+            lineasUnicas.forEach(linea => {
+                const selectId = `prod_linea${linea}_packer`;
+                const packersDeLinea = filteredPackers.filter(p => p.linea === linea);
+                
+                let optionsHtml = '<option value="" disabled selected>Seleccionar...</option>';
+                packersDeLinea.sort((a,b) => a.id.localeCompare(b.id)).forEach(p => {
+                    optionsHtml += `<option value="${p.id}">${p.id}</option>`;
+                });
 
-                const controlGroup = `
-                    <div class="control-group" style="display: block;">
-                        <label for="${selectId}">Empacador Línea ${linea}</label>
-                        <select id="${selectId}">${optionsHtml}</select>
-                    </div>
-                `;
-                container.insertAdjacentHTML('beforeend', controlGroup);
+                const controlGroup = `
+                    <div class="control-group" style="display: block;">
+                        <label for="${selectId}">Empacador Línea ${linea}</label>
+                        <select id="${selectId}">${optionsHtml}</select>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', controlGroup);
 
-                // 4. Restaurar selección si existía
-                if (currentSelections[selectId] && packersDeLinea.some(p => p.id === currentSelections[selectId])) {
-                    doc(selectId).value = currentSelections[selectId];
-                }
-            });
-        }
+                // 4. Restaurar selección si existía
+                if (currentSelections[selectId] && packersDeLinea.some(p => p.id === currentSelections[selectId])) {
+                    doc(selectId).value = currentSelections[selectId];
+                }
+            });
+        }
         doc('prod_turno').addEventListener('change', populatePackerSelects);
         doc('prod_area').addEventListener('change', populatePackerSelects);
 
@@ -702,14 +702,14 @@ setupFileHandler('fileDropAreaGrUsuarios', 'fileInputGrUsuarios', 'grUsuarios');
         }
 
         function formatShortDateTime(date) {
-            if (!(date instanceof Date) || isNaN(date)) return '';
-            const year = date.getFullYear().toString().slice(-2); // Saca los últimos 2 dígitos del año
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hour = String(date.getHours()).padStart(2, '0');
-            const minute = String(date.getMinutes()).padStart(2, '0');
-            return `${day}/${month}/${year} ${hour}:${minute}`; // Formato: 14/10/25 08:00
-        }
+            if (!(date instanceof Date) || isNaN(date)) return '';
+            const year = date.getFullYear().toString().slice(-2); // Saca los últimos 2 dígitos del año
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hour = String(date.getHours()).padStart(2, '0');
+            const minute = String(date.getMinutes()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hour}:${minute}`; // Formato: 14/10/25 08:00
+        }
 
 async function loadAreasForTarimasReport() {
     try {
@@ -748,106 +748,168 @@ async function loadAreasForTarimasReport() {
         const areaSelect = doc('prodTarimas_area');
         areaSelect.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
     }
-}       
+}       
 
 // =======================================================================================
 // --- INICIO: LÓGICA DEL DASHBOARD EN VIVO ---
 // =======================================================================================
 
-function showLiveDashboard() {
-    // 1. Obtener la fecha y turno de TRABAJO actual
-    const now = new Date();
-    const { shift: turnoActual, dateKey: fechaDeTrabajoActual } = getWorkShiftAndDate(now);
-    
-    // 2. Calcular el rango de horas para ESE turno
-    const { startTime } = getShiftDateRange(fechaDeTrabajoActual, turnoActual); 
-    
-    const areaALeer = "MULTIPORT"; 
-    doc('liveTurnoTitle').textContent = `Turno: ${turnoActual} (${areaALeer})`;
+async function showLiveDashboard() {
+    switchView('liveDashboard');
 
-    renderLiveChart({}, [], startTime); 
-    switchView('liveDashboard'); 
+    // Cargar las áreas en el selector (usando tu caché optimizada)
+    await populateAreaSelect('live_area', false);
 
+    // Resetear visualmente si no hay un listener activo
+    if (!liveListener) {
+        doc('liveTurnoTitle').textContent = 'Monitor en Vivo';
+        doc('kpiCardContainer').innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); margin-top: 20px;">Selecciona un área y presiona "Conectar".</p>`;
+
+        // Resetear botón a estado "Conectar"
+        const btn = doc('btnToggleLive');
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Conectar</span>`;
+        btn.style.backgroundColor = 'var(--success-color)';
+
+        // Limpiar gráfica
+        renderLiveChart({}, [], new Date());
+    }
+}
+
+		function toggleLiveMonitoring() {
+    const btn = doc('btnToggleLive');
+    const areaSelect = doc('live_area');
+    const areaALeer = areaSelect.value;
+
+    // A. SI YA ESTAMOS ESCUCHANDO -> DETENER
     if (liveListener) {
-        console.log("Deteniendo listener anterior...");
-        liveListener();
-        liveListener = null;
+        stopLiveDashboard();
+
+        // Actualizar UI del botón
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span>Conectar</span>`;
+        btn.style.backgroundColor = 'var(--success-color)';
+        areaSelect.disabled = false; // Habilitar selector
+        doc('liveTurnoTitle').textContent = 'Monitor en Vivo (Desconectado)';
+        doc('liveChartLastScan').innerHTML = 'Desconectado.';
+        return;
     }
 
-    // Pre-calcular empacadores
-    const allPackers = params.produccion_hora_config.packers || [];
-    const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
-    const empacadoresPorLinea = new Map(); 
-    empacadoresFiltrados.forEach(p => {
-        const lineaNum = String(p.linea);
-        if (!empacadoresPorLinea.has(lineaNum)) {
-            empacadoresPorLinea.set(lineaNum, new Set());
-        }
-        empacadoresPorLinea.get(lineaNum).add(p.id);
-    });
-    
-    // --- CORRECCIÓN AQUÍ: FRANCOTIRADOR AJUSTADO ---
-    // En lugar de 48 horas, usamos la hora de inicio del turno menos 30 mins de colchón.
-    const cutoffDate = new Date(startTime);
-    cutoffDate.setMinutes(cutoffDate.getMinutes() - 30); 
+    // B. SI VAMOS A INICIAR -> VALIDAR Y CONECTAR
+    if (!areaALeer) {
+        showModal('Falta Área', '<p>Por favor selecciona un área para monitorear.</p>');
+        return;
+    }
 
-    console.log(`📡 Listener VIVO: Buscando cambios desde ${cutoffDate.toLocaleTimeString()}`);
-    
-    liveListener = db.collection("areas").doc(areaALeer).collection("orders")
-        .where('lastUpdated', '>=', cutoffDate) // <--- AHORA SÍ FILTRA CHIDO
-        .onSnapshot(querySnapshot => {
-            
-            console.log(`¡Datos recibidos! ${querySnapshot.size} órdenes activas en este turno.`);
-            let allOrders = [];
-            querySnapshot.forEach(doc => {
-                allOrders.push(doc.data());
-            });
-            
-            updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, startTime, empacadoresPorLinea);
+    // Bloquear UI mientras carga
+    btn.disabled = true;
+    areaSelect.disabled = true;
+    btn.textContent = 'Conectando...';
 
-        }, error => {
-            console.error("¡Error en el listener en vivo!:", error);
-            if (error.code === 'failed-precondition') {
-                doc('liveFeedContent').innerHTML = `<p style="color:var(--warning-color);">⚠️ Falta Índice. Abre consola (F12).</p>`;
-            } else {
-                // doc('liveFeedContent').innerHTML = ... (Si tienes un div para errores)
-            }
+    try {
+        // 1. Calcular Contexto (Turno y Hora)
+        const now = new Date();
+        const { shift: turnoActual, dateKey: fechaDeTrabajoActual } = getWorkShiftAndDate(now);
+        const { startTime } = getShiftDateRange(fechaDeTrabajoActual, turnoActual);
+
+        // 2. Preparar UI
+        doc('liveTurnoTitle').textContent = `En Vivo: ${areaALeer} (${turnoActual})`;
+        doc('kpiCardContainer').innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-primary);">📡 Estableciendo enlace satelital con ${areaALeer}...</p>`;
+
+        // 3. Pre-calcular empacadores (Usando la config global)
+        const allPackers = params.produccion_hora_config.packers || [];
+        const empacadoresFiltrados = allPackers.filter(p => p.turno === turnoActual && (p.area === areaALeer || p.area === 'ALL'));
+
+        const empacadoresPorLinea = new Map();
+        empacadoresFiltrados.forEach(p => {
+            const lineaNum = String(p.linea);
+            if (!empacadoresPorLinea.has(lineaNum)) empacadoresPorLinea.set(lineaNum, new Set());
+            empacadoresPorLinea.get(lineaNum).add(p.id);
         });
-}
 
+        // 4. OPTIMIZACIÓN FRANCOTIRADOR (El corte de tiempo)
+        // Solo traemos órdenes modificadas en la última hora (o desde el inicio del turno si es reciente)
+        // Esto evita que bajes 5000 órdenes viejas.
+        const cutoffDate = new Date(startTime);
+        cutoffDate.setMinutes(cutoffDate.getMinutes() - 30);
+
+        console.log(`📡 Listener START: Área=${areaALeer}, Cutoff=${cutoffDate.toLocaleTimeString()}`);
+
+        // 5. INICIAR LISTENER DE FIREBASE
+        liveListener = db.collection("areas").doc(areaALeer).collection("orders")
+            .where('lastUpdated', '>=', cutoffDate)
+            .onSnapshot(querySnapshot => {
+
+                // Feedback visual de "Heartbeat" (latido)
+                const lastScanEl = doc('liveChartLastScan');
+                if(lastScanEl) {
+                    lastScanEl.style.color = 'var(--success-color)';
+                    setTimeout(() => lastScanEl.style.color = '', 500);
+                }
+
+                console.log(`⚡ Update recibido: ${querySnapshot.size} docs activos.`);
+                let allOrders = [];
+                querySnapshot.forEach(doc => allOrders.push(doc.data()));
+
+                // Llamamos a la función de actualización (que ya usa el cerebro global)
+                updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, startTime, empacadoresPorLinea, areaALeer);
+
+            }, error => {
+                console.error("Error Listener:", error);
+                stopLiveDashboard(); // Apagar si falla
+                if (error.code === 'failed-precondition') {
+                    showModal('Falta Índice', '<p>Firebase requiere un índice compuesto para esta consulta optimizada. Revisa la consola.</p>');
+                } else {
+                    showModal('Error de Conexión', `<p>${error.message}</p>`);
+                }
+                // Resetear UI
+                btn.innerHTML = `<span>Conectar</span>`;
+                btn.style.backgroundColor = 'var(--success-color)';
+                areaSelect.disabled = false;
+                btn.disabled = false;
+            });
+
+        // 6. Actualizar Botón a estado "DETENER"
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg><span>Detener</span>`;
+        btn.style.backgroundColor = 'var(--danger-color)';
+        btn.disabled = false;
+
+    } catch (e) {
+        console.error("Error al iniciar live:", e);
+        stopLiveDashboard();
+        btn.disabled = false;
+        areaSelect.disabled = false;
+    }
+}
+		
 function stopLiveDashboard() {
-    if (liveListener) {
-        console.log("Deteniendo listener en vivo...");
-        liveListener(); // Esta función "apaga" el onSnapshot
-        liveListener = null;
-    }
-    if (liveProductionChart) {
-        liveProductionChart.destroy();
-        liveProductionChart = null;
-    }
+    if (liveListener) {
+        console.log("Deteniendo listener en vivo...");
+        liveListener(); // Esta función "apaga" el onSnapshot
+        liveListener = null;
+    }
+    if (liveProductionChart) {
+        liveProductionChart.destroy();
+        liveProductionChart = null;
+    }
 }
 
 // --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-// --- FUNCIÓN DE REEMPLAZO (updateLiveDashboard) ---
-function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shiftStartTime, empacadoresPorLinea) {
-    let allPackedItems = [];
+function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shiftStartTime, empacadoresPorLinea, areaALeer) {
     let lastScan = { timestamp: new Date(0), empacador: 'N/A', linea: 'N/A' };
     const totalsByLine = {};
     const hourlyBins = Array(12).fill(0).map(() => ({}));
     const lineasEncontradas = new Set();
 
-    // 1. PROCESAR TODOS LOS DATOS (Sin cambios)
+    // 1. PROCESAR TODOS LOS DATOS
     allOrders.forEach(order => {
-        const empaqueArray = order.empaqueData || []; 
+        const empaqueArray = order.empaqueData || [];
         if (!Array.isArray(empaqueArray)) {
             if (typeof order.empaqueData.forEach === 'function') {
                 order.empaqueData.forEach(serialsInBox => empaqueArray.push({ serials: serialsInBox }));
             } else {
-                console.warn(`empaqueData de orden ${order.orderNumber} no es un array, saltando.`);
                 return;
             }
         }
-        
+
         empaqueArray.forEach(box => {
             const serialsInBox = box.serials;
             if (Array.isArray(serialsInBox)) {
@@ -870,12 +932,13 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
 
                         if (lineaAsignada) {
                             lineasEncontradas.add(lineaAsignada);
-                            const char = (order.catalogNumber || '').substring(3, 4).toUpperCase();
-                            const terminaciones = (char === 'T') ? 12 : (parseInt(char, 10) || 0);
+
+                            // --- USA EL CEREBRO GLOBAL CON EL ÁREA SELECCIONADA EN EL DROPDOWN ---
+                            const terminaciones = calculateTerminaciones(order.catalogNumber, areaALeer);
 
                             if (!totalsByLine[lineaAsignada]) totalsByLine[lineaAsignada] = { term: 0, pzas: 0 };
                             totalsByLine[lineaAsignada].term += terminaciones;
-                            totalsByLine[lineaAsignada].pzas++; // <-- ¡Aquí se cuentan las piezas!
+                            totalsByLine[lineaAsignada].pzas++;
 
                             const diffMillis = packedDate - shiftStartTime;
                             const hourIndex = Math.floor(diffMillis / (1000 * 60 * 60));
@@ -896,8 +959,8 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
 
     const lineasOrdenadas = [...lineasEncontradas].sort();
 
-    // --- 2. ACTUALIZAR FEED DE ACTIVIDAD (AHORA DISCRETO) ---
-    const lastScanEl = doc('liveChartLastScan'); // <-- ¡NUEVO! Apunta al span en la gráfica
+    // --- 2. ACTUALIZAR FEED DE ACTIVIDAD ---
+    const lastScanEl = doc('liveChartLastScan');
     if (lastScan.timestamp > 0) {
         lastScanEl.innerHTML = `Último escaneo: ${lastScan.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (${lastScan.linea})`;
     } else {
@@ -905,17 +968,16 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
     }
 
     // --- 3. ACTUALIZAR TARJETAS (KPIs) ---
-    const metaTurno = 5280; 
+    const metaTurno = 5280;
     const kpiContainer = doc('kpiCardContainer');
-    let kpiHtml = ''; 
+    let kpiHtml = '';
 
     lineasOrdenadas.forEach(lineaNombre => {
         const lineaNumero = lineaNombre.split(' ')[1];
-        
-        // --- ¡NUEVO! Obtenemos el total de piezas y terminaciones ---
+
         const totalTerm = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].term) ? totalsByLine[lineaNombre].term : 0;
         const totalPzas = (totalsByLine[lineaNombre] && totalsByLine[lineaNombre].pzas) ? totalsByLine[lineaNombre].pzas : 0;
-        
+
         const percent = (totalTerm / metaTurno) * 100;
         let progressClass = 'progress-bar-red';
         if (percent >= 80) progressClass = 'progress-bar-green';
@@ -929,7 +991,7 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
                 </div>
                 <h1 id="kpi-linea-${lineaNumero}-total">${totalTerm.toLocaleString()}</h1>
                 <h4 id="kpi-linea-${lineaNumero}-piezas" class="kpi-piezas">${totalPzas.toLocaleString()} Piezas</h4>
-                
+
                 <div class="kpi-progress-bar-container">
                     <div id="kpi-linea-${lineaNumero}-progress" class="kpi-progress-bar ${progressClass}" style="width: ${Math.min(percent, 100)}%;"></div>
                 </div>
@@ -944,9 +1006,10 @@ function updateLiveDashboard(allOrders, turnoActual, fechaDeTrabajoActual, shift
         kpiContainer.innerHTML = kpiHtml;
     }
 
-    // --- 4. ACTUALIZAR GRÁFICA DE BARRAS (Sin cambios) ---
+    // --- 4. ACTUALIZAR GRÁFICA DE BARRAS ---
     renderLiveChart(hourlyBins, lineasOrdenadas, shiftStartTime);
 }
+
 
 // --- FUNCIÓN DE REEMPLAZO (renderLiveChart) ---
 function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
@@ -1265,28 +1328,28 @@ function renderLiveChart(hourlyData, lineasOrdenadas, shiftStartTime) {
                 })
             ),
             datasets: [
-                {
-                    label: 'Línea 1',
-                    data: labels.map(fecha => datos[fecha]['Línea 1'].term),
-                    backgroundColor: 'rgba(245, 158, 11, 0.8)', // <-- ¡ÁMBAR / DORADO!
-                },
-                {
-                    label: 'Línea 2',
-                    data: labels.map(fecha => datos[fecha]['Línea 2'].term),
-                    backgroundColor: 'rgba(16, 185, 129, 0.8)', // <-- ¡VERDE ESMERALDA!
-                },
-                {
-                    type: 'line',
-                    label: 'Meta',
-                    data: Array(labels.length).fill(meta),
-                    borderColor: 'var(--success-color)',
-                    borderWidth: 2,
-                    // borderDash: [5, 5],
-                    pointRadius: 0,
-                    fill: false,
-                    datalabels: { display: false } 
-                }
-            ]
+                {
+                    label: 'Línea 1',
+                    data: labels.map(fecha => datos[fecha]['Línea 1'].term),
+                    backgroundColor: 'rgba(245, 158, 11, 0.8)', // <-- ¡ÁMBAR / DORADO!
+                },
+                {
+                    label: 'Línea 2',
+                    data: labels.map(fecha => datos[fecha]['Línea 2'].term),
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)', // <-- ¡VERDE ESMERALDA!
+                },
+                {
+                    type: 'line',
+                    label: 'Meta',
+                    data: Array(labels.length).fill(meta),
+                    borderColor: 'var(--success-color)',
+                    borderWidth: 2,
+                    // borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false,
+                    datalabels: { display: false } 
+                }
+            ]
         },
         options: {
             responsive: true,
@@ -1849,301 +1912,301 @@ async function generarReporteSemanalProduccion() {
         // --- FUNCIÓN DE REEMPLAZO (renderProductionChart) ---
 function renderProductionChart(data, shiftStartTime, turno) {
     // --- INICIO DEL ARREGLO ---
-    const canvas = doc('produccionChart'); // 1. Obtenemos el <canvas>
-    if (!canvas) { // 2. Seguridad por si no lo encuentra
-        console.error("renderProductionChart: No se encontró el canvas 'produccionChart'.");
-        return; 
-    }
-    const ctx = canvas.getContext('2d'); // 3. Obtenemos el contexto
+    const canvas = doc('produccionChart'); // 1. Obtenemos el <canvas>
+    if (!canvas) { // 2. Seguridad por si no lo encuentra
+        console.error("renderProductionChart: No se encontró el canvas 'produccionChart'.");
+        return; 
+    }
+    const ctx = canvas.getContext('2d'); // 3. Obtenemos el contexto
 
-    // 4. ¡EL ARREGLO! Primero destruimos el chart viejo, si existe
-    if (productionChart) {
-        productionChart.destroy();
-    }
+    // 4. ¡EL ARREGLO! Primero destruimos el chart viejo, si existe
+    if (productionChart) {
+        productionChart.destroy();
+    }
 
-    // 5. ¡EL ARREGLO! Limpiamos a la fuerza el canvas (crucial en móviles)
-    // Esto ahora se hace SIEMPRE, para asegurar que la memoria se libere
-    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    // 5. ¡EL ARREGLO! Limpiamos a la fuerza el canvas (crucial en móviles)
+    // Esto ahora se hace SIEMPRE, para asegurar que la memoria se libere
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
     // --- FIN DEL ARREGLO ---
 
-    if(data.length === 0){
+    if(data.length === 0){
         // Ya no necesitamos el clearRect aquí, solo el resto
-        doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
-    }
+        doc('chartSummary').innerHTML = ''; doc('exportChartBtn').style.display = 'none'; return;
+    }
 
-    // --- INICIO DE LA MODIFICACIÓN DINÁMICA ---
-    const goals = Array(12).fill(480); // Metas (esto sigue igual)
-    goals[1] = 360; goals[5] = 280; goals[8] = 360; 
+    // --- INICIO DE LA MODIFICACIÓN DINÁMICA ---
+    const goals = Array(12).fill(480); // Metas (esto sigue igual)
+    goals[1] = 360; goals[5] = 280; goals[8] = 360; 
     const visualGoalLine = Array(12).fill(480);
 
-    const hourlyData = {}; // { 0: {}, 1: {}, ... 11: {} }
-    const labels = [];
-    const totalSummary = {}; // Objeto vacío
-    const lineasEncontradas = new Set(); // Set para líneas únicas
+    const hourlyData = {}; // { 0: {}, 1: {}, ... 11: {} }
+    const labels = [];
+    const totalSummary = {}; // Objeto vacío
+    const lineasEncontradas = new Set(); // Set para líneas únicas
 
-    // 1. Inicializar etiquetas y hourlyData
-    for (let i = 0; i < 12; i++) {
-        const startHour = new Date(shiftStartTime); startHour.setHours(startHour.getHours() + i);
-        const endHour = new Date(startHour); endHour.setHours(endHour.getHours() + 1);
-        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
-        labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
-        hourlyData[i] = {}; // Objeto vacío para cada hora
-    }
+    // 1. Inicializar etiquetas y hourlyData
+    for (let i = 0; i < 12; i++) {
+        const startHour = new Date(shiftStartTime); startHour.setHours(startHour.getHours() + i);
+        const endHour = new Date(startHour); endHour.setHours(endHour.getHours() + 1);
+        const format = { hour: '2-digit', minute: '2-digit', hour12: false };
+        labels.push(`${startHour.toLocaleTimeString('es-ES', format)} - ${endHour.toLocaleTimeString('es-ES', format)}`);
+        hourlyData[i] = {}; // Objeto vacío para cada hora
+    }
 
-    // 2. Procesar datos y descubrir líneas
-    data.forEach(item => {
-        const lineaNombre = item.linea; // ej: "Línea 1", "Línea 3"
-        if (!lineaNombre) return; // Ignorar si no tiene línea
+    // 2. Procesar datos y descubrir líneas
+    data.forEach(item => {
+        const lineaNombre = item.linea; // ej: "Línea 1", "Línea 3"
+        if (!lineaNombre) return; // Ignorar si no tiene línea
 
-        lineasEncontradas.add(lineaNombre); // Añadir al Set
+        lineasEncontradas.add(lineaNombre); // Añadir al Set
 
-        // Inicializar summary si es la primera vez que vemos esta línea
-        if (!totalSummary[lineaNombre]) {
-            totalSummary[lineaNombre] = { piezas: 0, terminaciones: 0 };
-        }
+        // Inicializar summary si es la primera vez que vemos esta línea
+        if (!totalSummary[lineaNombre]) {
+            totalSummary[lineaNombre] = { piezas: 0, terminaciones: 0 };
+        }
 
-        const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
-        if(diffHours >= 0 && diffHours < 12){
-            // Inicializar la línea en el bin de esa hora si no existe
-            if (!hourlyData[diffHours][lineaNombre]) {
-                hourlyData[diffHours][lineaNombre] = 0;
-            }
-            hourlyData[diffHours][lineaNombre] += item.terminaciones;
-        }
+        const diffHours = Math.floor((item.timestamp - shiftStartTime) / (1000 * 60 * 60));
+        if(diffHours >= 0 && diffHours < 12){
+            // Inicializar la línea en el bin de esa hora si no existe
+            if (!hourlyData[diffHours][lineaNombre]) {
+                hourlyData[diffHours][lineaNombre] = 0;
+            }
+            hourlyData[diffHours][lineaNombre] += item.terminaciones;
+        }
 
-        // Acumular totales
-        totalSummary[lineaNombre].piezas++;
-        totalSummary[lineaNombre].terminaciones += item.terminaciones;
-    });
+        // Acumular totales
+        totalSummary[lineaNombre].piezas++;
+        totalSummary[lineaNombre].terminaciones += item.terminaciones;
+    });
 
-    // 3. Crear el HTML del resumen dinámicamente
-    const lineasOrdenadas = [...lineasEncontradas].sort(); // ["Línea 1", "Línea 2", "Línea 3"]
-    const summaryHtml = lineasOrdenadas.map(linea => {
-        const summary = totalSummary[linea];
-        return `${linea}: <strong>${summary.piezas} pzas / ${summary.terminaciones} term.</strong>`;
-    }).join(' | ');
-    doc('chartSummary').innerHTML = summaryHtml;
+    // 3. Crear el HTML del resumen dinámicamente
+    const lineasOrdenadas = [...lineasEncontradas].sort(); // ["Línea 1", "Línea 2", "Línea 3"]
+    const summaryHtml = lineasOrdenadas.map(linea => {
+        const summary = totalSummary[linea];
+        return `${linea}: <strong>${summary.piezas} pzas / ${summary.terminaciones} term.</strong>`;
+    }).join(' | ');
+    doc('chartSummary').innerHTML = summaryHtml;
 
-    // 4. Crear los datasets dinámicamente
-    const colors = ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)'];
-    const borderColors = ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)'];
+    // 4. Crear los datasets dinámicamente
+    const colors = ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(153, 102, 255, 0.6)'];
+    const borderColors = ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 206, 86, 1)', 'rgba(153, 102, 255, 1)'];
 
-    const dynamicDatasets = lineasOrdenadas.map((linea, index) => {
-        return {
-            label: linea,
-            data: Object.values(hourlyData).map(d => d[linea] || 0), // Obtener el dato de esa línea, o 0
-            backgroundColor: colors[index % colors.length],
-            borderColor: borderColors[index % borderColors.length],
-            borderWidth: 1,
-            order: 1
-        };
-    });
+    const dynamicDatasets = lineasOrdenadas.map((linea, index) => {
+        return {
+            label: linea,
+            data: Object.values(hourlyData).map(d => d[linea] || 0), // Obtener el dato de esa línea, o 0
+            backgroundColor: colors[index % colors.length],
+            borderColor: borderColors[index % borderColors.length],
+            borderWidth: 1,
+            order: 1
+        };
+    });
 
-    // 5. Añadir el dataset de la meta
-    dynamicDatasets.unshift({ 
-        type: 'line', 
-        label: 'Meta', 
-        data: visualGoalLine,// Usamos el array de metas que definimos arriba
-        borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), 
-        borderWidth: 2, 
-        borderDash: [5, 5], 
-        pointRadius: 0, 
-        fill: false, 
-        order: 0 
-    });
+    // 5. Añadir el dataset de la meta
+    dynamicDatasets.unshift({ 
+        type: 'line', 
+        label: 'Meta', 
+        data: visualGoalLine,// Usamos el array de metas que definimos arriba
+        borderColor: getComputedStyle(document.body).getPropertyValue('--success-color'), 
+        borderWidth: 2, 
+        borderDash: [5, 5], 
+        pointRadius: 0, 
+        fill: false, 
+        order: 0 
+    });
 
-    // --- FIN DE LA MODIFICACIÓN DINÁMICA ---
+    // --- FIN DE LA MODIFICACIÓN DINÁMICA ---
 
-    productionChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: dynamicDatasets // <-- USAR LOS DATASETS DINÁMICOS
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } }, // Sigue ocultando la meta
-                title: { display: true, text: `Producción de Terminaciones - ${turno}`, color: 'var(--text-primary)', font: { size: 16 } },
-                datalabels: {
-                    display: context => context.dataset.type !== 'line',
-                    labels: {
-                        value: {
-                            anchor: 'end', 
-                            align: 'top',
-                            offset: 5,
-                            backgroundColor: (ctx) => {
-                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex]; // Revisa contra la meta correcta
-                                const colorVar = isSuccess ? '--glow-green' : '--glow-red';
-                                const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
-                                return rawColor.replace(/0.9\)$/, '0.4)');
-                            },
-                            borderColor: (ctx) => {
-                                return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
-                            },
-                            borderWidth: 1,
-                            borderRadius: 4,
-                            color: 'white',
-                            font: { weight: 'bold' },
-                            padding: { top: 2, bottom: 2, left: 5, right: 5 },
-                            formatter: (value) => value > 0 ? value.toLocaleString() : '',
-                        },
-                        percentage: { 
-                            align: 'center', anchor: 'center',
-                            color: (ctx) => {
-                                const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
-                                return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
-                            },
-                            font: { weight: 'bold', size: 11 },
-                            formatter: (value, ctx) => {
-                                const goalForHour = goals[ctx.dataIndex];
-                                if (value <= 0 || goalForHour === 0) return '';
-                                const percentage = (value / goalForHour) * 100;
-                                return percentage.toFixed(0) + '%';
-                            },
-                            textStrokeColor: 'rgba(0,0,0,0.6)',
-                            textStrokeWidth: 2
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { 
-                    grid: { color: 'var(--chart-grid-color)' }, 
-                    ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
-                    categoryPercentage: 0.7,
-                    barPercentage: 0.9
-                },
-                y: { 
-                    beginAtZero: true, 
-                    grid: { color: 'var(--chart-grid-color)' }, 
-                    ticks: { color: 'var(--chart-tick-color)' }, 
-                    title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
-                    afterDataLimits: (scale) => {
-                        scale.max = scale.max * 1.2;
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-    doc('exportChartBtn').style.display = 'block';
-    updateChartTheme();
+    productionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: dynamicDatasets // <-- USAR LOS DATASETS DINÁMICOS
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { color: 'var(--text-primary)', filter: item => item.datasetIndex > 0 } }, // Sigue ocultando la meta
+                title: { display: true, text: `Producción de Terminaciones - ${turno}`, color: 'var(--text-primary)', font: { size: 16 } },
+                datalabels: {
+                    display: context => context.dataset.type !== 'line',
+                    labels: {
+                        value: {
+                            anchor: 'end', 
+                            align: 'top',
+                            offset: 5,
+                            backgroundColor: (ctx) => {
+                                const isSuccess = ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex]; // Revisa contra la meta correcta
+                                const colorVar = isSuccess ? '--glow-green' : '--glow-red';
+                                const rawColor = getComputedStyle(document.body).getPropertyValue(colorVar).trim();
+                                return rawColor.replace(/0.9\)$/, '0.4)');
+                            },
+                            borderColor: (ctx) => {
+                                return ctx.dataset.data[ctx.dataIndex] >= goals[ctx.dataIndex] ? getComputedStyle(document.body).getPropertyValue('--success-color') : getComputedStyle(document.body).getPropertyValue('--danger-color');
+                            },
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            color: 'white',
+                            font: { weight: 'bold' },
+                            padding: { top: 2, bottom: 2, left: 5, right: 5 },
+                            formatter: (value) => value > 0 ? value.toLocaleString() : '',
+                        },
+                        percentage: { 
+                            align: 'center', anchor: 'center',
+                            color: (ctx) => {
+                                const barHeight = ctx.chart.getDatasetMeta(ctx.datasetIndex).data[ctx.dataIndex].height;
+                                return barHeight > 18 ? 'rgba(255, 255, 255, 0.9)' : 'transparent';
+                            },
+                            font: { weight: 'bold', size: 11 },
+                            formatter: (value, ctx) => {
+                                const goalForHour = goals[ctx.dataIndex];
+                                if (value <= 0 || goalForHour === 0) return '';
+                                const percentage = (value / goalForHour) * 100;
+                                return percentage.toFixed(0) + '%';
+                            },
+                            textStrokeColor: 'rgba(0,0,0,0.6)',
+                            textStrokeWidth: 2
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)', maxRotation: 0, minRotation: 0, autoSkip: true, font: { size: 10 } },
+                    categoryPercentage: 0.7,
+                    barPercentage: 0.9
+                },
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'var(--chart-grid-color)' }, 
+                    ticks: { color: 'var(--chart-tick-color)' }, 
+                    title: { display: true, text: 'Total de Terminaciones', color: 'var(--chart-tick-color)' },
+                    afterDataLimits: (scale) => {
+                        scale.max = scale.max * 1.2;
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+    doc('exportChartBtn').style.display = 'block';
+    updateChartTheme();
 }
 
         // --- FUNCIÓN DE REEMPLAZO (renderFiberReport) ---
-        function renderFiberReport(data) {
-            const container = doc('fibraReportContent');
-            
-            // --- INICIO DE LA MODIFICACIÓN DINÁMICA ---
-            
-            // 1. Destruir todos los pie charts anteriores
-            if (fiberPieCharts.length > 0) {
-                fiberPieCharts.forEach(chart => chart.destroy());
-                fiberPieCharts = []; // Limpiar el array
-            }
+        function renderFiberReport(data) {
+            const container = doc('fibraReportContent');
+            
+            // --- INICIO DE LA MODIFICACIÓN DINÁMICA ---
+            
+            // 1. Destruir todos los pie charts anteriores
+            if (fiberPieCharts.length > 0) {
+                fiberPieCharts.forEach(chart => chart.destroy());
+                fiberPieCharts = []; // Limpiar el array
+            }
 
-            if (!data || data.length === 0) { 
-                container.innerHTML = '<p>No hay datos de producción para analizar.</p>'; 
-                return; 
-            }
+            if (!data || data.length === 0) { 
+                container.innerHTML = '<p>No hay datos de producción para analizar.</p>'; 
+                return; 
+            }
 
-            // 2. Agrupar datos por línea
-            const datosPorLinea = new Map();
-            const lineasEncontradas = new Set();
-            data.forEach(item => {
-                const lineaNombre = item.linea;
-                if (!lineaNombre) return;
+            // 2. Agrupar datos por línea
+            const datosPorLinea = new Map();
+            const lineasEncontradas = new Set();
+            data.forEach(item => {
+                const lineaNombre = item.linea;
+                if (!lineaNombre) return;
 
-                lineasEncontradas.add(lineaNombre);
-                if (!datosPorLinea.has(lineaNombre)) {
-                    datosPorLinea.set(lineaNombre, []);
-                }
-                datosPorLinea.get(lineaNombre).push(item);
-            });
+                lineasEncontradas.add(lineaNombre);
+                if (!datosPorLinea.has(lineaNombre)) {
+                    datosPorLinea.set(lineaNombre, []);
+                }
+                datosPorLinea.get(lineaNombre).push(item);
+            });
 
-            // 3. Helper (generateHtmlForLine) - (La función interna ya era dinámica, no cambia)
-            const generateHtmlForLine = (lineData, lineName, chartId) => {
-                if (lineData.length === 0) return `<div><h5>${lineName}</h5><p>Sin producción registrada.</p></div>`;
-                const fibraData = {};
-                lineData.forEach(item => {
-                    const fibraKey = `${item.fibras} Fibras`;
-                    const catalogo = item.catalogo;
-                    if (!fibraData[fibraKey]) fibraData[fibraKey] = {};
-                    if (!fibraData[fibraKey][catalogo]) fibraData[fibraKey][catalogo] = 0;
-                    fibraData[fibraKey][catalogo]++;
-                });
-                let tableHTML = `<div class="table-wrapper" style="max-height: 200px;"><table class="sub-table"><thead><tr><th>Fibra</th><th>Catálogo</th><th>Piezas</th></tr></thead><tbody>`;
-                Object.entries(fibraData).forEach(([fibra, catalogos]) => {
-                    Object.entries(catalogos).forEach(([catalogo, piezas]) => { tableHTML += `<tr><td>${fibra}</td><td>${catalogo}</td><td>${piezas}</td></tr>`; });
-                });
-                tableHTML += '</tbody></table></div>';
-                return `<div><h5>${lineName}</h5><div class="pie-chart-container"><canvas id="${chartId}"></canvas></div>${tableHTML}</div>`;
-            };
+            // 3. Helper (generateHtmlForLine) - (La función interna ya era dinámica, no cambia)
+            const generateHtmlForLine = (lineData, lineName, chartId) => {
+                if (lineData.length === 0) return `<div><h5>${lineName}</h5><p>Sin producción registrada.</p></div>`;
+                const fibraData = {};
+                lineData.forEach(item => {
+                    const fibraKey = `${item.fibras} Fibras`;
+                    const catalogo = item.catalogo;
+                    if (!fibraData[fibraKey]) fibraData[fibraKey] = {};
+                    if (!fibraData[fibraKey][catalogo]) fibraData[fibraKey][catalogo] = 0;
+                    fibraData[fibraKey][catalogo]++;
+                });
+                let tableHTML = `<div class="table-wrapper" style="max-height: 200px;"><table class="sub-table"><thead><tr><th>Fibra</th><th>Catálogo</th><th>Piezas</th></tr></thead><tbody>`;
+                Object.entries(fibraData).forEach(([fibra, catalogos]) => {
+                    Object.entries(catalogos).forEach(([catalogo, piezas]) => { tableHTML += `<tr><td>${fibra}</td><td>${catalogo}</td><td>${piezas}</td></tr>`; });
+                });
+                tableHTML += '</tbody></table></div>';
+                return `<div><h5>${lineName}</h5><div class="pie-chart-container"><canvas id="${chartId}"></canvas></div>${tableHTML}</div>`;
+            };
 
-            // 4. Helper (createPieChart) - (La función interna ya era dinámica, no cambia)
-            const createPieChart = (chartId, lineData) => {
-                const ctx = doc(chartId)?.getContext('2d');
-                if (!ctx || lineData.length === 0) return null;
-                const pieData = {};
-                lineData.forEach(item => {
-                    const fibraKey = `${item.fibras} Fibras`;
-                    if (!pieData[fibraKey]) pieData[fibraKey] = 0;
-                    pieData[fibraKey]++;
-                });
-                const pieLabels = Object.keys(pieData);
-                const colors = ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-                return new Chart(ctx, {
-                    type: 'pie',
-                    data: {
-                        labels: pieLabels,
-                        datasets: [{ data: Object.values(pieData), backgroundColor: pieLabels.map((_, i) => colors[i % colors.length]) }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            datalabels: {
-                                formatter: (value, ctx) => {
-                                    const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                    return (value * 100 / sum).toFixed(1) + '%';
-                                },
-                                color: '#fff',
-                                textShadowColor: 'rgba(0,0,0,0.7)', textShadowBlur: 5,
-                                font: { weight: 'bold' }
-                            }
-                        }
-                    },
-                     plugins: [ChartDataLabels]
-                });
-            };
+            // 4. Helper (createPieChart) - (La función interna ya era dinámica, no cambia)
+            const createPieChart = (chartId, lineData) => {
+                const ctx = doc(chartId)?.getContext('2d');
+                if (!ctx || lineData.length === 0) return null;
+                const pieData = {};
+                lineData.forEach(item => {
+                    const fibraKey = `${item.fibras} Fibras`;
+                    if (!pieData[fibraKey]) pieData[fibraKey] = 0;
+                    pieData[fibraKey]++;
+                });
+                const pieLabels = Object.keys(pieData);
+                const colors = ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+                return new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: pieLabels,
+                        datasets: [{ data: Object.values(pieData), backgroundColor: pieLabels.map((_, i) => colors[i % colors.length]) }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: {
+                                formatter: (value, ctx) => {
+                                    const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    return (value * 100 / sum).toFixed(1) + '%';
+                                },
+                                color: '#fff',
+                                textShadowColor: 'rgba(0,0,0,0.7)', textShadowBlur: 5,
+                                font: { weight: 'bold' }
+                            }
+                        }
+                    },
+                     plugins: [ChartDataLabels]
+                });
+            };
 
-            // 5. Generar HTML y crear gráficas dinámicamente
-            const lineasOrdenadas = [...lineasEncontradas].sort();
-            let gridHtml = '';
-            lineasOrdenadas.forEach((lineaNombre, index) => {
-                const chartId = `fibraPieChart${index}`;
-                const dataDeLinea = datosPorLinea.get(lineaNombre) || [];
-                gridHtml += generateHtmlForLine(dataDeLinea, lineaNombre, chartId);
-            });
+            // 5. Generar HTML y crear gráficas dinámicamente
+            const lineasOrdenadas = [...lineasEncontradas].sort();
+            let gridHtml = '';
+            lineasOrdenadas.forEach((lineaNombre, index) => {
+                const chartId = `fibraPieChart${index}`;
+                const dataDeLinea = datosPorLinea.get(lineaNombre) || [];
+                gridHtml += generateHtmlForLine(dataDeLinea, lineaNombre, chartId);
+            });
 
-            // Ajustar el grid-template-columns basado en cuántas líneas hay
-            container.innerHTML = `<div class="fibra-grid" style="grid-template-columns: repeat(${lineasOrdenadas.length}, 1fr);">${gridHtml}</div>`;
+            // Ajustar el grid-template-columns basado en cuántas líneas hay
+            container.innerHTML = `<div class="fibra-grid" style="grid-template-columns: repeat(${lineasOrdenadas.length}, 1fr);">${gridHtml}</div>`;
 
-            // 6. Crear las gráficas y guardarlas en el array
-            lineasOrdenadas.forEach((lineaNombre, index) => {
-                const chartId = `fibraPieChart${index}`;
-                const dataDeLinea = datosPorLinea.get(lineaNombre) || [];
-                const newChart = createPieChart(chartId, dataDeLinea);
-                if (newChart) {
-                    fiberPieCharts.push(newChart); // Guardar la instancia
-                }
-            });
-            
-	        // --- FIN DE LA MODIFICACIÓN DINÁMICA ---
-            
-            updateChartTheme();
-        }
+            // 6. Crear las gráficas y guardarlas en el array
+            lineasOrdenadas.forEach((lineaNombre, index) => {
+                const chartId = `fibraPieChart${index}`;
+                const dataDeLinea = datosPorLinea.get(lineaNombre) || [];
+                const newChart = createPieChart(chartId, dataDeLinea);
+                if (newChart) {
+                    fiberPieCharts.push(newChart); // Guardar la instancia
+                }
+            });
+            
+	        // --- FIN DE LA MODIFICACIÓN DINÁMICA ---
+            
+            updateChartTheme();
+        }
 
         function updateChartTheme() {
     const charts = [productionChart, weeklyProductionChart, liveProductionChart].filter(Boolean);
@@ -4646,36 +4709,36 @@ async function loadAreasForOrdenesDia() {
 
         // --- INICIO: INICIALIZACIÓN DE LA APP ---
         function initializeApp() {
-    if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
-    Promise.all([
-        loadParams('901_config'),
-        loadParams('terminaciones_config'),
-        loadParams('produccion_hora_config'),
-        loadParams('terminaciones_areas_config')
-    ]).then(() => {
-        const today = new Date();
-        const pastDate = new Date();
-        pastDate.setDate(today.getDate() - 6);
+    if (sessionStorage.getItem('reportesMasterSession') === 'true') session.isMaster = true;
+    Promise.all([
+        loadParams('901_config'),
+        loadParams('terminaciones_config'),
+        loadParams('produccion_hora_config'),
+        loadParams('terminaciones_areas_config')
+    ]).then(() => {
+        const today = new Date();
+        const pastDate = new Date();
+        pastDate.setDate(today.getDate() - 6);
 
-        const formatDate = (date) => {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
 
-        doc('prod_fecha_unica').value = formatDate(today);
-        doc('prod_fecha_inicio').value = formatDate(pastDate);
-        doc('prod_fecha_fin').value = formatDate(today);
-        
-        const currentShift = getAutoCurrentShift();
-        doc('prod_turno').value = currentShift;
-        
+        doc('prod_fecha_unica').value = formatDate(today);
+        doc('prod_fecha_inicio').value = formatDate(pastDate);
+        doc('prod_fecha_fin').value = formatDate(today);
+        
+        const currentShift = getAutoCurrentShift();
+        doc('prod_turno').value = currentShift;
+        
 
-        applyTheme(currentTheme);
-        Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
-        views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
-    });
+        applyTheme(currentTheme);
+        Object.values(views).forEach(v => { v.style.display = 'none'; v.style.opacity = '0'; });
+        views.menu.style.display = 'flex'; views.menu.style.opacity = '1';
+    });
 }
 
 initializeApp();
